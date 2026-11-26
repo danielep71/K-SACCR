@@ -97,6 +97,16 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Write the formatted run report (#259), the second of three parts: `ExportReport` and
+  `ExportReport_Silent` write a report of the last run as a PDF or an XLSX, chosen by the file's
+  extension, in the order and formats of `docs/workbook/report.json`. The report is built in a new
+  workbook, so the K-SACCR workbook, its names and its results are left as they are; it refuses in
+  the cases of Export evidence and replaces an older file only once the new one is saved. The XLSX
+  holds values only; the PDF writes its numbers as text that does not depend on the regional
+  settings, pictures the Dashboard's ten charts and shows the reconciliation rows that are not
+  `MATCH`. `CORE_Export` writes the text, groups Checks by code and gives the report's
+  limitations; `TEST_Report` (5 cases, 54 checks) checks them, an XLSX read back from its file, a
+  PDF and three failures. The Ribbon command follows.
 - Specify the formatted run report of the Export report command (#259), the first of three parts.
   `docs/workbook/REPORT.md` and `docs/workbook/report.json` define a report of the last run as a PDF or
   an XLSX: the run, the Dashboard (with its ten charts in the PDF), the totals and status per regime,

@@ -94,9 +94,17 @@ def datetime_text(serial: float) -> str:
 
 
 def cell_text(kind: str, value: Any) -> str:
-    """What a PDF shows for a value of a column of this kind; a blank stays blank."""
+    """What a PDF shows for a value of a column of this kind; a blank stays blank.
+
+    A logical value is TRUE or FALSE and a text stays as it is, also in a column of numbers
+    (the "n/a" of a cap that does not apply), as CORE_Export.ReportCellText writes them.
+    """
     if value is None or value == "":
         return ""
+    if isinstance(value, bool):
+        return "TRUE" if value else "FALSE"
+    if isinstance(value, str):
+        return value
     if kind == "amount":
         return number_text(float(value), 2, True)
     if kind == "ratio":
@@ -108,8 +116,39 @@ def cell_text(kind: str, value: Any) -> str:
     if kind == "datetime":
         return datetime_text(float(value))
     if kind == "text":
-        return str(value)
+        return format(float(value), ".15g").upper()  # NumberText: Str$ with up to 15 significant digits
     raise ReportError(f"unknown kind {kind!r}")
+
+
+def format_text(value: Any, number_format: str) -> str:
+    """A value as the number format of its cell shows it, with invariant separators.
+
+    The Dashboard's figures keep the format of their cell on the sheet in the PDF:
+    a format with a year or a day code is a date (with an hour code, a date and time);
+    General, text and an empty format give the 15-digit text; otherwise the decimals
+    are the digit placeholders after the point of the first section, a comma before
+    the point groups thousands, and a percent sign multiplies by 100.
+    """
+    if value is None or value == "" or isinstance(value, (bool, str)):
+        return cell_text("text", value)
+    section = number_format.upper().split(";", 1)[0]
+    if "YY" in section or "DD" in section:
+        return datetime_text(float(value)) if "H" in section else date_text(float(value))
+    if section in ("", "GENERAL", "@"):
+        return cell_text("text", value)
+    point = section.find(".")
+    decimals = 0
+    if point >= 0:
+        for character in section[point + 1:]:
+            if character not in "0#":
+                break
+            decimals += 1
+        thousands = "," in section[:point]
+    else:
+        thousands = "," in section
+    if "%" in section:
+        return number_text(float(value) * 100, decimals, thousands) + "%"
+    return number_text(float(value), decimals, thousands)
 
 
 def measure_kind(measure: str, ratios: Iterable[str]) -> str:

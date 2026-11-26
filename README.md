@@ -12,8 +12,8 @@
 [![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#requirements)
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.2.0-2ea44f?style=for-the-badge)](#status)
-[![Excel suites](https://img.shields.io/badge/Excel_suites-12%2F12_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-549_cases_%C2%B7_2476_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Excel suites](https://img.shields.io/badge/Excel_suites-13%2F13_PASS-2ea44f?style=for-the-badge)](#validation)
+[![Regression](https://img.shields.io/badge/Regression-554_cases_%C2%B7_2530_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16605/badge)](https://www.bestpractices.dev/projects/16605)
 
@@ -176,7 +176,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Eleven `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Twelve Excel suites (549 cases, 2476 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Thirteen Excel suites (554 cases, 2530 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -367,7 +367,8 @@ Expected summary in Windows Excel 64-bit. The format and counts are those of
 the shared suite lifecycle (#536); the timings, which vary, are from the quick
 run of `feat/165-randomized-formula-tests` at 009a92d on 2026-11-19, and for
 `TEST_Dashboard` from the quick run of `feat/675-dashboard-writer` at c0d1b8f on
-2026-11-23:
+2026-11-23, and for `TEST_Report` from the quick run of `feat/259-report-writer` at
+20ed2af on 2026-11-26:
 
 ```text
 SACCR TEST SUMMARY 2026-11-19 09:36:50
@@ -383,7 +384,8 @@ SACCR TEST SUMMARY 2026-11-19 09:36:50
   PASS  TEST_Import           cases=39; checks=236; failures=0; restore=PASS  (37,2 s)
   PASS  TEST_FormulaRandom    cases=19; checks=47; failures=0; restore=PASS  (3,1 s)
   PASS  TEST_Dashboard        cases=6; checks=65; failures=0; restore=PASS  (6,5 s)
-RESULT=PASS; suites=12; passed=12; failed=0; seconds=126,6
+  PASS  TEST_Report           cases=5; checks=54; failures=0; restore=PASS  (19,8 s)
+RESULT=PASS; suites=13; passed=13; failed=0; seconds=126,6
 ```
 
 The suites assert the [stable diagnostic codes](docs/DIAGNOSTICS.md) of #81
@@ -710,7 +712,8 @@ reproducible cross-check with the registered R package `SACCR` (#100)
 | `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone; validating them: findings on Checks with links and marks, corrections and repeated validation, the evidence export refused, error values, the rules against Params, whether a validation is still current and the OUT OF DATE status; committing them: refusals, failures put back and verified, typed values, a sheet left alone and the button in silent mode; the CSV line locked and the staged values unlocked, the committed input sheets protected; formula inputs recalculated in manual calculation; a formula below the data inside the commit; committed rows run as the same rows typed by hand; what a commit leaves of the Excel settings and of the results, also when its cleanup fails; the import specification saved byte for byte, an existing file refused or replaced, failed writes leaving it as it was, and its example files validating together; the Excel settings after a load and a validation, live Trades and FX changes after a validation, a 15-digit notional, netting sets committed alone with a header-only Trades file, the counterparty sector committed from a version 2 file and left blank by a version 1 file, and the output tables of committed rows against the same rows typed by hand | 39 | 236 |
 | `TEST_FormulaRandom` | The FormulaTest sheet at scale: 1,000 reproducible random draws of each range set and draws at and around its branch points, each judged by the sheet's own comparison; the shipped inputs restored, a seed replayed, an unusable range table refused, no volatile function, a perturbed Expected caught and the sheet put back | 19 | 47 |
 | `TEST_Dashboard` | The Dashboard after a run: every block against the figures computed from Results, TradeCalc, Checks, NettingSets and the reconciliation sheets, on the demonstration portfolio, on both regimes with netting sets in and out of the money, holding collateral and invalid, and on a netting set with no trade; the reading of the path from notional to EAD; Clear outputs, a failed run and an edited input | 6 | 65 |
-| **Total** | | **549** | **2476** |
+| `TEST_Report` | The formatted run report: the text a PDF writes for amounts, ratios, counts and dates, the examples of `docs/workbook/report.json`, whatever the regional settings; a reconciled figure in the format of its measure; a value in the format of its cell; Checks by code; the refusals of Export evidence; an XLSX read back from its file with its sheets in order, values only, no link and no macro, and the figures of the run; a PDF with the Dashboard's charts; a failure before the save, during the replacement and on a read-only file, each leaving the older report as it was; the results still current afterwards | 5 | 54 |
+| **Total** | | **554** | **2530** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (133).

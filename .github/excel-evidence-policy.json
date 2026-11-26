@@ -73,6 +73,11 @@
       "entry_point": "TEST_Dashboard.RunDashboardTests",
       "cases": 6,
       "checks": {"32-bit": 65, "64-bit": 65}
+    },
+    {
+      "entry_point": "TEST_Report.RunReportTests",
+      "cases": 5,
+      "checks": {"32-bit": 54, "64-bit": 54}
     }
   ],
   "negative_runs": [

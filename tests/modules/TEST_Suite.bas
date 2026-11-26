@@ -69,7 +69,7 @@ Attribute VB_Name = "TEST_Suite"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const SUITE_COUNT   As Long = 12    'Suites run by Test_RunAll
+        Private Const SUITE_COUNT   As Long = 13    'Suites run by Test_RunAll
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -638,7 +638,7 @@ Private Function SuiteEntries() As Variant
                        "TEST_Aggregation.RunAggregationTests", "TEST_Invariants.RunInvariantTests", _
                        "TEST_Reconcile.RunReconcileTests", "TEST_CsvReader.RunCsvReaderTests", _
                        "TEST_Import.RunImportTests", "TEST_FormulaRandom.RunFormulaRandomTests", _
-                       "TEST_Dashboard.RunDashboardTests")
+                       "TEST_Dashboard.RunDashboardTests", "TEST_Report.RunReportTests")
         SuiteEntries = Suites
 
 End Function
@@ -709,6 +709,8 @@ Private Sub RunEntry( _
                 TEST_FormulaRandom.RunFormulaRandomTests
             Case "TEST_Dashboard.RunDashboardTests"
                 TEST_Dashboard.RunDashboardTests
+            Case "TEST_Report.RunReportTests"
+                TEST_Report.RunReportTests
             Case Else
                 Err.Raise vbObjectError + 513, "TEST_Suite.RunEntry", _
                     "No branch runs " & EntryPoint

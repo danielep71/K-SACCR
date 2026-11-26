@@ -89,6 +89,9 @@ class ReportSpecTests(unittest.TestCase):
         for row in self.section("run")["rows"]:
             if row["key"] in ("units", "results_status"):
                 continue
+            if row["key"] in ("reconciliation", "trade_reconciliation"):
+                self.assertIn('KeyPrefix = IIf(i = RECON_NS, "reconciliation", "trade_reconciliation")', main)
+                continue
             with self.subTest(key=row["key"]):
                 self.assertIn(f'RunLine("{row["key"]}"', main)
 
@@ -108,11 +111,15 @@ class ReportSpecTests(unittest.TestCase):
 
     def test_the_limitations_are_those_of_the_evidence_export_and_one_more(self) -> None:
         export = read_vba("src/core/CORE_Export.bas")
-        body = export[export.index("Public Function LimitationLines()"):]
-        notes = body[body.index("Notes = Array("):body.index("For i = LBound(Notes)")]
+        body = export[export.index("Public Function LimitationTexts()"):]
+        notes = body[body.index("LimitationTexts = Array("):body.index("End Function")]
         statements = len(re.findall(r'^ {12}"', notes, flags=re.M))  # a statement starts at 12 spaces, its continuation at 16
         self.assertEqual(statements, 7)
         self.assertEqual(self.section("limitations")["statements"], statements + 1)
+        report_body = export[export.index("Public Function ReportLimitationTexts()"):]
+        report_body = report_body[:report_body.index("End Function")]
+        self.assertIn("Notes = LimitationTexts()", report_body)
+        self.assertEqual(report_body.count("Texts(UBound(Texts)) = "), 1)  # one statement more
 
     def test_the_measures_that_are_not_amounts_are_those_the_reconciliation_does_not_scale(self) -> None:
         source = read_vba("src/core/CORE_Reconcile.bas")
@@ -128,6 +135,57 @@ class ReportSpecTests(unittest.TestCase):
             positions = [int(p) for p in constant(ratios).strip("|").split("|")]
             with self.subTest(section=section_id):
                 self.assertEqual(self.section(section_id)["measure_ratios"], [names[p] for p in positions])
+
+    def vba_constant(self, source: str, name: str) -> str:
+        found = re.search(rf'Const {name}\s+As String = ((?:"[^"]*"(?:\s*&\s*_\s*)?)+)', source)
+        assert found is not None, name
+        return "".join(re.findall(r'"([^"]*)"', found.group(1)))
+
+    def test_the_writer_has_the_kinds_and_measures_of_the_specification(self) -> None:
+        main = read_vba("src/workbook/M_Main.bas")
+        for section_id, kinds in (("totals", "RPT_TOTALS_KINDS"), ("results", "RPT_RESULTS_KINDS"),
+                                  ("checks", "RPT_CHECKS_KINDS"), ("reconciliation", "RPT_RECON_KINDS"),
+                                  ("trade_reconciliation", "RPT_TRADE_RECON_KINDS")):
+            with self.subTest(section=section_id):
+                self.assertEqual(self.vba_constant(main, kinds).split("|"),
+                                 [c["kind"] for c in self.section(section_id)["columns"]])
+        self.assertEqual(self.vba_constant(main, "RPT_TOTALS_HEADERS").split("|"),
+                         [c["header"] for c in self.section("totals")["columns"]])
+        self.assertEqual(self.vba_constant(main, "RPT_RECON_RATIOS").split("|"),
+                         self.section("reconciliation")["measure_ratios"])
+        self.assertEqual(self.vba_constant(main, "RPT_TRADE_RECON_RATIOS").split("|"),
+                         self.section("trade_reconciliation")["measure_ratios"])
+
+    def test_the_writer_has_the_formats_and_the_sheets_of_the_specification(self) -> None:
+        main = read_vba("src/workbook/M_Main.bas")
+        body = main[main.index("Private Function ReportNumberFormat("):]
+        body = body[:body.index("End Function")]
+        formats = dict(re.findall(r'Case "(\w+)"\s*\r?\n\s*ReportNumberFormat = "([^"]*)"', body))
+        for kind in ("amount", "ratio", "count", "date", "datetime"):
+            self.assertEqual(formats.get(kind), self.spec["formats"][kind], kind)
+        writer = main[main.index("Private Function WriteReport("):]
+        writer = writer[:writer.index("End Function")]
+        named = re.findall(r'AddReportSheet\(ReportBook, "(\w+)"\)', writer)
+        named[named.index("Results") + 2:named.index("Results") + 2] = []  # the reconciliations are named by IIf
+        self.assertIn('"Reconciliation", "TradeReconciliation"', writer)
+        expected = [s["sheet"] for s in self.spec["sections"]]
+        expected.insert(expected.index("Totals"), "Charts")  # the PDF's charts
+        self.assertEqual(named, [name for name in expected if name not in ("Reconciliation", "TradeReconciliation")])
+
+    def test_the_run_items_of_the_writer_are_those_of_the_specification(self) -> None:
+        main = read_vba("src/workbook/M_Main.bas")
+        body = main[main.index("Private Function WriteReportRun("):]
+        body = body[:body.index("End Function")]
+        labels = re.findall(r'Items\(\d+, 1\) = "([^"]+)"', body)
+        labels[12:12] = re.findall(r'"(Reconciliation of netting sets)", "(Reconciliation of trade legs)"', body)[0]
+        self.assertEqual(labels, [r["label"] for r in self.section("run")["rows"]])
+
+    def test_the_vba_suite_checks_every_example_of_the_specification(self) -> None:
+        suite = read_vba("tests/modules/TEST_Report.bas")
+        for example in self.spec["formats"]["examples"]:
+            with self.subTest(example=example):
+                self.assertIn(f'"{example["kind"]}", ', suite)
+                self.assertIn(f', "{example["text"]}"', suite)
 
     def test_every_kind_is_a_format(self) -> None:
         formats = self.spec["formats"]
