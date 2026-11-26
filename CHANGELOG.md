@@ -930,6 +930,17 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- State in the methodology where the business-day convention of the day count comes from (#721).
+  The owner checked Articles 279a to 279c of the CRR consolidated text in force on 2026-11-26
+  (26.06.2026) word for word: T (279a(1)(a)), S and E (279b(1)(a)), M (279c(1)(a)) and
+  OneBusinessYear (279b(1)(a), 279c(1)(a) and (b)) are expressed "using the relevant business day
+  convention" ("pertinente convenzione sui giorni lavorativi"), with no calendar or divisor named.
+  The methodology now cites each point, calls 250 business days a model assumption in the unit the
+  text requires, and calls the default ACTUAL/365 on an empty calendar the engine's historical
+  default rather than a convention the CRR approves. It no longer says the phrase was not re-read,
+  and gives the example of a bank's engine that counts S and E in business days over 250, with the
+  settings that reconcile with it.
+
 - **A maintenance audit before every release.** `RELEASING.md` has a new first step, run before the
   scope is fixed. It audits the closed issues of open milestones, the open issues, the PR comments
   and review threads, the notifications and the repository's wording against the evidence: the
