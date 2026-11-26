@@ -832,7 +832,10 @@ Use only the categories needed by a release.
   minutes a call Excel rejects while busy (`RPC_E_CALL_REJECTED`); when a call is still
   rejected, the verify log names the windows of that Excel and pictures its dialogs. Each script
   removes the filter once its Excel is closed (`Unregister-ExcelBusyRetry`), so it does not
-  outlive the Excel it was registered for.
+  outlive the Excel it was registered for. The pictures of Excel's dialogs are off unless
+  `Verify-SACCR-Branch.ps1` runs with `-DialogPictures`: Norton's behavioural protection blocked
+  the script as IDP.Generic while the code that captures a window's image was compiled on every
+  run, so it is compiled only on request.
 
 - Make the sums of ReconSummary comparable (#720): the sums of the bank's and the calculator's
   figures, the sum of the absolute differences and the largest of them now count only the rows

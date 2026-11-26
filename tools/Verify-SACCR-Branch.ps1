@@ -42,6 +42,10 @@ For the branch of a pull request, with one command on the Windows host:
    sheet review, through TEST_Suite.Benchmark, into benchmark.log; its BENCH
    lines are added to the summary. The benchmark never changes the result of
    the quick check;
+   With -DialogPictures, when a call to Excel is abandoned the log also
+   pictures each dialog Excel shows into the bundle's sheets folder
+   (busy-dialog-N.png). It is off by default: capturing another program's
+   window is what an antivirus's behavioural protection may block;
    With -Commit the script checks nothing out: it verifies the commit the
    checkout already is at, and stops when HEAD is another commit. The
    automatic quick check of a pull request (#713) uses it, so that its result
@@ -80,7 +84,9 @@ param(
     [Parameter(Mandatory = $false)]
     [string]$Commit,
     [Parameter(Mandatory = $false)]
-    [string]$BenchmarkSizes
+    [string]$BenchmarkSizes,
+    [Parameter(Mandatory = $false)]
+    [switch]$DialogPictures
 )
 
 Set-StrictMode -Version Latest
@@ -90,6 +96,11 @@ $ErrorActionPreference = "Stop"
 # (#773); see tools\Excel-BusyRetry.ps1.
 . (Join-Path $PSScriptRoot "Excel-BusyRetry.ps1")
 [void](Register-ExcelBusyRetry)
+# Pictures of Excel's dialogs when a call is abandoned are off unless asked
+# for: the capture of a window's image is what an antivirus may block.
+if ($DialogPictures) {
+    [void](Enable-ExcelDialogPictures)
+}
 # The process of the development workbook's Excel, for the log when Excel stops
 # answering (#773); 0 until Excel is started.
 $script:excelProcess = 0

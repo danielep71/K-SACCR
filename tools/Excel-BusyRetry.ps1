@@ -194,10 +194,25 @@ namespace KSaccr
 "@
 }
 
-# A picture of a window, for a dialog whose text cannot be read (#773). It
-# needs System.Drawing, which Windows PowerShell has: elsewhere it is not
-# compiled and Save-ExcelDialogPictures saves nothing.
-if ($PSVersionTable.PSEdition -eq "Desktop" -and -not ("KSaccr.WindowPicture" -as [type])) {
+# A picture of a window, for a dialog whose text cannot be read (#773). It is
+# off unless a caller asks for it with Enable-ExcelDialogPictures: capturing
+# the image of another program's window is the kind of behaviour an
+# antivirus's behavioural protection flags, and Norton blocked
+# Verify-SACCR-Branch.ps1 as IDP.Generic on the owner's runner while this type
+# was compiled on every run (2026-11-26). It needs System.Drawing, which
+# Windows PowerShell has: elsewhere it is not compiled and
+# Save-ExcelDialogPictures saves nothing.
+$script:ExcelDialogPicturesRequested = $false
+
+function Enable-ExcelDialogPictures {
+    # Compile the picture type; $true when Save-ExcelDialogPictures can save.
+    $script:ExcelDialogPicturesRequested = $true
+    if ("KSaccr.WindowPicture" -as [type]) {
+        return $true
+    }
+    if ($PSVersionTable.PSEdition -ne "Desktop") {
+        return $false
+    }
     try {
         Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @"
 using System;
@@ -258,8 +273,10 @@ namespace KSaccr
     }
 }
 "@
+        return $true
     }
     catch {
+        return $false
     }
 }
 
@@ -269,6 +286,9 @@ function Save-ExcelDialogPictures {
     param([uint32]$ProcessId, [string]$Folder)
     if ($ProcessId -eq 0) {
         return "Excel dialogs: the process is not known"
+    }
+    if (-not $script:ExcelDialogPicturesRequested) {
+        return "Excel dialogs: not pictured (off; Verify-SACCR-Branch.ps1 -DialogPictures turns it on)"
     }
     if (-not ("KSaccr.WindowPicture" -as [type])) {
         return "Excel dialogs: no picture taken here (System.Drawing is not available)"
