@@ -181,7 +181,7 @@ Attribute VB_Name = "CORE_Config"
     'column A (#615), drawn into the template by tools/navigation_bar.py:
     'the block in the frozen rows and the block below them. The Ribbon's
     'Navigation bar toggle shows and hides them (#620).
-        Public Const NAV_GROUP_TOP   As String = "NavBarTop"    'Block in the frozen rows 1 to 3
+        Public Const NAV_GROUP_TOP   As String = "NavBarTop"    'Home and the inputs, in the frozen rows
         Public Const NAV_GROUP_REST  As String = "NavBar"       'Block below the frozen rows
     'The two triangles at the far left of B1 of every sheet that hide and
     'show the bar (#777), drawn with it: one is shown at a time, the one

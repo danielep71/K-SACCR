@@ -180,32 +180,45 @@ report as failures.
 ### Automatic quick check
 
 The workflow [`excel-quick.yml`](../.github/workflows/excel-quick.yml) (#713) runs
-the quick check on the owner's self-hosted Windows runner, so that a pull request
+an Excel check on the owner's self-hosted Windows runner, so that a pull request
 carries its result without anyone running the script by hand. It starts:
 
 - for a pull request into `main` or `release/**` **from a branch of this
   repository** that changes `src/`, `tests/`, `docs/workbook/` or the scripts of
-  the quick check itself;
-- by hand, from Actions, **Excel quick check**, **Run workflow**, with the branch.
+  the quick check itself, with the **smoke check** (#801);
+- by hand, from Actions, **Excel quick check**, **Run workflow**, with the branch
+  and the mode: `full`, the default, for the **full quick check**, or `smoke`.
+
+The two checks differ in what they run:
+
+| Check | Runs | Takes | When |
+| --- | --- | --- | --- |
+| Smoke (`Verify-SACCR-Branch.ps1 -Smoke`) | The build, `Auto_Open`, the compile, then the harness and the calculation suites `TEST_Formulas`, `TEST_Cases`, `TEST_Aggregation` and `TEST_Invariants` (`TEST_Suite.Smoke`, about 20 s of tests), in `saccr-smoke-SHORTSHA` | A few minutes | Every pull request |
+| Full quick (`-Quick`) | The build, the compile, `Test_RunAll`, the sheet review and the 14 protection checks, in `saccr-verify-SHORTSHA` | 8 to 16 minutes | By hand, and before a release with the certification |
+
+The owner decided on 2026-11-26 that a pull request gets a smoke test and that
+the thorough tests belong at the end, before a release: the full quick check by
+hand when a change calls for it, and certification on the release candidate.
 
 It never starts for the branch of a fork. `tools/Run-SACCR-QuickCheck.ps1` takes the
 machine's Excel mutex (`Local\SACCR-ExcelAutomation`, so that two runs never drive
 Excel at once; other Excel automation on the machine should take the same one), runs
-`Verify-SACCR-Branch.ps1 -Quick -Commit` on the commit the workflow checked out (the
+`Verify-SACCR-Branch.ps1 -Smoke -Commit` or `-Quick -Commit` on the commit the workflow checked out (the
 pull request's head, or the branch tip when a run by hand starts), then:
 
 - posts the summary as a comment of the pull request, **one per commit**, updated
   by a re-run of the same commit; the comment says which commit was checked;
 - uploads the sheet pictures and the text results as an artifact, kept for 14 days,
   with the machine's paths and user name replaced and without any workbook;
-- fails the job when the quick check fails, so the pull request shows a red check.
+- fails the job when the check fails, so the pull request shows a red check. The
+  comment's title says which check ran: **Excel smoke check** or **Excel quick check**.
 
-A run by hand may also give **benchmark sizes**, the legs of each scenario as
+A full run by hand may also give **benchmark sizes**, the legs of each scenario as
 `TEST_Benchmark.RunBenchmark` reads them (for example `1000,10000`; #771). The quick
 check then runs the benchmark too, in the same Excel session after the sheet review,
 into `benchmark.log`, which goes into the artifact; its BENCH lines are added to the
 summary. The benchmark measures the machine, so it never changes the result of the
-quick check, and a pull request never runs it.
+quick check, and neither a pull request nor a smoke check runs it.
 
 The commit is fixed before the wait for Excel: a push that moves the branch while the run
 is queued changes nothing, so a result is never attached to a commit whose workbook was

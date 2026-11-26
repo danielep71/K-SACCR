@@ -160,13 +160,15 @@ another sheet or workbook.
 **Navigation bar (#615).** Every sheet of the template also carries this
 menu as a bar of linked shapes in column A, which is frozen, so the bar works
 with macros disabled. Its sections, their order, the sheet labels and the
-tooltips come from this menu, with two placements:
+tooltips come from this menu, in its order, with two placements:
 
-- **Inputs** is the bar's top block, in rows 1 to 3, which are frozen on every
-  sheet: it stays in view when the sheet scrolls in either direction.
-- The other sections follow from the first row below the frozen rows, in the
-  menu's order except **Start** (Home), which comes last; that block scrolls
-  with the rows.
+- **Start** (Home) and **Inputs** are the bar's top block, from row 1, within
+  the frozen rows: Home is at the top of the bar, and the block stays in view
+  when the sheet scrolls in either direction. Every sheet freezes at least its
+  first four rows, which hold the block as they are: no row is made taller for
+  it (#798, the owner's request of 2026-11-26).
+- The other sections follow from the first row below the frozen rows; that
+  block scrolls with the rows.
 
 The current sheet is highlighted and not linked, and the bar is not printed.
 

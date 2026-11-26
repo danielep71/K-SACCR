@@ -687,6 +687,17 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Run a smoke check of every pull request in Excel instead of the quick check, as the owner asked
+  (#801): the build, the compile and the calculation suites (`TEST_Suite.Smoke`: the harness,
+  `TEST_Formulas`, `TEST_Cases`, `TEST_Aggregation` and `TEST_Invariants`), a few minutes instead
+  of 8 to 16. The full quick check (every suite, the sheet review and the protection checks) runs
+  by hand, mode `full` of the workflow, and before a release with the certification
+  (`tools/Verify-SACCR-Branch.ps1 -Smoke`, `tools/Run-SACCR-QuickCheck.ps1`,
+  `.github/workflows/excel-quick.yml`).
+- Put Home at the top of the navigation bar of every sheet, above Inputs, as the owner asked (#798): the
+  Start and Inputs sections form the bar's top block, within the frozen rows, which hold it without
+  a taller row; the other sections follow below in the order of the Go to menu
+  (`tools/navigation_bar.py`, `docs/workbook/RIBBON.md`).
 - Count issues and pull requests apart when the label sync refuses to delete a label in use (#787).
   The refusal and the run summary gave one combined count, such as "12 issue/PR records"; they now
   say "9 issues, 3 pull requests", a zero count included, followed by the lowest ten numbers as

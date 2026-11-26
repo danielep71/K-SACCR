@@ -40,7 +40,7 @@ pull request's whole range.
 | `issue-config` | The issue forms assign the person `bug.yml` names, set exactly their default priority (`bug.yml` and `feature.yml` `P2`, `documentation.yml` `P3`), use only catalogue labels and have a dependencies field; blank issues are disabled; `blocked` is the catalogue's only dependency status label (`check_issues.py --check-config`) |
 | `generated-csv-modules` | `src/core/CORE_CsvSchema.bas` and `src/core/CORE_ImportSpec.bas` are exactly what `tools/generate_csv_vba.py --check` generates from `docs/csv/contract.json`, and `tests/modules/TEST_CsvReader.bas` what it generates from `tests/csv` |
 | `ribbon-template` | The template `src/workbook/SACCR_Template.xlsx` carries the Ribbon source `src/workbook/customUI14.xml` byte for byte as its `customUI/customUI14.xml` part, with exactly one Ribbon relationship and no other customUI part (`tools/ribbon_template.py`; `--write` embeds the source) |
-| `navigation-bar` | Every sheet of the template carries the navigation bar of #615 in column A: the Go to menu of `src/workbook/customUI14.xml` as linked shapes, Inputs in the frozen rows 1 to 3 and the other sections below with Start last, each sheet linking every other sheet; the triangles at the far left of B1 that hide and show it (#777), with column A 18 wide, column B 2 wide, columns A and B frozen and the titles in C1 and C2; drawing the bar again on the committed template changes nothing (`tools/navigation_bar.py`; `--write` draws the bar) |
+| `navigation-bar` | Every sheet of the template carries the navigation bar of #615 in column A: the Go to menu of `src/workbook/customUI14.xml` as linked shapes, Start (Home) and Inputs in the frozen rows, which hold them without a taller row, and the other sections below, each sheet linking every other sheet; the triangles at the far left of B1 that hide and show it (#777), with column A 18 wide, column B 2 wide, columns A and B frozen and the titles in C1 and C2; drawing the bar again on the committed template changes nothing (`tools/navigation_bar.py`; `--write` draws the bar) |
 
 `check_excel_evidence.py` validates a manual Excel evidence bundle against a
 candidate commit: the harness and every other suite the policy lists, each with
@@ -113,14 +113,19 @@ so the folder is not an evidence bundle and `check_excel_evidence.py` cannot
 validate it: a quick run is enough for a pull request, never for a release
 candidate, which the full run certifies. Its exit code is 0 only when the
 project compiled, `Test_RunAll` passed, the sheet review passed and the 14
-checks pass. Either way
+checks pass. With `-Smoke` it runs the smoke check of a pull request (#801)
+instead, in `saccr-smoke-SHORTSHA`: the same build, `Auto_Open` and compile,
+then the harness and the calculation suites once (`TEST_Suite.Smoke`, into
+`summary.log`), with no sheet review and no protection checks; its exit code
+is 0 when the project compiled and those suites passed. Either way
 the script never pushes or discards changes, and checks made by eye, such
 as the Ribbon's labels, stay with the operator.
 
 `Run-SACCR-QuickCheck.ps1` is what the workflow `excel-quick.yml` runs on the
 owner's self-hosted runner (#713): it refuses a run that is not a branch of this
-repository, takes the machine's Excel mutex, runs `Verify-SACCR-Branch.ps1 -Quick
--Commit SHA` on the commit the workflow checked out (that switch fetches and checks
+repository, takes the machine's Excel mutex, runs `Verify-SACCR-Branch.ps1 -Smoke
+-Commit SHA` (a pull request, or a run by hand in mode `smoke`) or `-Quick -Commit SHA`
+(a run by hand in mode `full`; #801) on the commit the workflow checked out (that switch fetches and checks
 out nothing, and stops when HEAD is another commit) and reports the result as a
 comment of the pull request and an artifact of the run. Its functions that need no
 Excel are in `QuickCheck-Report.ps1`; `test_quick_check_script.py` tests them and
@@ -542,8 +547,9 @@ checks out no code and refuses a release that already carries signatures.
 release, [`INSTALLATION.md`](../INSTALLATION.md#released-workbook) the user's
 verification.
 
-`.github/workflows/excel-quick.yml`, **Excel quick check**, runs the quick Excel
-check on the owner's self-hosted runner (label `excel`, declared for actionlint in
+`.github/workflows/excel-quick.yml`, **Excel quick check**, runs the smoke check of
+a pull request, or by hand the full quick check or the smoke check (#801), on the
+owner's self-hosted runner (label `excel`, declared for actionlint in
 `.github/actionlint.yaml`) for a pull request from a branch of this repository, or by
 hand. It is the one workflow that may run on a self-hosted runner; its job holds
 `contents: read` and `pull-requests: write` and posts the result in the pull

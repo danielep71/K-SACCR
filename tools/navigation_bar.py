@@ -7,12 +7,13 @@ Go to menu (src/workbook/customUI14.xml), with the menu's tooltips:
 
 * column A is widened to 18 and filled with the title band's colour; column B
   is a 2-wide margin (#777), so no table, header or input cell moves;
-* the Inputs section forms a top block anchored in rows 1 to 3, which are
-  frozen on every sheet, so it never scrolls; it fits the rows as they are
-  (row 3 would be raised only if a sheet's rows 1 to 3 were too short);
+* the Start (Home) and Inputs sections form a top block anchored in row 1,
+  within the frozen rows, so it never scrolls: Home is at the top of the bar
+  (owner's request of 2026-11-26). Every sheet freezes at least four rows,
+  which hold the block as they are; the last frozen row would be raised only
+  if a sheet's frozen rows were too short;
 * the other sections form a second block anchored on the first row below the
-  frozen rows, in the menu's order except Start (Home), which comes last; it
-  scrolls with the rows;
+  frozen rows, in the menu's order; it scrolls with the rows;
 * column A is frozen, so both blocks stay in view when the sheet scrolls
   horizontally;
 * each button carries an internal hyperlink to its sheet, so the bar works
@@ -65,7 +66,7 @@ BTN_H = 21
 BTN_GAP = 2
 SECTION_GAP = 7
 STRIP_W = 3
-TOP_ROWS = 3                     # rows frozen on every sheet
+TOP_ROWS = 3                     # rows frozen at least on every sheet; the sheets freeze four or more
 FROZEN_COLS = 2                  # columns frozen on every sheet: the bar and the triangle's gutter (#777)
 NAV_COL_PX = 130                 # column A in pixels, for the triangles' position on the sheet
 
@@ -148,10 +149,10 @@ def unescape(text: str) -> str:
 
 
 def blocks(menu: Block) -> tuple[Block, Block]:
-    """The bar's two blocks: Inputs in the frozen rows; the rest, with Start (Home) moved last."""
+    """The bar's two blocks: Start (Home) and Inputs in the frozen rows; the rest below, in the menu's order."""
     if len(menu) < 2:
         raise ValueError(f"{CONTRACT}: the Go to menu needs at least the Start and Inputs sections")
-    return [menu[1]], menu[2:] + [menu[0]]
+    return menu[:2], menu[2:]
 
 
 # --------------------------------------------------------------- package -----
@@ -511,8 +512,8 @@ def build(package: Package, contract: str) -> list[str]:
                 xml = xml[:opening.end()] + '<c r="A%s" s="%d"/>' % (row, nav_style) + xml[opening.end():]
 
         xml, frozen = freeze(xml)
-        needed = top_points - row_offset_points(xml, TOP_ROWS - 1)
-        xml = raise_row(xml, TOP_ROWS, needed)
+        needed = top_points - row_offset_points(xml, frozen - 1)
+        xml = raise_row(xml, frozen, needed)
         rest_row = first_visible_row(xml, frozen)
 
         element = re.search(r'<drawing r:id="([^"]+)"/>', xml)
