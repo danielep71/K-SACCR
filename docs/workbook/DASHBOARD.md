@@ -19,6 +19,9 @@ below on a portfolio with two regimes, an invalid and an incomplete netting
 set, one out of the money and one holding collateral, and on an empty
 portfolio.
 
+The formatted run report of Export report (#259, [`REPORT.md`](REPORT.md)) opens with every block of this
+contract and adds the ten charts as pictures in its PDF.
+
 ## 🧭 Principles
 
 - **No new calculation.** Every figure is a count, a sum, a share or a
