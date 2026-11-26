@@ -271,12 +271,14 @@ async function listLiveLabels(repository, token) {
 // Scan it once, rather than using label filters (label names can contain commas).
 export const USAGE_SAMPLE = 10;
 
-// What each label scheduled for deletion is used by: `{ name, count, items, more }`,
-// the lowest USAGE_SAMPLE numbers of the issues and pull requests that carry it,
-// ascending, and whether more carry it than the sample names.
+// What each label scheduled for deletion is used by:
+// `{ name, count, issues, pulls, items, more }`: how many issues and how many pull
+// requests carry it (`count` is their sum), the lowest USAGE_SAMPLE numbers of them,
+// ascending, and whether more carry it than the sample names. An item with a
+// `pull_request` key is a pull request (#787).
 export async function deletionUsage(changes, readPage) {
   const counts = new Map(changes.filter(change => change.action === "delete")
-    .map(change => [change.name.toLowerCase(), { name: change.name, count: 0, numbers: [] }]));
+    .map(change => [change.name.toLowerCase(), { name: change.name, count: 0, issues: 0, pulls: 0, numbers: [] }]));
   if (counts.size === 0) return [];
   const seen = new Set();
   for (let page = 1; page <= 100; page += 1) {
@@ -293,14 +295,15 @@ export async function deletionUsage(changes, readPage) {
         if (counts.has(name)) {
           const used = counts.get(name);
           used.count += 1;
+          if (item.pull_request) used.pulls += 1; else used.issues += 1;
           used.numbers.push(item.number);
         }
       }
     }
     if (items.length < 100) {
-      return [...counts.values()].map(({ name, count, numbers }) => {
+      return [...counts.values()].map(({ name, count, issues, pulls, numbers }) => {
         const sorted = [...numbers].sort((left, right) => left - right);
-        return { name, count, items: sorted.slice(0, USAGE_SAMPLE), more: sorted.length > USAGE_SAMPLE };
+        return { name, count, issues, pulls, items: sorted.slice(0, USAGE_SAMPLE), more: sorted.length > USAGE_SAMPLE };
       });
     }
   }
@@ -312,6 +315,13 @@ export async function liveDeletionUsage(changes, repository, token) {
     `/issues?state=all&sort=created&direction=asc&per_page=100&page=${page}`));
 }
 
+// How many issues and pull requests carry a label, such as "9 issues, 3 pull requests",
+// a zero count included.
+export function renderCounts(label) {
+  const plural = (count, noun) => `${count} ${noun}${count === 1 ? "" : "s"}`;
+  return `${plural(label.issues, "issue")}, ${plural(label.pulls, "pull request")}`;
+}
+
 // Where a label is used, such as "#3, #7 and others": "and others" only when more
 // items carry it than the sample names.
 export function renderUsage(label) {
@@ -321,7 +331,7 @@ export function renderUsage(label) {
 export function deletionRefusal(usage) {
   const used = (usage ?? []).filter(label => label.count > 0);
   return used.length ? "Refusing all label changes: labels still in use: "
-    + used.map(label => `${JSON.stringify(label.name)} (${label.count} issue/PR records: ${renderUsage(label)})`).join(", ") : null;
+    + used.map(label => `${JSON.stringify(label.name)} (${renderCounts(label)}: ${renderUsage(label)})`).join(", ") : null;
 }
 
 export function usageSummary(usage) {
@@ -445,14 +455,26 @@ async function testUsageGuard(manifestPath, desired) {
       : [{ number: 101, state: "closed", pull_request: {}, labels: [{ name: "USED, LABEL" }] }];
   });
   assert.deepEqual(pages, [1, 2]);
-  assert.deepEqual(usage, [{ name: "Used, label", count: 1, items: [101], more: false }]);
+  assert.deepEqual(usage, [{ name: "Used, label", count: 1, issues: 0, pulls: 1, items: [101], more: false }]);
   // The refusal names the issues and pull requests that carry the label: the lowest ten, then "and others".
   const crowded = await deletionUsage(deletion, async page => page === 1
     ? Array.from({ length: 12 }, (_, index) => ({ number: 40 - index, labels: [{ name: "used, label" }] })) : []);
   assert.deepEqual(crowded[0].items, [29, 30, 31, 32, 33, 34, 35, 36, 37, 38]);
   assert.equal(crowded[0].more, true);
-  assert.match(deletionRefusal(crowded), /12 issue\/PR records: #29, #30, #31, #32, #33, #34, #35, #36, #37, #38 and others/);
-  assert.match(deletionRefusal(usage), /1 issue\/PR records: #101\)/);
+  assert.match(deletionRefusal(crowded), /12 issues, 0 pull requests: #29, #30, #31, #32, #33, #34, #35, #36, #37, #38 and others/);
+  assert.match(deletionRefusal(usage), /0 issues, 1 pull request: #101\)/);
+  // Issues and pull requests are counted apart: only issues, only pull requests, and both, with more than ten.
+  const mixed = await deletionUsage(deletion, async page => page === 1
+    ? [...Array.from({ length: 9 }, (_, index) => ({ number: index + 1, labels: [{ name: "Used, label" }] })),
+       ...Array.from({ length: 3 }, (_, index) => ({ number: index + 20, pull_request: {}, labels: [{ name: "Used, label" }] })),
+       { number: 40, labels: [{ name: "other" }] }] : []);
+  assert.equal(mixed[0].issues, 9);
+  assert.equal(mixed[0].pulls, 3);
+  assert.equal(mixed[0].count, 12);
+  assert.match(deletionRefusal(mixed), /\(9 issues, 3 pull requests: #1, #2, #3, #4, #5, #6, #7, #8, #9, #20 and others\)/);
+  const onlyIssues = await deletionUsage(deletion, async page => page === 1
+    ? [{ number: 5, labels: [{ name: "used, label" }] }] : []);
+  assert.match(deletionRefusal(onlyIssues), /\(1 issue, 0 pull requests: #5\)/);
   for (const response of [null, [{ number: 1 }], [{ number: 1, labels: [null] }]]) {
     await assert.rejects(deletionUsage(deletion, async () => response), /Malformed/);
   }
@@ -492,12 +514,12 @@ async function testUsageGuard(manifestPath, desired) {
       process.argv = [process.execPath, "labels-sync.mjs", "--manifest", manifestPath,
         "--mode", "reconcile", "--repository", "fixture/repo", ...(mode === "dry-run" ? ["--dry-run"] : [])];
       if (mode === "used" || mode === "read-failure") {
-        await assert.rejects(main(), mode === "used" ? /extra.*2 issue\/PR records/ : /usage unavailable/);
+        await assert.rejects(main(), mode === "used" ? /extra.*1 issue, 1 pull request: #1, #2/ : /usage unavailable/);
         assert.deepEqual(writes, [], "preflight failure must precede ALL mutations");
       } else {
         await main();
         assert.deepEqual(writes, mode === "unused" ? ["PATCH", "POST", "DELETE"] : []);
-        if (mode === "dry-run") assert.match(output, /Refusing all label changes.*extra.*2 issue\/PR records/);
+        if (mode === "dry-run") assert.match(output, /Refusing all label changes.*extra.*1 issue, 1 pull request: #1, #2/);
       }
     }
   } finally {
