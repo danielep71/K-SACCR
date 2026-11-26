@@ -49,10 +49,13 @@ label, milestone, dependency section) and the issue triage check are described i
    owner's Excel verification still counts after such an update only if the
    incoming changes touch nothing in `src/`, `tests/modules/` or the
    template; otherwise compile and the affected suites are run again. For
-   that check, the quick run `tools/Verify-SACCR-Branch.ps1 -Branch NAME
-   -Quick` is enough: compile, `Test_RunAll` once and the 14 protection
-   checks, unattended
-   ([pull-request check](docs/EXCEL_EVIDENCE.md#pull-request-check)). It is
+   that check, the smoke check of the pull request is enough: the build, the
+   compile and the calculation suites, which the workflow runs on every pull
+   request (`tools/Verify-SACCR-Branch.ps1 -Branch NAME -Smoke`, #801). The
+   full quick run (`-Quick`: compile, `Test_RunAll` once, the sheet review
+   and the 14 protection checks, unattended) runs by hand when a change calls
+   for it, and before a release
+   ([automatic check](docs/EXCEL_EVIDENCE.md#automatic-quick-check)). It is
    a check, not evidence; release certification always runs on the exact
    candidate commit with the full run, and its evidence record names that
    commit ([RELEASING.md](RELEASING.md)).

@@ -1,7 +1,9 @@
 name: Excel quick check
 
-# The quick Excel check of a pull request (tools/Verify-SACCR-Branch.ps1 -Quick, #618, #706) on the
-# owner's self-hosted Windows runner (#713), reported as a comment of the pull request. It is a
+# The Excel check of a pull request on the owner's self-hosted Windows runner (#713), reported as a
+# comment of the pull request: on a pull request the smoke check (tools/Verify-SACCR-Branch.ps1 -Smoke,
+# #801: the build, the compile and the calculation suites), and by hand the full quick check (-Quick,
+# #618, #706: every suite, the sheet review and the protection checks) or the smoke check. It is a
 # pull-request check, never release evidence. Write access to this repository is write access to that
 # machine: the workflow starts only for branches of this repository, or by hand, and the invariants of
 # tools/check_workflows.py hold it to that. See docs/EXCEL_EVIDENCE.md#automatic-quick-check.
@@ -28,8 +30,16 @@ on:
         description: Branch of this repository to check, as on GitHub
         required: true
         type: string
+      mode:
+        description: full (every suite, the sheet review and the protection checks) or smoke (the build, the compile and the calculation suites, as on a pull request; #801)
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - smoke
       benchmark_sizes:
-        description: Also run TEST_Benchmark with these legs per scenario, e.g. 1000,10000 (empty for none; #771)
+        description: Also run TEST_Benchmark with these legs per scenario, e.g. 1000,10000, in a full check only (empty for none; #771)
         required: false
         default: ""
         type: string
@@ -73,6 +83,7 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           ARTIFACT_NAME: excel-quick-check-${{ github.run_id }}-${{ github.run_attempt }}
+          CHECK_MODE: ${{ inputs.mode }}
           BENCHMARK_SIZES: ${{ inputs.benchmark_sizes }}
         run: |
           & "$env:GITHUB_WORKSPACE\tools\Run-SACCR-QuickCheck.ps1" -Branch $env:HEAD_REF

@@ -113,14 +113,19 @@ so the folder is not an evidence bundle and `check_excel_evidence.py` cannot
 validate it: a quick run is enough for a pull request, never for a release
 candidate, which the full run certifies. Its exit code is 0 only when the
 project compiled, `Test_RunAll` passed, the sheet review passed and the 14
-checks pass. Either way
+checks pass. With `-Smoke` it runs the smoke check of a pull request (#801)
+instead, in `saccr-smoke-SHORTSHA`: the same build, `Auto_Open` and compile,
+then the harness and the calculation suites once (`TEST_Suite.Smoke`, into
+`summary.log`), with no sheet review and no protection checks; its exit code
+is 0 when the project compiled and those suites passed. Either way
 the script never pushes or discards changes, and checks made by eye, such
 as the Ribbon's labels, stay with the operator.
 
 `Run-SACCR-QuickCheck.ps1` is what the workflow `excel-quick.yml` runs on the
 owner's self-hosted runner (#713): it refuses a run that is not a branch of this
-repository, takes the machine's Excel mutex, runs `Verify-SACCR-Branch.ps1 -Quick
--Commit SHA` on the commit the workflow checked out (that switch fetches and checks
+repository, takes the machine's Excel mutex, runs `Verify-SACCR-Branch.ps1 -Smoke
+-Commit SHA` (a pull request, or a run by hand in mode `smoke`) or `-Quick -Commit SHA`
+(a run by hand in mode `full`; #801) on the commit the workflow checked out (that switch fetches and checks
 out nothing, and stops when HEAD is another commit) and reports the result as a
 comment of the pull request and an artifact of the run. Its functions that need no
 Excel are in `QuickCheck-Report.ps1`; `test_quick_check_script.py` tests them and
@@ -542,8 +547,9 @@ checks out no code and refuses a release that already carries signatures.
 release, [`INSTALLATION.md`](../INSTALLATION.md#released-workbook) the user's
 verification.
 
-`.github/workflows/excel-quick.yml`, **Excel quick check**, runs the quick Excel
-check on the owner's self-hosted runner (label `excel`, declared for actionlint in
+`.github/workflows/excel-quick.yml`, **Excel quick check**, runs the smoke check of
+a pull request, or by hand the full quick check or the smoke check (#801), on the
+owner's self-hosted runner (label `excel`, declared for actionlint in
 `.github/actionlint.yaml`) for a pull request from a branch of this repository, or by
 hand. It is the one workflow that may run on a self-hosted runner; its job holds
 `contents: read` and `pull-requests: write` and posts the result in the pull
