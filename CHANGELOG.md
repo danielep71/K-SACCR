@@ -883,6 +883,10 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Complete the report of an Excel check run by hand on a branch with no open pull request, such as
+  the release branch: Windows PowerShell 5.1 turns the empty list of pull requests into an empty
+  string, and the report stopped on reading its number, with the warning "The report could not be
+  completed" (`Select-QuickPullNumber` in `tools/QuickCheck-Report.ps1`).
 - Refresh the K-SACCR tab only while its workbook is active (#773). A refresh scheduled with
   `OnTime` (`ScheduleRefresh`) invalidated the Ribbon whenever Excel was next idle; with another
   workbook active, Excel looked for the tab's callbacks there and stopped on "Cannot run the
