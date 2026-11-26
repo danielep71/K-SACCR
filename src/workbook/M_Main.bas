@@ -3412,8 +3412,9 @@ Private Function WriteReportTotals( _
 '   The header row, repeated on every page of a PDF
 '
 ' BEHAVIOR
-'   Reads Results, keeps its rows whose ID starts with "TOTAL " and the
-'   columns named in RPT_TOTALS_HEADERS, found by their headers
+'   Reads Results, keeps its rows TOTAL CRR and TOTAL BCBS, the IDs the
+'   engine reserves, and the columns named in RPT_TOTALS_HEADERS, found by
+'   their headers; a netting set named TOTAL CLIENT is not a total
 '
 ' ERROR POLICY
 '   Raises ERR_OUTPUT_LAYOUT when a header is missing from Results
@@ -3439,6 +3440,7 @@ Private Function WriteReportTotals( _
     Dim SourceColumns()   As Long       'Column of Results of each header of the totals
     Dim Totals            As Variant    'The TOTAL rows
     Dim TotalCount        As Long       'TOTAL rows found
+    Dim ResultId          As String     'NettingSetID of a row of Results
     Dim r                 As Long       'Row of Results
     Dim c                 As Long       'Column of the totals
     Dim k                 As Long       'Column of Results
@@ -3463,7 +3465,8 @@ Private Function WriteReportTotals( _
         If IsArray(TableRows) Then
             ReDim Totals(1 To UBound(TableRows, 1), 1 To UBound(Wanted) - LBound(Wanted) + 1)
             For r = 1 To UBound(TableRows, 1)
-                If VBA.Left$(CORE_Export.ReportCellText("text", TableRows(r, 1)), 6) = "TOTAL " Then
+                ResultId = CORE_Export.ReportCellText("text", TableRows(r, 1))
+                If ResultId = "TOTAL " & RG_CRR Or ResultId = "TOTAL " & RG_BCBS Then
                     TotalCount = TotalCount + 1
                     For c = LBound(Wanted) To UBound(Wanted)
                         Totals(TotalCount, c - LBound(Wanted) + 1) = TableRows(r, SourceColumns(c))
@@ -3977,10 +3980,12 @@ Private Sub FitReportColumns( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Fits each used column of a report sheet to its contents, at most 60
-'   characters wide, wrapping the text of a wider column
+'   characters wide; a narrowed column wraps its text and its rows grow to
+'   show it whole
 '
 ' WHY THIS EXISTS
-'   A long message or title must not widen a page beyond reading (#259)
+'   A long message must neither widen a page beyond reading nor be cut off
+'   by the next column in the PDF (#259)
 '
 ' INPUTS
 '   ReportSheet
@@ -3990,7 +3995,10 @@ Private Sub FitReportColumns( _
 '   Nothing
 '
 ' BEHAVIOR
-'   AutoFit, then a cap of 60 with wrapped text
+'   - AutoFit, then a cap of 60 on a wider column
+'   - A capped column wraps its cells, except a title or a note: a cell of
+'     column A alone on its row, which overflows to the right as it is
+'   - The rows are then fitted to their wrapped text
 '
 ' ERROR POLICY
 '   Raises an error of Excel
@@ -3999,7 +4007,7 @@ Private Sub FitReportColumns( _
 '   None
 '
 ' NOTES
-'   The titles in column A are left to overflow: their row is not wrapped
+'   None
 '
 ' UPDATED
 '   2026-11-26
@@ -4011,6 +4019,8 @@ Private Sub FitReportColumns( _
     Const MAX_WIDTH   As Double = 60#    'Characters
 
     Dim UsedColumn    As Range           'A used column
+    Dim ColumnCell    As Range           'A cell of a capped column
+    Dim AnyCapped     As Boolean         'A column was narrowed
 
 '------------------------------------------------------------------------------
 ' FIT
@@ -4020,8 +4030,22 @@ Private Sub FitReportColumns( _
         For Each UsedColumn In ReportSheet.UsedRange.Columns
             If UsedColumn.ColumnWidth > MAX_WIDTH Then
                 UsedColumn.ColumnWidth = MAX_WIDTH
+                AnyCapped = True
+                If UsedColumn.Column > 1 Then
+                    UsedColumn.WrapText = True
+                Else
+                    For Each ColumnCell In UsedColumn.Cells
+                        If Application.WorksheetFunction.CountA(ColumnCell.EntireRow) > 1 Then
+                            ColumnCell.WrapText = True
+                        End If
+                    Next ColumnCell
+                End If
             End If
         Next UsedColumn
+    'Rows as high as their wrapped text
+        If AnyCapped Then
+            ReportSheet.UsedRange.Rows.AutoFit
+        End If
 
 End Sub
 
