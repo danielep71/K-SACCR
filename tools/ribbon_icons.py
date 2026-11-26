@@ -138,10 +138,80 @@ def navigation_bar(d: Draw, image: Any) -> None:
         d.rounded_rectangle((140, y - 9, 196, y + 9), radius=9, fill=NAVY)
 
 
+def table(d: Draw, image: Any) -> None:
+    d.rounded_rectangle((116, 136, 396, 376), radius=24, outline=WHITE, width=W)
+    d.rounded_rectangle((116, 136, 396, 206), radius=24, fill=WHITE)
+    d.rectangle((116, 180, 396, 206), fill=WHITE)
+    line(d, [(126, 290), (386, 290)], 22)
+    line(d, [(212, 206), (212, 366)], 22)
+    line(d, [(304, 206), (304, 366)], 22)
+
+
+def gear(d: Draw, image: Any) -> None:
+    for k in range(8):
+        a = math.radians(k * 45)
+        cx, cy = 256 + 128 * math.cos(a), 256 + 128 * math.sin(a)
+        dx, dy = 34 * math.cos(a + math.pi / 2), 34 * math.sin(a + math.pi / 2)
+        ex, ey = 30 * math.cos(a), 30 * math.sin(a)
+        d.polygon([(cx - dx - ex, cy - dy - ey), (cx + dx - ex, cy + dy - ey),
+                   (cx + dx + ex, cy + dy + ey), (cx - dx + ex, cy - dy + ey)], fill=WHITE)
+    d.ellipse((150, 150, 362, 362), fill=WHITE)
+    d.ellipse((214, 214, 298, 298), fill=NAVY)
+
+
+def chart(d: Draw, image: Any) -> None:
+    for x, h in ((176, 110), (256, 210), (336, 160)):
+        d.rounded_rectangle((x - 30, 368 - h, x + 30, 368), radius=10, fill=WHITE)
+    line(d, [(120, 392), (392, 392)], 24)
+
+
+def calculator(d: Draw, image: Any) -> None:
+    d.rounded_rectangle((156, 110, 356, 402), radius=28, outline=WHITE, width=W)
+    d.rounded_rectangle((196, 152, 316, 206), radius=10, fill=WHITE)
+    for row in range(3):
+        for column in range(2):
+            x, y = 222 + column * 68, 256 + row * 50
+            d.ellipse((x - 18, y - 18, x + 18, y + 18), fill=WHITE)
+
+
+def bank(d: Draw, image: Any) -> None:
+    d.polygon([(256, 112), (400, 200), (112, 200)], fill=WHITE)
+    for x in (164, 230, 296, 362):
+        d.rounded_rectangle((x - 18 - 4, 222, x + 18 - 4, 352), radius=6, fill=WHITE)
+    d.rounded_rectangle((112, 364, 400, 396), radius=8, fill=WHITE)
+
+
+def compare(d: Draw, image: Any) -> None:
+    line(d, [(136, 200), (360, 200)])
+    line(d, [(306, 146), (366, 200), (306, 254)])
+    line(d, [(376, 316), (152, 316)])
+    line(d, [(206, 262), (146, 316), (206, 370)])
+
+
+def book(d: Draw, image: Any) -> None:
+    line(d, [(256, 176), (256, 384)], 24)
+    line(d, [(256, 176), (200, 146), (120, 146), (120, 354), (200, 354), (256, 384)])
+    line(d, [(256, 176), (312, 146), (392, 146), (392, 354), (312, 354), (256, 384)])
+
+
+def info(d: Draw, image: Any) -> None:
+    d.ellipse((120, 120, 392, 392), outline=WHITE, width=W)
+    d.ellipse((236, 166, 276, 206), fill=WHITE)
+    d.rounded_rectangle((236, 230, 276, 344), radius=16, fill=WHITE)
+
+
+def specification(d: Draw, image: Any) -> None:
+    line(d, [(196, 176), (124, 256), (196, 336)])
+    line(d, [(316, 176), (388, 256), (316, 336)])
+    line(d, [(284, 150), (228, 362)], 26)
+
+
 GLYPHS: dict[str, Callable[[Draw, Any], None]] = {
     "ksiRun": run, "ksiChecklist": checklist, "ksiClear": clear, "ksiImport": import_file,
     "ksiStaging": staging, "ksiCommit": commit, "ksiTemplates": templates, "ksiEvidence": export_file,
     "ksiReport": report, "ksiRestore": restore, "ksiHome": home, "ksiNavigationBar": navigation_bar,
+    "ksiTable": table, "ksiGear": gear, "ksiChart": chart, "ksiCalculator": calculator, "ksiBank": bank,
+    "ksiCompare": compare, "ksiBook": book, "ksiInfo": info, "ksiSpecification": specification,
 }
 
 

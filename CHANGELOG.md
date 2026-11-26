@@ -101,7 +101,8 @@ Use only the categories needed by a release.
   rounded tile, the header fill `1F3864` of the workbook's tables, with a white glyph, for Run,
   Validate inputs, Clear outputs, Import CSV, Validate staging, Commit import, Templates, Export
   evidence, Export report, Restore parameters, Go to and the Navigation bar toggle, in place of the
-  built-in Office icons. `tools/ribbon_icons.py` draws them at twice their size on the Ribbon; the
+  built-in Office icons, and for every entry of the Import CSV, Templates and Go to menus, one
+  glyph for each kind of file or sheet. `tools/ribbon_icons.py` draws them at twice their size on the Ribbon; the
   template carries them as images of its Ribbon part (`tools/ribbon_template.py`), and the
   `ribbon-icons` and `ribbon-template` gates check them.
 - Add **Export report** to the K-SACCR Ribbon tab (#259), the last of three parts: a button

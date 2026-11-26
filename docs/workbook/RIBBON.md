@@ -25,8 +25,12 @@ the user. They never replace those gates.
   `Large` for a large button and `Small` for a menu entry or a normal button;
   `tools/ribbon_icons.py` draws them into `src/workbook/ribbon-icons/` at twice
   their size on the Ribbon (64 and 32 px), so that they stay sharp on a display
-  scaled up, and Office scales them to the control. The file entries of the
-  Import CSV and Templates menus have no icon.
+  scaled up, and Office scales them to the control. The entries of the
+  menus have small icons too (the owner's verification of 2026-11-26): the
+  files of Import CSV and Templates, and the sheets of Go to, one glyph for each
+  kind of sheet (Home, the parameters, a table of inputs, a staging sheet, the
+  Dashboard, a table of outputs, Checks, a bank's figures, a comparison, a test,
+  a reference and the README).
 - **Packaging:** the macro-free template carries the source as its
   `customUI/customUI14.xml` part (#214). The build's `SaveAs .xlsm` keeps
   it, and so do ordinary saves; the owner's spike of 2026-11-05 checked
