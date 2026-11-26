@@ -239,17 +239,31 @@ function Invoke-QuickApi {
         -Body ([System.Text.Encoding]::UTF8.GetBytes($json))
 }
 
+function Select-QuickPullNumber {
+    # The number of the first pull request of a list, as the GitHub API returns
+    # it; $null when there is none. Windows PowerShell 5.1 turns an empty JSON
+    # array (a branch with no open pull request) into an empty string, which has
+    # no number: a run by hand on the release branch stopped on it.
+    param($Pulls)
+    foreach ($pull in @($Pulls)) {
+        if ($null -eq $pull -or $pull -is [string]) {
+            continue
+        }
+        $number = $pull.PSObject.Properties["number"]
+        if ($null -ne $number) {
+            return [int]$number.Value
+        }
+    }
+    return $null
+}
+
 function Find-QuickPullNumber {
     # The open pull request of a branch of this repository, for a run started
     # by hand; $null when there is none.
     param([string]$Repository, [string]$Branch, [string]$Token)
     $owner = $Repository.Split("/")[0]
     $uri = "https://api.github.com/repos/$Repository/pulls?state=open&head=" + [uri]::EscapeDataString($owner + ":" + $Branch)
-    $pulls = @(Invoke-QuickApi -Method "GET" -Uri $uri -Token $Token)
-    if ($pulls.Count -eq 0) {
-        return $null
-    }
-    return [int]$pulls[0].number
+    return Select-QuickPullNumber -Pulls (Invoke-QuickApi -Method "GET" -Uri $uri -Token $Token)
 }
 
 function Publish-QuickReport {

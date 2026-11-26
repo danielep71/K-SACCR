@@ -176,6 +176,18 @@ $comments = @(
         # A pull request with no comment yet: Windows PowerShell 5.1 returns "" for [], which has no body.
         self.assertEqual(run(body).splitlines(), ["13", "True", "True", "True", "True", "True"])
 
+    def test_a_branch_with_no_open_pull_request_has_no_number(self) -> None:
+        # A full check run by hand on the release branch, which has no open pull request: Windows PowerShell 5.1
+        # returns "" for the empty list, and the report stopped on reading its number (2026-11-26).
+        body = r"""
+[string]($null -eq (Select-QuickPullNumber -Pulls ""))
+[string]($null -eq (Select-QuickPullNumber -Pulls @()))
+[string]($null -eq (Select-QuickPullNumber -Pulls @($null)))
+[string]($null -eq (Select-QuickPullNumber -Pulls @([pscustomobject]@{ title = 'x' })))
+Select-QuickPullNumber -Pulls @([pscustomobject]@{ number = 805 }, [pscustomobject]@{ number = 7 })
+"""
+        self.assertEqual(run(body).splitlines(), ["True", "True", "True", "True", "805"])
+
     def test_only_old_quick_bundles_are_removed(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             parent = Path(folder)
