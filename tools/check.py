@@ -49,6 +49,8 @@ def main() -> int:
                      [sys.executable, "tools/check_issues.py", "--root", str(root), "--check-config"]))
     commands.append(("generated-csv-modules",
                      [sys.executable, "tools/generate_csv_vba.py", "--root", str(root), "--check"]))
+    commands.append(("ribbon-icons",
+                     [sys.executable, "tools/ribbon_icons.py", "--root", str(root)]))
     commands.append(("ribbon-template",
                      [sys.executable, "tools/ribbon_template.py", "--root", str(root)]))
     commands.append(("navigation-bar",

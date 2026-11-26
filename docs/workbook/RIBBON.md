@@ -19,8 +19,20 @@ the user. They never replace those gates.
 - **Host:** Microsoft 365 or Excel 2016 and later, Windows 64-bit; 32-bit is
   best effort. The source uses the `customUI14` namespace
   (`http://schemas.microsoft.com/office/2009/07/customui`), which those hosts
-  read. Icons are built-in Office icons (`imageMso`), so the workbook ships no
-  image file.
+  read. The icons are the workbook's own (#803): a navy rounded tile, the
+  header fill `1F3864` of the tables, with a white glyph, the style the owner
+  chose on 2026-11-26. The source names each with `image="ksiGlyphSize"`,
+  `Large` for a large button and `Small` for a menu entry or a normal button;
+  `tools/ribbon_icons.py` draws them into `src/workbook/ribbon-icons/` at twice
+  their size on the Ribbon (64 and 32 px), so that they stay sharp on a display
+  scaled up, and Office scales them to the control. The entries of the
+  menus have small icons too (the owner's verification of 2026-11-26): the
+  files of Import CSV and Templates, and the sheets of Go to, one glyph for each
+  kind of sheet. Netting sets are a stack of cards and trades a single card, on
+  NettingSets and Trades, their staging sheets, files and templates; a bank's
+  figures have the same cards under a roof. The others: Home, the parameters,
+  the Dashboard, a table of outputs, Checks, a comparison, a test, a reference
+  and the README.
 - **Packaging:** the macro-free template carries the source as its
   `customUI/customUI14.xml` part (#214). The build's `SaveAs .xlsm` keeps
   it, and so do ordinary saves; the owner's spike of 2026-11-05 checked
