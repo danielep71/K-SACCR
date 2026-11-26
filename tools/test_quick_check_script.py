@@ -112,9 +112,10 @@ New-QuickReport -Summary $s -Sha '0123456789abcdef0123456789abcdef01234567' -Pas
         # #801: a pull request gets the smoke check, and its comment names it.
         body = r"""
 $s = $env:SUMMARY
-New-QuickReport -Summary $s -Sha '0123456789abcdef0123456789abcdef01234567' -Passed $true -RunUrl 'u' -ArtifactName ''
+New-QuickReport -Summary $s -Sha '0123456789abcdef0123456789abcdef01234567' -Passed $true -RunUrl 'u' -ArtifactName 'a-1'
 """
         report = run(body, SUMMARY=SMOKE_SUMMARY)
+        self.assertIn("the text results are in the run's artifact `a-1`", report)
         self.assertEqual(report.splitlines()[1], "### Excel smoke check of `0123456`: PASS")
         self.assertIn("the build, the compile and the calculation suites", report)
         self.assertIn("certification before a release", report)

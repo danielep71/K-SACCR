@@ -129,7 +129,11 @@ function New-QuickReport {
     $out.Add("")
     $links = "[Workflow run]($RunUrl)"
     if (-not [string]::IsNullOrWhiteSpace($ArtifactName)) {
-        $links += "; the sheet pictures are in the run's artifact ``$ArtifactName``, kept for 14 days"
+        $contents = "the sheet pictures"
+        if ($smoke) {
+            $contents = "the text results"
+        }
+        $links += "; $contents are in the run's artifact ``$ArtifactName``, kept for 14 days"
     }
     $out.Add($links + ".")
     $text = ($out -join "`n") + "`n"
