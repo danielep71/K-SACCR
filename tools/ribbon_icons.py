@@ -206,12 +206,56 @@ def specification(d: Draw, image: Any) -> None:
     line(d, [(284, 150), (228, 362)], 26)
 
 
+def card(d: Draw, box: tuple[float, float, float, float], solid: bool = False) -> None:
+    """A trade: a card with two lines; solid in front of the cards behind it."""
+    left, top, right, bottom = box
+    d.rounded_rectangle(box, radius=22, fill=NAVY, outline=WHITE, width=26)
+    inner = (left + 40, right - 40)
+    for k, y in enumerate((top + (bottom - top) * 0.40, top + (bottom - top) * 0.66)):
+        d.rounded_rectangle((inner[0], y - 11, inner[1] - (60 if k else 0), y + 11), radius=11, fill=WHITE)
+
+
+def trade_cards(d: Draw, top: float) -> None:
+    card(d, (136, top, 376, top + (392 - top)))
+
+
+def netting_cards(d: Draw, top: float) -> None:
+    height = 392 - top
+    card(d, (196, top, 400, top + height * 0.70))
+    card(d, (164, top + height * 0.15, 368, top + height * 0.85))
+    card(d, (132, top + height * 0.30, 336, 392))
+
+
+def roof(d: Draw) -> None:
+    d.polygon([(256, 100), (404, 176), (108, 176)], fill=WHITE)
+
+
+def trades(d: Draw, image: Any) -> None:
+    trade_cards(d, 140)
+
+
+def netting_sets(d: Draw, image: Any) -> None:
+    netting_cards(d, 120)
+
+
+def bank_trades(d: Draw, image: Any) -> None:
+    roof(d)
+    trade_cards(d, 206)
+
+
+def bank_netting_sets(d: Draw, image: Any) -> None:
+    roof(d)
+    netting_cards(d, 200)
+
+
 GLYPHS: dict[str, Callable[[Draw, Any], None]] = {
     "ksiRun": run, "ksiChecklist": checklist, "ksiClear": clear, "ksiImport": import_file,
     "ksiStaging": staging, "ksiCommit": commit, "ksiTemplates": templates, "ksiEvidence": export_file,
     "ksiReport": report, "ksiRestore": restore, "ksiHome": home, "ksiNavigationBar": navigation_bar,
     "ksiTable": table, "ksiGear": gear, "ksiChart": chart, "ksiCalculator": calculator, "ksiBank": bank,
     "ksiCompare": compare, "ksiBook": book, "ksiInfo": info, "ksiSpecification": specification,
+    "ksiTrades": trades, "ksiNettingSets": netting_sets, "ksiBankTrades": bank_trades,
+    "ksiBankNettingSets": bank_netting_sets,
 }
 
 

@@ -28,9 +28,11 @@ the user. They never replace those gates.
   scaled up, and Office scales them to the control. The entries of the
   menus have small icons too (the owner's verification of 2026-11-26): the
   files of Import CSV and Templates, and the sheets of Go to, one glyph for each
-  kind of sheet (Home, the parameters, a table of inputs, a staging sheet, the
-  Dashboard, a table of outputs, Checks, a bank's figures, a comparison, a test,
-  a reference and the README).
+  kind of sheet. Netting sets are a stack of cards and trades a single card, on
+  NettingSets and Trades, their staging sheets, files and templates; a bank's
+  figures have the same cards under a roof. The others: Home, the parameters,
+  the Dashboard, a table of outputs, Checks, a comparison, a test, a reference
+  and the README.
 - **Packaging:** the macro-free template carries the source as its
   `customUI/customUI14.xml` part (#214). The build's `SaveAs .xlsm` keeps
   it, and so do ordinary saves; the owner's spike of 2026-11-05 checked
