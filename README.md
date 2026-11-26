@@ -367,7 +367,8 @@ Expected summary in Windows Excel 64-bit. The format and counts are those of
 the shared suite lifecycle (#536); the timings, which vary, are from the quick
 run of `feat/165-randomized-formula-tests` at 009a92d on 2026-11-19, and for
 `TEST_Dashboard` from the quick run of `feat/675-dashboard-writer` at c0d1b8f on
-2026-11-23:
+2026-11-23, and for `TEST_Report` from the quick run of `feat/259-report-writer` at
+20ed2af on 2026-11-26:
 
 ```text
 SACCR TEST SUMMARY 2026-11-19 09:36:50
@@ -383,7 +384,7 @@ SACCR TEST SUMMARY 2026-11-19 09:36:50
   PASS  TEST_Import           cases=39; checks=236; failures=0; restore=PASS  (37,2 s)
   PASS  TEST_FormulaRandom    cases=19; checks=47; failures=0; restore=PASS  (3,1 s)
   PASS  TEST_Dashboard        cases=6; checks=65; failures=0; restore=PASS  (6,5 s)
-  PASS  TEST_Report           cases=5; checks=54; failures=0; restore=PASS  (0,0 s)
+  PASS  TEST_Report           cases=5; checks=54; failures=0; restore=PASS  (19,8 s)
 RESULT=PASS; suites=13; passed=13; failed=0; seconds=126,6
 ```
 
