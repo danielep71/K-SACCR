@@ -245,6 +245,12 @@ Attribute VB_Name = "M_Main"
         Private Const RPT_RECON_RATIOS        As String = "Multiplier"
         Private Const RPT_TRADE_RECON_RATIOS  As String = "M|Supervisory duration|Supervisory delta|MF unmargined|" & _
                                                           "MF margined"
+    'The look of the report: the font, the header fill and the tab colors of
+    'the workbook's sheets (docs/workbook/sheet-style.json), as BGR values.
+        Private Const RPT_FONT                As String = "Aptos"       'Font of every cell
+        Private Const RPT_HEADER_FILL         As Long = &H64381F        'Header fill 1F3864, with white bold text
+        Private Const RPT_TAB_REFERENCE       As Long = &H64381F        'Tab 1F3864: Run and Limitations
+        Private Const RPT_TAB_OUTPUT          As Long = &HB6752E        'Tab 2E75B6: every other section
 
 '------------------------------------------------------------------------------
 ' TYPES
@@ -2042,8 +2048,8 @@ Public Sub ExportReport()
 '   Notify
 '
 ' NOTES
-'   The Ribbon command follows with #259; the macro runs from the Macros
-'   dialog meanwhile
+'   Runs from Export report on the K-SACCR Ribbon tab (M_Ribbon), or the
+'   Macros dialog
 '
 ' UPDATED
 '   2026-11-26
@@ -2318,10 +2324,12 @@ Private Function WriteReport( _
 ' BEHAVIOR
 '   - Refuses a read-only target before anything is built
 '   - Turns off screen updating, alerts and events
+'   - Gives the new workbook the font and the vertical alignment of the
+'     K-SACCR sheets (docs/workbook/sheet-style.json)
 '   - Writes Run, Dashboard, Charts (PDF only), Totals, Results, Checks,
 '     the two reconciliations when they were made, and Limitations
-'   - Saves or exports beside the target, closes the new workbook and
-'     replaces the target (ReplaceReportFile)
+'   - Hides the gridlines, saves or exports beside the target, closes
+'     the new workbook and replaces the target (ReplaceReportFile)
 '
 ' ERROR POLICY
 '   Raises the first error after closing the new workbook unsaved,
@@ -2332,7 +2340,8 @@ Private Function WriteReport( _
 '   AddReportSheet, WriteReportRun, WriteReportDashboard,
 '   WriteReportCharts, WriteReportTotals, WriteReportResults,
 '   WriteReportChecks, WriteReportReconciliation, WriteReportLimitations,
-'   ApplyReportPageSetup, ReportSiblingPath, ReplaceReportFile
+'   ApplyReportPageSetup, HideReportGridlines, ReportSiblingPath,
+'   ReplaceReportFile
 '
 ' NOTES
 '   gTestFault "report-save" raises before the file is saved, and
@@ -2396,6 +2405,9 @@ Private Function WriteReport( _
         Set ReportBook = Application.Workbooks.Add(xlWBATWorksheet)
         ReportBook.BuiltinDocumentProperties("Author").Value = MSG_TITLE
         ReportBook.BuiltinDocumentProperties("Title").Value = "K-SACCR run report"
+    'The font and the vertical alignment of the workbook's sheets
+        ReportBook.Styles("Normal").Font.Name = RPT_FONT
+        ReportBook.Styles("Normal").VerticalAlignment = xlCenter
     'One sheet per section, in the order of report.json; the pages of a
     'PDF are set up as each sheet is written
         Footer = "K-SACCR report - run " & ReportRunTime() & " - inputs " & CORE_Engine.LastRunInputs() & _
@@ -2442,6 +2454,7 @@ Private Function WriteReport( _
         If gTestFault = "report-save" Then
             Err.Raise ERR_INJECTED_FAULT, PROC_NAME, "Injected failure before the report was saved."
         End If
+        HideReportGridlines ReportBook
         NewPath = ReportSiblingPath(FilePath)
         If AsPdf Then
             ReportBook.ExportAsFixedFormat Type:=xlTypePDF, Filename:=NewPath, Quality:=xlQualityStandard, _
@@ -2526,7 +2539,10 @@ Private Function AddReportSheet( _
 '   The sheet
 '
 ' BEHAVIOR
-'   Uses the first sheet for Run, then adds sheets at the end
+'   - Uses the first sheet for Run, then adds sheets at the end
+'   - Gives the tab the color of the workbook's sheets of its role: Run
+'     and Limitations that of the reference sheets, the others that of
+'     the output sheets (docs/workbook/sheet-style.json)
 '
 ' ERROR POLICY
 '   Raises an error of Excel
@@ -2556,6 +2572,12 @@ Private Function AddReportSheet( _
             Set NewSheet = ReportBook.Worksheets.Add(After:=ReportBook.Worksheets(ReportBook.Worksheets.Count))
         End If
         NewSheet.Name = SheetName
+    'The tab color of the workbook's sheets of the same role
+        If SheetName = "Run" Or SheetName = "Limitations" Then
+            NewSheet.Tab.Color = RPT_TAB_REFERENCE
+        Else
+            NewSheet.Tab.Color = RPT_TAB_OUTPUT
+        End If
         Set AddReportSheet = NewSheet
 
 End Function
@@ -2731,6 +2753,8 @@ Private Function WriteReportTable( _
 '   The row of the headers; the rows follow it
 '
 ' BEHAVIOR
+'   - The header row in white bold on the header fill of the K-SACCR
+'     tables (RPT_HEADER_FILL)
 '   - XLSX: each column gets the number format of its kind before the
 '     values are written, text columns "@", so that a text is never read
 '     as a number or a formula; a text starting with =, +, - or @ in
@@ -2791,7 +2815,8 @@ Private Function WriteReportTable( _
             .NumberFormat = "@"
             .Value2 = Headers
             .Font.Bold = True
-            .Interior.Color = RGB(217, 225, 242)
+            .Font.Color = vbWhite
+            .Interior.Color = RPT_HEADER_FILL
         End With
         WriteReportTable = HeaderRow
         If Not IsArray(Data) Then Exit Function
@@ -3006,6 +3031,8 @@ Private Function WriteReportDashboard( _
 '     without labels, a ranking, starts at its values
 '   - XLSX: the values with the number format of each cell; PDF: their
 '     text in that format (CORE_Export.ReportFormatText)
+'   - The title row in bold, the header row in white bold on the header
+'     fill of the K-SACCR tables (RPT_HEADER_FILL)
 '
 ' ERROR POLICY
 '   Raises an error of Excel, and ERR_OUTPUT_LAYOUT when a block's name is
@@ -3087,7 +3114,8 @@ Private Function WriteReportDashboard( _
             Next i
             Target.Rows(1).Font.Bold = True
             Target.Rows(2).Font.Bold = True
-            Target.Rows(2).Interior.Color = RGB(217, 225, 242)
+            Target.Rows(2).Font.Color = vbWhite
+            Target.Rows(2).Interior.Color = RPT_HEADER_FILL
             TopRow = TopRow + Source.Rows.Count + 1
         Next n
         FitReportColumns ReportSheet
@@ -3163,7 +3191,10 @@ Private Function WriteReportCharts( _
 '
 ' WHY THIS EXISTS
 '   The PDF shows the Dashboard's charts as the sheet shows them (#259);
-'   a picture, unlike a chart, reads nothing from the K-SACCR workbook
+'   a picture, unlike a chart, reads nothing from the K-SACCR workbook.
+'   Excel draws a chart only where it shows it: exported from a sheet it
+'   does not show, with screen updating off, a chart came out empty, its
+'   frame and title alone (owner's verification of 2026-11-26)
 '
 ' INPUTS
 '   ReportSheet
@@ -3173,18 +3204,27 @@ Private Function WriteReportCharts( _
 '   The number of charts pictured
 '
 ' BEHAVIOR
-'   - Exports each chart as a PNG file to the temporary folder, places
-'     it at the chart's size and deletes the file
+'   - Shows the Dashboard sheet, with screen updating on, while its charts
+'     are pictured
+'   - For each chart: scrolls the window to it (ShowReportChart), exports
+'     it as a PNG file to the temporary folder, places the picture at the
+'     chart's size and deletes the file
 '   - Rows of two pictures, the height of the taller one apart
+'   - Puts back the Dashboard's scroll position and screen updating, and
+'     activates the report again, on success and on failure
 '
 ' ERROR POLICY
-'   Raises an error of Excel after deleting the picture file
+'   Raises an error of Excel after deleting the picture file and putting
+'   the window and screen updating back
 '
 ' DEPENDENCIES
-'   GetSheet, FileExists, ReportTempFolder
+'   GetSheet, FileExists, ReportTempFolder, ReportSourceWindow,
+'   ShowReportChart, ScrollReportWindow
 '
 ' NOTES
-'   The pictures are embedded, not linked to the files
+'   The pictures are embedded, not linked to the files. WriteReport runs
+'   with events off, so showing the Dashboard runs none of its handlers;
+'   its selection is not changed
 '
 ' UPDATED
 '   2026-11-26
@@ -3196,6 +3236,12 @@ Private Function WriteReportCharts( _
     Const PROC_NAME     As String = "M_Main.WriteReportCharts"
     Const GAP           As Double = 12#    'Points between pictures
 
+    Dim SourceSheet     As Worksheet       'The Dashboard sheet
+    Dim SourceWindow    As Window          'The K-SACCR window; Nothing when there is none
+    Dim SavedScreen     As Boolean         'ScreenUpdating before the charts
+    Dim SavedRow        As Long            'Scroll row of the Dashboard before the charts
+    Dim SavedColumn     As Long            'Its scroll column
+    Dim Shown           As Boolean         'True once the Dashboard is shown
     Dim ChartFrame      As ChartObject     'A chart of the Dashboard
     Dim PictureFile     As String          'Its picture file; "" once deleted
     Dim ChartCount      As Long            'Charts pictured
@@ -3210,17 +3256,32 @@ Private Function WriteReportCharts( _
 ' INITIALIZE
 '------------------------------------------------------------------------------
         On Error GoTo ErrorHandler
+    'The title of the sheet, then the first picture's place
         ReportSheet.Cells(1, 1).Value2 = "Dashboard charts"
         ReportSheet.Cells(1, 1).Font.Bold = True
         LeftEdge = GAP
         TopEdge = ReportSheet.Rows(3).Top
 
 '------------------------------------------------------------------------------
-' PICTURE EACH CHART
+' SHOW THE DASHBOARD
 '------------------------------------------------------------------------------
-    'Export, place, delete
-        For Each ChartFrame In GetSheet(SH_DASHBOARD).ChartObjects
+    'Excel draws a chart only on a sheet it shows, with screen updating on
+        Set SourceSheet = GetSheet(SH_DASHBOARD)
+        SavedScreen = Application.ScreenUpdating
+        Shown = True
+        Application.ScreenUpdating = True
+        ThisWorkbook.Activate
+        SourceSheet.Activate
+    'Keep the window and its scroll position, to put them back
+        Set SourceWindow = ReportSourceWindow(SavedRow, SavedColumn)
+
+'------------------------------------------------------------------------------
+' PICTURE THE CHARTS
+'------------------------------------------------------------------------------
+    'Show, export, place, delete
+        For Each ChartFrame In SourceSheet.ChartObjects
             ChartCount = ChartCount + 1
+            ShowReportChart SourceWindow, ChartFrame
             PictureFile = ReportTempFolder() & Application.PathSeparator & "K-SACCR_report_chart_" & ChartCount & ".png"
             If FileExists(PictureFile) Then Kill PictureFile
             ChartFrame.Chart.Export Filename:=PictureFile, FilterName:="PNG"
@@ -3242,24 +3303,239 @@ Private Function WriteReportCharts( _
 '------------------------------------------------------------------------------
 ' EXIT PROCEDURE
 '------------------------------------------------------------------------------
+    'Put the window and screen updating back, then the report in front
+        ScrollReportWindow SourceWindow, SavedRow, SavedColumn
+        Application.ScreenUpdating = SavedScreen
+        ReportSheet.Parent.Activate
         Exit Function
 
 '------------------------------------------------------------------------------
 ' ERROR HANDLER
 '------------------------------------------------------------------------------
 ErrorHandler:
-    'Delete the picture file, then raise the first error
+    'Capture the first error
         ErrorNumber = Err.Number
         ErrorSource = Err.Source
         ErrorText = Err.Description
+    'Delete the picture file and put the window and screen updating back
         On Error Resume Next
         If VBA.Len(PictureFile) > 0 Then
             If FileExists(PictureFile) Then Kill PictureFile
         End If
+        ScrollReportWindow SourceWindow, SavedRow, SavedColumn
+        If Shown Then Application.ScreenUpdating = SavedScreen
+        ReportSheet.Parent.Activate
+    'Raise the first error
         On Error GoTo 0
         Err.Raise ErrorNumber, ErrorSource, "Chart " & ChartCount & ": " & ErrorText
 
 End Function
+
+
+Private Function ReportSourceWindow( _
+    ByRef SavedRow As Long, _
+    ByRef SavedColumn As Long) _
+    As Window
+'
+'------------------------------------------------------------------------------
+'                  FIND THE K-SACCR WINDOW AND ITS SCROLL POSITION
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the first window of the K-SACCR workbook and gives its scroll
+'   row and column, so that WriteReportCharts can put them back (#259)
+'
+' WHY THIS EXISTS
+'   The charts are scrolled into view to be drawn; the window must end
+'   as the user left it
+'
+' INPUTS
+'   SavedRow
+'     Receives the scroll row; 0 when it cannot be read
+'
+'   SavedColumn
+'     Receives the scroll column; 0 when it cannot be read
+'
+' RETURNS
+'   The window; Nothing when there is none or it cannot be read
+'
+' BEHAVIOR
+'   Reads ThisWorkbook.Windows(1)
+'
+' ERROR POLICY
+'   Best effort: never raises; without a window the charts are exported
+'   where they are
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim SourceWindow    As Window    'The window found
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'A window is an aid, never a failure
+        On Error GoTo Unreadable
+
+'------------------------------------------------------------------------------
+' READ
+'------------------------------------------------------------------------------
+    'The window and where it is scrolled
+        SavedRow = 0
+        SavedColumn = 0
+        Set SourceWindow = ThisWorkbook.Windows(1)
+        SavedRow = SourceWindow.ScrollRow
+        SavedColumn = SourceWindow.ScrollColumn
+        Set ReportSourceWindow = SourceWindow
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+    'Leave before the error handler
+        Exit Function
+
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+Unreadable:
+    'No window: nothing to scroll or put back
+        Set ReportSourceWindow = Nothing
+
+End Function
+
+
+Private Sub ScrollReportWindow( _
+    ByVal SourceWindow As Window, _
+    ByVal TopRow As Long, _
+    ByVal LeftColumn As Long)
+'
+'------------------------------------------------------------------------------
+'                  SCROLL THE K-SACCR WINDOW TO A ROW AND COLUMN
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Scrolls the window so that TopRow and LeftColumn are its first
+'   scrolling row and column (#259)
+'
+' WHY THIS EXISTS
+'   ShowReportChart brings a chart into view, and WriteReportCharts puts
+'   the window back where the user left it
+'
+' INPUTS
+'   SourceWindow
+'     The window; Nothing to do nothing
+'
+'   TopRow
+'     The row; 0 to do nothing
+'
+'   LeftColumn
+'     The column; 0 to do nothing
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   Sets ScrollRow and ScrollColumn
+'
+' ERROR POLICY
+'   Best effort: never raises; Excel keeps the frozen rows and columns in
+'   view whatever is asked
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'Scrolling is an aid, never a failure
+        On Error Resume Next
+
+'------------------------------------------------------------------------------
+' SCROLL
+'------------------------------------------------------------------------------
+    'Only a window, a row and a column that are known
+        If SourceWindow Is Nothing Then Exit Sub
+        If TopRow < 1 Or LeftColumn < 1 Then Exit Sub
+        SourceWindow.ScrollRow = TopRow
+        SourceWindow.ScrollColumn = LeftColumn
+
+End Sub
+
+
+Private Sub ShowReportChart( _
+    ByVal SourceWindow As Window, _
+    ByVal ChartFrame As ChartObject)
+'
+'------------------------------------------------------------------------------
+'                    BRING A CHART OF THE DASHBOARD INTO VIEW
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Scrolls the K-SACCR window to a chart of the Dashboard and lets Excel
+'   draw it, before WriteReportCharts exports it
+'
+' WHY THIS EXISTS
+'   Excel draws a chart only where it shows it; a chart below the window
+'   could be exported empty (#259)
+'
+' INPUTS
+'   SourceWindow
+'     The window of the K-SACCR workbook; Nothing when there is none
+'
+'   ChartFrame
+'     A chart of the Dashboard
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   Scrolls to the chart's top left cell, refreshes the chart and lets
+'   Excel draw it (DoEvents)
+'
+' ERROR POLICY
+'   Best effort: a window that cannot scroll, as under automation with
+'   Excel hidden, leaves the export to draw the chart
+'
+' DEPENDENCIES
+'   ScrollReportWindow
+'
+' NOTES
+'   WriteReportCharts puts the scroll position back
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'Scrolling is an aid, never a failure
+        On Error Resume Next
+
+'------------------------------------------------------------------------------
+' SCROLL AND DRAW
+'------------------------------------------------------------------------------
+    'Bring the chart's top left cell into view
+        ScrollReportWindow SourceWindow, ChartFrame.TopLeftCell.Row, ChartFrame.TopLeftCell.Column
+    'Draw the chart before it is exported
+        ChartFrame.Chart.Refresh
+        DoEvents
+
+End Sub
 
 
 Private Function ReportTempFolder() As String
@@ -4190,6 +4466,67 @@ Private Function ReportRunTime() As String
         End If
 
 End Function
+
+
+Private Sub HideReportGridlines( _
+    ByVal ReportBook As Workbook)
+'
+'------------------------------------------------------------------------------
+'                    HIDE THE GRIDLINES OF THE RUN REPORT
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Hides the gridlines of every sheet of the report, as the workbook's
+'   sheets have none (docs/workbook/sheet-style.json)
+'
+' WHY THIS EXISTS
+'   An XLSX report opens as the K-SACCR sheets look (#259); a PDF never
+'   prints gridlines
+'
+' INPUTS
+'   ReportBook
+'     The report's workbook
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   Turns off the gridlines of each sheet's view in the report's window,
+'   without activating a sheet
+'
+' ERROR POLICY
+'   Best effort: a window without sheet views, as under automation, keeps
+'   its gridlines, which change no value
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   WorksheetView needs Excel 2013 or later, as the workbook does
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim View    As WorksheetView    'The view of a sheet in the report's window
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'The gridlines are a matter of look, never a failure
+        On Error Resume Next
+
+'------------------------------------------------------------------------------
+' HIDE
+'------------------------------------------------------------------------------
+    'Every sheet's view in the report's window, without activating a sheet
+        For Each View In ReportBook.Windows(1).SheetViews
+            View.DisplayGridlines = False
+        Next View
+
+End Sub
 
 
 Private Function ReportSiblingPath( _

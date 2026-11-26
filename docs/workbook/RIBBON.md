@@ -42,7 +42,7 @@ the user. They never replace those gates.
 | --- | --- |
 | Calculation | Split button **Run**: the primary click runs SA-CCR; the menu holds Run SA-CCR and Validate inputs · **Clear outputs**, a button of its own beside it (#719) |
 | CSV import | Menu **Import CSV** (NettingSets file, Trades file) · **Validate staging** · **Commit import** · menu **Templates** (NettingSets template, Trades template, Import specification) |
-| Evidence | **Export evidence** |
+| Evidence | **Export evidence** · **Export report**, the formatted report of the run as a PDF or an XLSX (#259) |
 | Parameters | **Restore parameters**, which puts the reference parameters and the factor table back to the regulatory set (#357) |
 | Status | Three read-only labels: Results, NettingSets staging, Trades staging |
 | Navigate | Split button **Go to**: the primary click opens Home; the menu lists every sheet in six titled sections, in the order of the sheet tabs (#329) · toggle **Navigation bar**, which shows or hides the bar of sheet links on every sheet (#620) |
@@ -82,6 +82,7 @@ Each command calls `RibbonAction`, which runs the macro named here.
 | `ksTemplateBankTrades` | BankTrades template... | P, L | `ExportBankTradesCsvTemplate` |
 | `ksImportSpecification` | Import specification... | P, S | `ExportImportSpecification` |
 | `ksExportEvidence` | Export evidence | E | `ExportEvidence` |
+| `ksExportReport` | Export report | O | `ExportReport` |
 | `ksRestoreParameters` | Restore parameters | A | `RestoreRegulatoryParameters` |
 
 A completed run leaves the user on Results; a run that stops, and Validate
@@ -115,7 +116,9 @@ set, the one every run is compared with:
 `ksRunSplit`, `ksImportMenu` and `ksTemplatesMenu` hold the controls above
 and call no macro themselves. The Templates menu writes blank CSV templates
 or the import specification; **Export evidence** writes the evidence CSV of a
-run. They are different operations.
+run, and **Export report** a formatted report of the same run, as a PDF or an
+XLSX workbook, for a reviewer who reads results ([`REPORT.md`](REPORT.md)).
+They are different operations.
 
 ## 🗺️ Navigation
 
@@ -249,7 +252,7 @@ enforce the same rules again, whatever the Ribbon shows.
 | Every command and toggle | No operation is running |
 | `ksValidateStaging` | A staging sheet holds rows: its status is not `EMPTY` |
 | `ksCommitImport` | A staging sheet reads `VALID` |
-| `ksExportEvidence` | Results C5 says the inputs are unchanged since the last run: not `OUT OF DATE` and not `NONE` |
+| `ksExportEvidence`, `ksExportReport` | Results C5 says the inputs are unchanged since the last run: not `OUT OF DATE` and not `NONE`. The two exports refuse in the same cases, so they share the rule |
 | Every other control, `ksNavigationBar` included | Always, apart from a running operation |
 
 A status that cannot be read enables its control, and so does an error or a

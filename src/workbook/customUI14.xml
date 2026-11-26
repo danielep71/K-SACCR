@@ -88,6 +88,10 @@
                   screentip="Export evidence"
                   supertip="Write the evidence CSV of the current run. Refused while the results are out of date or edited."
                   onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+          <button id="ksExportReport" label="Export report" size="large" imageMso="FileSaveAsPdfOrXps" keytip="O"
+                  screentip="Export report"
+                  supertip="Write a formatted report of the current run, as a PDF or an XLSX workbook: the Dashboard, the totals, Results, Checks by code and the reconciliations. Refused while the results are out of date or edited."
+                  onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
         </group>
 
         <group id="ksGrpParameters" label="Parameters">

@@ -97,6 +97,13 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Add **Export report** to the K-SACCR Ribbon tab (#259), the last of three parts: a button
+  beside Export evidence in the Evidence group runs `ExportReport`, enabled in the same cases as
+  Export evidence, while Results is current. `TEST_MainState` checks its enabled states (724
+  checks). README, INSTALLATION, SECURITY and the Ribbon contract document the command, and the
+  Home and README sheets name it. After the owner's verification in Excel, the PDF's charts are
+  pictured with the Dashboard shown, as Excel exported them empty from a sheet it did not show, and
+  the report takes the font, header fill, tab colors and hidden gridlines of the K-SACCR sheets.
 - Write the formatted run report (#259), the second of three parts: `ExportReport` and
   `ExportReport_Silent` write a report of the last run as a PDF or an XLSX, chosen by the file's
   extension, in the order and formats of `docs/workbook/report.json`. The report is built in a new

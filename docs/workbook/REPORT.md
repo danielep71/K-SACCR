@@ -34,6 +34,11 @@ the same number of columns, and the run lines are lines of the evidence CSV.
   mode and the clipboard of the K-SACCR workbook are not touched, and the
   fingerprints of the inputs and of the outputs are the same after the export,
   so the results stay current.
+- **The look of the workbook.** The report has the font, the vertical alignment,
+  the header fill (white bold text on `1F3864`) and no gridlines, like the K-SACCR
+  sheets of [`sheet-style.json`](sheet-style.json); Run and Limitations have the tab
+  color of the reference sheets, the other sections that of the output sheets.
+  `tools/test_report_spec.py` holds the writer's colors to that file.
 - **Values only.** The XLSX holds values and formats, with no formula, no macro,
   no name that refers to another workbook and no link to the source workbook.
 - **Units.** Amounts of Results, the totals and the Checks are in the reporting
@@ -123,7 +128,13 @@ cut or continued on another page to the right. The header row of each table
 repeats on every page, and the footer reads "K-SACCR report - run *time* - inputs
 *fingerprint* - page *n* of *N*". The Dashboard tables come first and then the
 pictures of the ten charts, exported from the Dashboard sheet one by one, as the
-sheet shows them. The XLSX holds the same figures as values and has no chart.
+sheet shows them. Excel draws a chart only where it shows it: exported from a
+sheet it did not show, with screen updating off, a chart came out empty, its
+frame and title alone (the owner's verification of 2026-11-26). The export
+therefore shows the Dashboard, with screen updating on, and scrolls each chart
+into view before it is pictured; the Dashboard's scroll position, its selection
+and screen updating are then put back, and the report comes to the front again.
+The XLSX holds the same figures as values and has no chart.
 
 ## 🔄 Life cycle
 
@@ -133,8 +144,9 @@ chooses decides the format; `ExportReport_Silent` takes the path and decides by
 the extension; it returns `RESULT=OK; format=PDF|XLSX; sheets=N; charts=N;
 page_setup=OK; file=...` or `RESULT=REFUSED; reason=...`. A printer driver that
 refuses a page setting does not stop the PDF: the result says
-`page_setup=FAILED (...)`. Until part C adds it to the Ribbon, the command runs
-from the Macros dialog as `ExportReport`. A refusal and a write failure are reported in a message, or in
+`page_setup=FAILED (...)`. The command is **Export report** in the Evidence group
+of the K-SACCR Ribbon tab, enabled like Export evidence while Results is current
+([`RIBBON.md`](RIBBON.md)); it also runs from the Macros dialog as `ExportReport`. A refusal and a write failure are reported in a message, or in
 the Immediate window in silent mode, and never raise. A failure leaves no
 partial file: the report is written beside the target and then renamed, as the
 evidence CSV is, and the temporary workbook is closed without saving whatever

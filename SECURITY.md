@@ -86,6 +86,15 @@ exposure figure, which are reported as issues.
   or the blank template there. For these two exports an existing file of that
   name, hidden ones included, is deleted and replaced without a further prompt
   from the macro; a read-only file is left unchanged and the export fails.
+- **Export report** (`M_Main.ExportReport`, #259) asks for a file name with
+  `Application.GetSaveAsFilename` and writes the report there as a PDF or an
+  XLSX, chosen by the extension. The report is built in a new workbook that is
+  closed without saving; the XLSX holds values only, with no macro and no link
+  to the workbook. It is saved beside the target under a new name and then
+  renamed, replacing an existing file of that name, hidden ones included,
+  without a further prompt; a read-only file is left unchanged and the export
+  fails. Each chart of the PDF is pictured through a file in the user's
+  temporary folder, deleted at once.
 - **Export import specifications** (`M_Main.ExportImportSpecification`) asks
   for a file name with `Application.GetSaveAsFilename`, asks before replacing
   an existing file of that name, and writes the import specification page

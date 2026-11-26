@@ -2789,11 +2789,11 @@ Private Sub CaseRibbonEnabledStates()
 '   The state table of docs/workbook/RIBBON.md (#216), through the pure
 '   M_Ribbon.EnabledFor: nothing while an operation runs; Validate staging
 '   with rows staged; Commit import with a VALID staging sheet; Export
-'   evidence with CURRENT results; a status that could not be read
-'   enables the control; any other control is enabled.
+'   evidence and Export report (#259) with CURRENT results; a status that
+'   could not be read enables the control; any other control is enabled.
 '
 ' UPDATED
-'   2026-11-06
+'   2026-11-26
 '==============================================================================
 '
         On Error GoTo Unexpected
@@ -2812,6 +2812,11 @@ Private Sub CaseRibbonEnabledStates()
         TEST_Kit.Check Not M_Ribbon.EnabledFor("ksExportEvidence", False, "OUT OF DATE", "EMPTY", "EMPTY"), "export, results out of date"
         TEST_Kit.Check Not M_Ribbon.EnabledFor("ksExportEvidence", False, "NONE", "EMPTY", "EMPTY"), "export, no results"
         TEST_Kit.Check M_Ribbon.EnabledFor("ksExportEvidence", False, "UNKNOWN", "EMPTY", "EMPTY"), "export, status unreadable"
+        TEST_Kit.Check Not M_Ribbon.EnabledFor("ksExportReport", True, "CURRENT", "EMPTY", "EMPTY"), "report while busy"
+        TEST_Kit.Check M_Ribbon.EnabledFor("ksExportReport", False, "CURRENT", "EMPTY", "EMPTY"), "report, results current"
+        TEST_Kit.Check Not M_Ribbon.EnabledFor("ksExportReport", False, "OUT OF DATE", "EMPTY", "EMPTY"), "report, results out of date"
+        TEST_Kit.Check Not M_Ribbon.EnabledFor("ksExportReport", False, "NONE", "EMPTY", "EMPTY"), "report, no results"
+        TEST_Kit.Check M_Ribbon.EnabledFor("ksExportReport", False, "UNKNOWN", "EMPTY", "EMPTY"), "report, status unreadable"
         TEST_Kit.Check M_Ribbon.EnabledFor("ksNoSuchControl", False, "NONE", "EMPTY", "EMPTY"), "unknown control"
         Exit Sub
 
