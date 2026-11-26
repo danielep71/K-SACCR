@@ -217,6 +217,24 @@ class ReportSpecTests(unittest.TestCase):
         for line in (".LeftMargin = RPT_MARGIN_SIDE", ".TopMargin = RPT_MARGIN_END", ".Zoom = PrintZoom"):
             self.assertIn(line, setup)
 
+    def test_the_pdf_keeps_of_long_tables_what_the_specification_says(self) -> None:
+        # The owner's decision of 2026-11-26, after a real portfolio gave a PDF of 163 pages.
+        main = read_vba("src/workbook/M_Main.bas")
+        limit = self.spec["reconciliation_rows"]["pdf_trade_limit"]
+        per_code = self.spec["checks_by_code"]["pdf_rows_per_code"]
+        self.assertRegex(main, rf"Private Const RPT_PDF_TRADE_DIFFERENCES As Long = {limit}\b")
+        self.assertRegex(main, rf"Private Const RPT_PDF_CHECKS_PER_CODE   As Long = {per_code}\b")
+        export = read_vba("src/core/CORE_Export.bas").replace("\r\n", "\n")
+        # The literal pieces of the two notes, as the reference writes them.
+        for piece in ("No row has the result DIFFERENCE; ", "The row with the result DIFFERENCE is shown; ",
+                      " rows with the result DIFFERENCE are shown; ", " rows with the result DIFFERENCE and the largest ",
+                      "absolute difference are shown, of ", ", counted by result above; the workbook version of the "
+                      "report has every row.", "the other 1 row is left out", " rows of each code are shown; "):
+            self.assertIn(piece, export.replace('" & _\n                                    "', "")
+                                       .replace('" & _\n                               "', ""), piece)
+        self.assertIn(report.differences_note(50, 80, 5030).split(" of 80")[0].replace("The 50", ""),
+                      " rows with the result DIFFERENCE and the largest absolute difference are shown,")
+
     def test_the_vba_suite_checks_every_example_of_the_specification(self) -> None:
         suite = read_vba("tests/modules/TEST_Report.bas")
         for example in self.spec["formats"]["examples"]:

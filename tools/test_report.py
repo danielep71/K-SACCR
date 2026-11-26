@@ -146,6 +146,53 @@ class ReconciliationTests(unittest.TestCase):
                          "3 rows with the result MATCH are left out; the workbook version of the report has every row.")
 
 
+class TradeReconciliationTests(unittest.TestCase):
+    # Trade id, result, absolute difference: a real portfolio gave a PDF of 163 pages (2026-11-26).
+    ROWS = [("A", "MATCH", 0.0), ("B", "DIFFERENCE", -5.0), ("C", "NOT IN BANK FILE", ""),
+            ("D", "DIFFERENCE", 250.0), ("E", "difference", 5.0), ("F", "MISSING IN CALCULATOR", ""),
+            ("G", "DIFFERENCE", 1.5)]
+
+    def test_the_pdf_keeps_the_largest_differences_first(self) -> None:
+        kept, differences, left_out = report.pdf_trade_rows(self.ROWS, 1, 2, 3)
+        self.assertEqual([row[0] for row in kept], ["D", "B", "E"])  # equal sizes keep the sheet's order
+        self.assertEqual((differences, left_out), (4, 4))
+
+    def test_the_limit_of_the_specification_is_fifty(self) -> None:
+        rows = [(f"T{i}", "DIFFERENCE", i) for i in range(80)] + [("X", "NOT IN BANK FILE", "")] * 5000
+        limit = report.load_spec()["reconciliation_rows"]["pdf_trade_limit"]
+        kept, differences, left_out = report.pdf_trade_rows(rows, 1, 2, limit)
+        self.assertEqual((len(kept), differences, left_out), (50, 80, 5030))
+        self.assertEqual(kept[0][0], "T79")
+
+    def test_the_note_says_what_is_shown_and_how_many_rows_are_left_out(self) -> None:
+        self.assertEqual(report.differences_note(3, 3, 0), "")
+        self.assertEqual(report.differences_note(50, 80, 5030),
+                         "The 50 rows with the result DIFFERENCE and the largest absolute difference are shown, of 80; "
+                         "the other 5030 rows are left out, counted by result above; "
+                         "the workbook version of the report has every row.")
+        self.assertEqual(report.differences_note(2, 2, 1),
+                         "The 2 rows with the result DIFFERENCE are shown; the other 1 row is left out, counted by "
+                         "result above; the workbook version of the report has every row.")
+        self.assertEqual(report.differences_note(1, 1, 4),
+                         "The row with the result DIFFERENCE is shown; the other 4 rows are left out, counted by "
+                         "result above; the workbook version of the report has every row.")
+        self.assertEqual(report.differences_note(0, 0, 7),
+                         "No row has the result DIFFERENCE; the other 7 rows are left out, counted by result above; "
+                         "the workbook version of the report has every row.")
+
+
+class ChecksPdfTests(unittest.TestCase):
+    def test_the_pdf_keeps_at_most_ten_rows_of_each_code(self) -> None:
+        rows = [("WARNING", "", "", "", "", "", "W-1")] * 12 + [("ERROR", "", "", "", "", "", "E-1")] * 3
+        per_code = report.load_spec()["checks_by_code"]["pdf_rows_per_code"]
+        kept, left_out = report.pdf_checks_rows(rows, per_code)
+        self.assertEqual([row[6] for row in kept], ["E-1"] * 3 + ["W-1"] * 10)
+        self.assertEqual(left_out, 2)
+        self.assertEqual(report.checks_note(10, 2), "At most 10 rows of each code are shown; 2 rows are left out; "
+                                                    "the workbook version of the report has every row.")
+        self.assertEqual(report.checks_note(10, 0), "")
+
+
 class MeasureTests(unittest.TestCase):
     def test_a_ratio_measure_is_formatted_as_a_ratio_and_an_amount_measure_as_an_amount(self) -> None:
         ratios = ["Multiplier"]

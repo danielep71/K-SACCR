@@ -28,8 +28,9 @@ the same number of columns, and the run lines are lines of the evidence CSV.
   results that do not match the inputs.
 - **No new calculation.** Every figure is read from the sheets as they are, as
   the evidence CSV reads them. The only figures the report computes are the
-  number of rows of each code of Checks and the number of reconciliation rows
-  the PDF leaves out.
+  number of rows of each code of Checks and the number of rows the PDF leaves
+  out of Checks and of the reconciliations; it also orders the trade legs that
+  differ by the size of their difference, which it reads.
 - **The workbook is left as it is.** The report is built in a new, temporary
   workbook. The sheets, the names, the cells, the selection, the calculation
   mode and the clipboard of the K-SACCR workbook are not touched, and the
@@ -61,16 +62,27 @@ columns.
 | Charts | `Charts` | The ten charts of the Dashboard sheet, as pictures of the charts on the sheet | none | on a sheet of their own |
 | Totals | `Totals` | The two TOTAL rows of Results: for each regime the value, the collateral, RC, the add-ons, PFE, EAD and the status line | | |
 | Results | `Results` | Every netting set of Results, with its 28 columns, and the TOTAL rows | | |
-| Checks | `Checks` | A table with a row per code, its highest severity and its number of rows; then every row of Checks, grouped by code | | |
+| Checks | `Checks` | A table with a row per code, its highest severity and its number of rows; then the rows of Checks, grouped by code | every row | at most 10 rows of each code |
 | Reconciliation | `Reconciliation` | The summary of the reconciliation of netting sets and its rows, when the sheet holds a comparison | every row | every row that is not `MATCH` |
-| Trade reconciliation | `TradeReconciliation` | The summary of the reconciliation of trade legs and its rows, when the sheet holds a comparison | every row | every row that is not `MATCH` |
+| Trade reconciliation | `TradeReconciliation` | The summary of the reconciliation of trade legs and its rows, when the sheet holds a comparison | every row | the 50 rows with the result `DIFFERENCE` and the largest absolute difference |
 
 A reconciliation that was not made, or whose sheets the workbook does not have,
 has no sheet in the report; the Run sheet says `NOT MADE` or `UNAVAILABLE` as the
 evidence CSV does. In the PDF, a line under the summary of each reconciliation
-says how many `MATCH` rows are left out ("3 rows with the result MATCH are left
-out; the workbook version of the report has every row."), so the omission is
-never silent.
+says what is left out, so the omission is never silent:
+
+- **Netting sets:** the rows that are not `MATCH` are shown, and the line counts the
+  `MATCH` rows left out ("3 rows with the result MATCH are left out; the workbook
+  version of the report has every row.").
+- **Trade legs:** a real portfolio gave a PDF of 163 pages, most of it trade legs
+  not in the bank's file, so the owner decided on 2026-11-26 that the PDF shows
+  only the rows with the result `DIFFERENCE`, the largest absolute difference
+  first (equal ones in their order on the sheet), at most 50
+  (`pdf_trade_limit`). The summary above the table counts every row by result,
+  and the line says what is shown and how many rows are left out ("The 50 rows
+  with the result DIFFERENCE and the largest absolute difference are shown, of
+  80; the other 5030 rows are left out, counted by result above; the workbook
+  version of the report has every row.").
 
 ### Checks by code
 
@@ -78,8 +90,13 @@ The first table of the Checks sheet lists every code that Checks shows, with the
 highest severity among its rows and its number of rows. A row without a code
 belongs to the code `(none)`. The codes are ordered by that severity, ERROR then
 WARNING then INFO, and then by code in ordinal order. The table below lists
-every row of Checks in the order of the summary, and the rows of a code in their
-order on the sheet. A clean run shows its single `RUN-CLEAN` row.
+the rows of Checks in the order of the summary, and the rows of a code in their
+order on the sheet. A clean run shows its single `RUN-CLEAN` row. With a real
+portfolio Checks can hold a row per trade, so the PDF shows at most 10 rows of each
+code (`pdf_rows_per_code`), with a line under the title that says how many rows
+are left out ("At most 10 rows of each code are shown; 412 rows are left out; the
+workbook version of the report has every row."); the summary still counts every
+row, and the XLSX has them all.
 
 ## 🔢 Formats
 

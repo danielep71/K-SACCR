@@ -260,6 +260,10 @@ Attribute VB_Name = "M_Main"
         Private Const RPT_PRINT_HEIGHT        As Double = 487#          'Page height less the end margins
         Private Const RPT_CHART_GAP           As Double = 12#           'Points around and between pictures
         Private Const RPT_CHART_ZOOM          As Long = 300             'Window zoom the charts are pictured at
+    'What the PDF keeps of long tables, as report.json gives it (owner's
+    'decision of 2026-11-26, after a real portfolio gave 163 pages).
+        Private Const RPT_PDF_TRADE_DIFFERENCES As Long = 50            'Largest differences of the trade legs
+        Private Const RPT_PDF_CHECKS_PER_CODE   As Long = 10            'Rows of Checks of each code
 
 '------------------------------------------------------------------------------
 ' TYPES
@@ -4227,11 +4231,13 @@ Private Function WriteReportChecks( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Writes the Checks sheet of the report: a row per code with its
-'   highest severity and its rows, then every row of Checks grouped by
-'   code
+'   highest severity and its rows, then the rows of Checks grouped by
+'   code: every row in the XLSX, at most RPT_PDF_CHECKS_PER_CODE of each
+'   code in the PDF
 '
 ' WHY THIS EXISTS
-'   The owner's decision of 2026-11-26 on Checks by code (#259)
+'   The owner's decisions of 2026-11-26 on Checks by code (#259): with a
+'   real portfolio Checks can hold a row per trade
 '
 ' INPUTS
 '   ReportSheet
@@ -4243,18 +4249,24 @@ Private Function WriteReportChecks( _
 '   The header row of the rows of Checks, repeated on every page of a PDF
 '
 ' BEHAVIOR
-'   Orders the rows with CORE_Export.ReportCodeOrder and writes the two
-'   tables
+'   - Orders the rows with CORE_Export.ReportCodeOrder
+'   - PDF: keeps the first RPT_PDF_CHECKS_PER_CODE rows of each code and
+'     says how many are left out (CORE_Export.ReportChecksNote)
+'   - Writes the two tables
 '
 ' ERROR POLICY
 '   Raises an error of Excel
 '
 ' DEPENDENCIES
-'   ReadReportTable, CORE_Export.ReportCodeOrder, WriteReportTable,
-'   FitReportColumns
+'   ReadReportTable, CORE_Export.ReportCodeOrder,
+'   CORE_Export.ReportCellText, CORE_Export.ReportChecksNote,
+'   WriteReportTable, FitReportColumns, TopRows
 '
 ' NOTES
-'   The severity is the first column of Checks and the code the seventh
+'   The severity is the first column of Checks and the code the seventh;
+'   the summary by code always counts every row. The rows of a code are
+'   together in ReportCodeOrder's order, so a change of the code's text
+'   starts the next code
 '
 ' UPDATED
 '   2026-11-26
@@ -4267,7 +4279,12 @@ Private Function WriteReportChecks( _
     Dim TableRows   As Variant    'Rows of Checks
     Dim Summary     As Variant    'A row per code
     Dim Order       As Variant    'Rows in the order of the report
-    Dim Ordered     As Variant    'The rows in that order
+    Dim Ordered     As Variant    'The rows written, in that order
+    Dim KeptCount   As Long       'Rows written
+    Dim LeftOut     As Long       'Rows a PDF leaves out
+    Dim Code        As String     'Code of a row
+    Dim LastCode    As String     'Code of the row before
+    Dim OfCode      As Long       'Rows of the current code so far
     Dim HeaderRow   As Long       'Header row of the summary
     Dim i           As Long       'Row of the report
     Dim c           As Long       'Column
@@ -4275,16 +4292,29 @@ Private Function WriteReportChecks( _
 '------------------------------------------------------------------------------
 ' ORDER THE ROWS
 '------------------------------------------------------------------------------
-    'Codes by severity, then code; each code's rows as on the sheet
+    'Codes by severity, then code; each code's rows as on the sheet; a PDF
+    'keeps the first of each code
         TableRows = ReadReportTable(SH_CHECKS, CK_NCOLS, Headers)
         Order = CORE_Export.ReportCodeOrder(TableRows, 1, CK_CODE_COL, Summary)
         If IsArray(TableRows) Then
             ReDim Ordered(1 To UBound(TableRows, 1), 1 To CK_NCOLS)
             For i = 1 To UBound(TableRows, 1)
-                For c = 1 To CK_NCOLS
-                    Ordered(i, c) = TableRows(Order(i), c)
-                Next c
+                Code = VBA.Trim$(CORE_Export.ReportCellText("text", TableRows(Order(i), CK_CODE_COL)))
+                If i = 1 Or Code <> LastCode Then
+                    OfCode = 0
+                    LastCode = Code
+                End If
+                OfCode = OfCode + 1
+                If AsPdf And OfCode > RPT_PDF_CHECKS_PER_CODE Then
+                    LeftOut = LeftOut + 1
+                Else
+                    KeptCount = KeptCount + 1
+                    For c = 1 To CK_NCOLS
+                        Ordered(KeptCount, c) = TableRows(Order(i), c)
+                    Next c
+                End If
             Next i
+            Ordered = TopRows(Ordered, KeptCount)
         Else
             Ordered = Empty
         End If
@@ -4292,11 +4322,12 @@ Private Function WriteReportChecks( _
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-    'The summary, then the rows
+    'The summary, then the rows, with what a PDF leaves out
         HeaderRow = WriteReportTable(ReportSheet, 1, "Checks by code", Array(), Array("Code", "Severity", "Rows"), _
                                      VBA.Split("text|text|count", "|"), Summary, AsPdf, 0, vbNullString)
         WriteReportChecks = WriteReportTable(ReportSheet, HeaderRow + RowsOf(Summary) + 2, "Checks, grouped by code", _
-                                             Array(), Headers, VBA.Split(RPT_CHECKS_KINDS, "|"), Ordered, AsPdf, 0, _
+                                             Array(CORE_Export.ReportChecksNote(RPT_PDF_CHECKS_PER_CODE, LeftOut)), _
+                                             Headers, VBA.Split(RPT_CHECKS_KINDS, "|"), Ordered, AsPdf, 0, _
                                              vbNullString)
         FitReportColumns ReportSheet
 
@@ -4363,11 +4394,14 @@ Private Function WriteReportReconciliation( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Writes a reconciliation sheet of the report: the summary of the
-'   reconciliation and its rows; in the PDF only the rows that are not
-'   MATCH, with a line saying how many are left out
+'   reconciliation and its rows. The XLSX has every row; the PDF the rows
+'   of netting sets that are not MATCH, or the largest differences of the
+'   trade legs, with a line saying what is left out
 '
 ' WHY THIS EXISTS
-'   The owner's decision of 2026-11-26 on the reconciliation rows (#259)
+'   The owner's decisions of 2026-11-26 on the reconciliation rows (#259):
+'   a real portfolio gave a PDF of 163 pages, most of them trade legs
+'   not in the bank's file
 '
 ' INPUTS
 '   ReportSheet
@@ -4382,7 +4416,9 @@ Private Function WriteReportReconciliation( _
 '
 ' BEHAVIOR
 '   - Reads the summary line of the sheet and its table
-'   - PDF: keeps the rows whose Result is not MATCH
+'   - PDF, netting sets: keeps the rows whose Result is not MATCH
+'   - PDF, trade legs: keeps the DIFFERENCE rows with the largest absolute
+'     difference, at most RPT_PDF_TRADE_DIFFERENCES (LargestDifferences)
 '   - The figures take the format of their measure (report.json,
 '     measure_ratios)
 '
@@ -4390,12 +4426,13 @@ Private Function WriteReportReconciliation( _
 '   Raises an error of Excel
 '
 ' DEPENDENCIES
-'   ReadReportTable, ReconSheetOf, CORE_Export.ReportOmittedNote,
+'   ReadReportTable, ReconSheetOf, LargestDifferences,
+'   CORE_Export.ReportOmittedNote, CORE_Export.ReportDifferencesNote,
 '   WriteReportTable, FitReportColumns
 '
 ' NOTES
-'   The measure is the sixth column and the result the eleventh in both
-'   tables
+'   The measure is the sixth column, the absolute difference the ninth and
+'   the result the eleventh in both tables
 '
 ' UPDATED
 '   2026-11-26
@@ -4404,22 +4441,25 @@ Private Function WriteReportReconciliation( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Const MEASURE_COLUMN   As Long = 6      'Measure, in both tables
-    Const RESULT_COLUMN    As Long = 11     'Result, in both tables
+    Const MEASURE_COLUMN     As Long = 6      'Measure, in both tables
+    Const DIFFERENCE_COLUMN  As Long = 9      'Absolute difference, in both tables
+    Const RESULT_COLUMN      As Long = 11     'Result, in both tables
 
-    Dim SheetName          As String        'The reconciliation sheet
-    Dim ColumnCount        As Long          'Its columns
-    Dim Headers            As Variant       'Its headers
-    Dim TableRows          As Variant       'Its rows
-    Dim Kept               As Variant       'The rows written
-    Dim KeptCount          As Long          'Rows written
-    Dim Omitted            As Long          'MATCH rows left out of a PDF
-    Dim Summary            As String        'The summary line of the sheet
-    Dim Title              As String        'Title of the table
-    Dim Notes              As Variant       'Lines under the title
-    Dim Kinds              As Variant       'Kind of each column
-    Dim i                  As Long          'Row
-    Dim c                  As Long          'Column
+    Dim SheetName            As String        'The reconciliation sheet
+    Dim ColumnCount          As Long          'Its columns
+    Dim Headers              As Variant       'Its headers
+    Dim TableRows            As Variant       'Its rows
+    Dim Kept                 As Variant       'The rows written
+    Dim KeptCount            As Long          'Rows written
+    Dim Omitted              As Long          'MATCH rows left out of a PDF
+    Dim Differences          As Long          'DIFFERENCE rows of the trade legs
+    Dim LeftNote             As String        'What a PDF leaves out
+    Dim Summary              As String        'The summary line of the sheet
+    Dim Title                As String        'Title of the table
+    Dim Notes                As Variant       'Lines under the title
+    Dim Kinds                As Variant       'Kind of each column
+    Dim i                    As Long          'Row
+    Dim c                    As Long          'Column
 
 '------------------------------------------------------------------------------
 ' READ
@@ -4429,9 +4469,18 @@ Private Function WriteReportReconciliation( _
         ColumnCount = IIf(ReconKind = RECON_NS, RC_NCOLS, TRC_NCOLS)
         Summary = CORE_Export.ReportCellText("text", GetSheet(SheetName).Range(RECON_INFO_CELL).Value2)
         TableRows = ReadReportTable(SheetName, ColumnCount, Headers)
-    'A PDF keeps the rows that are not MATCH
         Kept = TableRows
-        If AsPdf And IsArray(TableRows) Then
+
+'------------------------------------------------------------------------------
+' CHOOSE THE ROWS OF A PDF
+'------------------------------------------------------------------------------
+    'Trade legs: the largest differences, the rest counted by the summary
+        If AsPdf And ReconKind = RECON_TR Then
+            Kept = LargestDifferences(TableRows, RESULT_COLUMN, DIFFERENCE_COLUMN, RPT_PDF_TRADE_DIFFERENCES, _
+                                      Differences, KeptCount)
+            LeftNote = CORE_Export.ReportDifferencesNote(KeptCount, Differences, RowsOf(TableRows) - KeptCount)
+    'Netting sets: the rows that are not MATCH
+        ElseIf AsPdf And IsArray(TableRows) Then
             ReDim Kept(1 To UBound(TableRows, 1), 1 To ColumnCount)
             For i = 1 To UBound(TableRows, 1)
                 If VBA.UCase$(VBA.Trim$(CORE_Export.ReportCellText("text", TableRows(i, RESULT_COLUMN)))) = "MATCH" Then
@@ -4448,6 +4497,7 @@ Private Function WriteReportReconciliation( _
             Else
                 Kept = TopRows(Kept, KeptCount)
             End If
+            LeftNote = CORE_Export.ReportOmittedNote(Omitted)
         End If
 
 '------------------------------------------------------------------------------
@@ -4457,12 +4507,131 @@ Private Function WriteReportReconciliation( _
         Title = IIf(ReconKind = RECON_NS, "Reconciliation of netting sets", "Reconciliation of trade legs")
         Notes = Array(Summary, "Amounts in units of " & ReportCurrencyText() & _
                       "; the bank's figures multiplied by the scale of the settings; ratios are not scaled.", _
-                      CORE_Export.ReportOmittedNote(Omitted))
+                      LeftNote)
         Kinds = VBA.Split(IIf(ReconKind = RECON_NS, RPT_RECON_KINDS, RPT_TRADE_RECON_KINDS), "|")
         WriteReportReconciliation = WriteReportTable(ReportSheet, 1, Title, Notes, Headers, Kinds, Kept, AsPdf, _
                                                      MEASURE_COLUMN, IIf(ReconKind = RECON_NS, RPT_RECON_RATIOS, _
                                                                          RPT_TRADE_RECON_RATIOS))
         FitReportColumns ReportSheet
+
+End Function
+
+
+Private Function LargestDifferences( _
+    ByVal TableRows As Variant, _
+    ByVal ResultColumn As Long, _
+    ByVal DifferenceColumn As Long, _
+    ByVal Limit As Long, _
+    ByRef Differences As Long, _
+    ByRef KeptCount As Long) _
+    As Variant
+'
+'------------------------------------------------------------------------------
+'              CHOOSE THE LARGEST DIFFERENCES OF A RECONCILIATION
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the rows whose Result is DIFFERENCE with the largest absolute
+'   difference, at most Limit of them, largest first; ties keep their
+'   order on the sheet
+'
+' WHY THIS EXISTS
+'   The PDF shows the largest differences of the trade legs (#259, owner's
+'   decision of 2026-11-26); tools/report.py (pdf_trade_rows) is the
+'   reference
+'
+' INPUTS
+'   TableRows
+'     The rows of the reconciliation, a 2-D array from 1; Empty for none
+'   ResultColumn
+'     Column of the Result
+'   DifferenceColumn
+'     Column of the absolute difference
+'   Limit
+'     Rows kept at most
+'   Differences
+'     Receives the number of DIFFERENCE rows
+'   KeptCount
+'     Receives the number of rows returned
+'
+' RETURNS
+'   A 2-D array of the rows kept, from 1; Empty when none
+'
+' BEHAVIOR
+'   Picks, Limit times, the remaining DIFFERENCE row of the largest
+'   absolute difference, the first on the sheet among equals: a pass per
+'   row kept, so thousands of rows take no time to speak of
+'
+' ERROR POLICY
+'   None: a difference that is not a number counts as 0
+'
+' DEPENDENCIES
+'   CORE_Export.ReportCellText, CORE_Util.ToDbl
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim RowCount        As Long       'Rows of the table
+    Dim ColumnCount     As Long       'Its columns
+    Dim Candidate()     As Boolean    'A DIFFERENCE row not yet kept
+    Dim Size()          As Double     'Its absolute difference
+    Dim Kept            As Variant    'The rows kept
+    Dim Best            As Long       'Row of the largest difference left
+    Dim i               As Long       'Row
+    Dim c               As Long       'Column
+
+'------------------------------------------------------------------------------
+' FIND THE DIFFERENCES
+'------------------------------------------------------------------------------
+    'Nothing to keep without rows
+        Differences = 0
+        KeptCount = 0
+        LargestDifferences = Empty
+        If Not IsArray(TableRows) Then Exit Function
+        RowCount = UBound(TableRows, 1)
+        ColumnCount = UBound(TableRows, 2)
+    'Mark the DIFFERENCE rows and their size
+        ReDim Candidate(1 To RowCount)
+        ReDim Size(1 To RowCount)
+        For i = 1 To RowCount
+            If VBA.UCase$(VBA.Trim$(CORE_Export.ReportCellText("text", TableRows(i, ResultColumn)))) = _
+                    "DIFFERENCE" Then
+                Candidate(i) = True
+                Size(i) = VBA.Abs(CORE_Util.ToDbl(TableRows(i, DifferenceColumn), 0#))
+                Differences = Differences + 1
+            End If
+        Next i
+        If Differences = 0 Or Limit < 1 Then Exit Function
+
+'------------------------------------------------------------------------------
+' KEEP THE LARGEST
+'------------------------------------------------------------------------------
+    'The largest left, the first among equals, until the limit
+        ReDim Kept(1 To IIf(Differences < Limit, Differences, Limit), 1 To ColumnCount)
+        Do While KeptCount < UBound(Kept, 1)
+            Best = 0
+            For i = 1 To RowCount
+                If Candidate(i) Then
+                    If Best = 0 Then
+                        Best = i
+                    ElseIf Size(i) > Size(Best) Then
+                        Best = i
+                    End If
+                End If
+            Next i
+            KeptCount = KeptCount + 1
+            For c = 1 To ColumnCount
+                Kept(KeptCount, c) = TableRows(Best, c)
+            Next c
+            Candidate(Best) = False
+        Loop
+        LargestDifferences = Kept
 
 End Function
 

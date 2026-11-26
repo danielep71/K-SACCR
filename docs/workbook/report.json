@@ -46,13 +46,18 @@
   "refusal": "The rules of ExportEvidence (EvidenceProblem): recalculation pending, a staging validation on Checks, results not those of the current inputs, an output cell edited after the run, a reconciliation of bank figures not current, outputs not recorded",
   "reconciliation_rows": {
     "xlsx": "every row of the sheet",
-    "pdf": "every row whose Result is not MATCH, and a line stating how many MATCH rows are left out",
-    "match": "MATCH"
+    "pdf": "Reconciliation of netting sets: every row whose Result is not MATCH, and a line stating how many MATCH rows are left out",
+    "pdf_trades": "Reconciliation of trade legs: the rows whose Result is DIFFERENCE, the largest absolute difference first (ties in their order on the sheet), at most pdf_trade_limit of them, and a line stating how many rows are left out; the summary above gives the counts by result (owner's decision of 2026-11-26, after a real portfolio gave a PDF of 163 pages)",
+    "pdf_trade_limit": 50,
+    "match": "MATCH",
+    "difference": "DIFFERENCE"
   },
   "checks_by_code": {
     "no_code": "(none)",
     "severities": ["ERROR", "WARNING", "INFO"],
-    "order": "The highest severity of the code (ERROR, then WARNING, then INFO), then the code in ordinal order; the rows of Checks follow in that order, each code's rows in their order on the sheet"
+    "order": "The highest severity of the code (ERROR, then WARNING, then INFO), then the code in ordinal order; the rows of Checks follow in that order, each code's rows in their order on the sheet",
+    "pdf": "The summary by code, then at most pdf_rows_per_code rows of each code, in that order, and a line stating how many rows are left out (owner's decision of 2026-11-26)",
+    "pdf_rows_per_code": 10
   },
   "sections": [
     {
