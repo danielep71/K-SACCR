@@ -192,7 +192,7 @@ audits every open issue:
 - exactly one of `P1`, `P2` and `P3`, and `P1` only together with `bug`;
 - a milestone;
 - only labels of `.github/labels.json`;
-- a start date;
+- a start date and a target date;
 - a dependency section that is not empty, whose issue references exist;
 - `blocked` only with an open prerequisite or an external condition, and
   always with an external condition;
@@ -204,11 +204,13 @@ milestone deadline (equality is allowed); a target whose milestone has no
 deadline is a finding too, as it cannot be checked. The **Start date** form
 field is required: a real `YYYY-MM-DD` date (Europe/Rome), not after the target
 date; existing **Planned start date** entries under **Planning dates** are
-also recognized. The optional **Target date** form field
-uses `YYYY-MM-DD`; existing **Target completion date** / **Target date** entries
-under **Planning dates** are also recognized. Invalid or conflicting start or
-target dates are findings; an absent start date is one, an absent target date is
-not. Dates elsewhere in the body are not
+also recognized. The **Target date** form field is required too: a real
+`YYYY-MM-DD` date (Europe/Rome), no later than the milestone deadline;
+existing **Target completion date** / **Target date** entries under
+**Planning dates** are also recognized. Invalid or conflicting start or target
+dates are findings, and so is an absent one. The one exception is a traffic
+alert, which the automation opens without a milestone or planning dates.
+Dates elsewhere in the body are not
 interpreted as planning fields. A dependency section may name related issues,
 so only a `blocked` issue is taken to wait for the open issues its section names. Triage and repository integrity explicitly install
 Python 3.10.19 and Node 22.21.1, with setup actions pinned by commit SHA.
