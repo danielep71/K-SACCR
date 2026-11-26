@@ -49,7 +49,7 @@ Attribute VB_Name = "TEST_Report"
         Private Const CASES       As Long = 5                 'Cases in a complete run
         Private Const CHECKS      As Long = 54                'Checks in a complete run
         Private Const CLASS_TAG   As String = "illustrative"  'Reference class of every check
-        Private Const SHEET_ORDER As String = "Run|Dashboard|Totals|Results|Checks|*Limitations"
+        Private Const SHEET_ORDER As String = "Run|Dashboard|Totals|Results|Checks*"
 
 
 Public Sub RunReportTests()
@@ -258,7 +258,7 @@ Private Sub CheckWorkbookReport()
     'Without a file the eleven checks that read it fail, so that the count holds.
         If Left$(Result, 9) <> "RESULT=OK" Then
             FailChecks "sheets|values-only|no-link|xlsx|fingerprint|fingerprint-value|reporting-date|" & _
-                       "reporting-date-value|total-ead|checks-summary|limitations", Result
+                       "reporting-date-value|total-ead|checks-summary|no-limitations", Result
             Exit Sub
         End If
 
@@ -313,9 +313,9 @@ Private Sub CheckWorkbookReport()
         End With
         TEST_CaseRunner.ExpectTrue "checks-summary", CountedRows = CheckRows, _
             CountedRows & " rows counted, " & CheckRows & " on Checks", CLASS_TAG
-        TEST_CaseRunner.ExpectTrue "limitations", _
-            Application.WorksheetFunction.CountA(Report.Worksheets("Limitations").Columns(2)) = 9, _
-            Application.WorksheetFunction.CountA(Report.Worksheets("Limitations").Columns(2)) & " cells", CLASS_TAG
+    'The report has no Limitations sheet (owner's verification of 2026-11-26)
+        TEST_CaseRunner.ExpectTrue "no-limitations", _
+            InStr(1, "|" & SheetNames & "|", "|Limitations|", vbBinaryCompare) = 0, SheetNames, CLASS_TAG
         Report.Close SaveChanges:=False
         Kill FilePath
 

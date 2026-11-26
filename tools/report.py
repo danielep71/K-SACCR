@@ -11,7 +11,9 @@ against it:
   a PDF shows as text because the numbers of a PDF would otherwise follow the
   regional settings of the machine that writes it;
 - Checks by code: the summary of the codes and the order of the rows;
-- the rows of a reconciliation that the PDF keeps.
+- the rows of a reconciliation that the PDF keeps: those that are not MATCH for
+  netting sets, the largest DIFFERENCE rows for trade legs;
+- the rows of Checks the PDF keeps, at most a number of each code.
 
 Usage::
 
@@ -38,6 +40,7 @@ LAYOUTS = {"key_value", "blocks", "table", "summary_and_table", "list"}
 SEVERITIES = ("ERROR", "WARNING", "INFO")
 NO_CODE = "(none)"
 MATCH = "MATCH"
+DIFFERENCE = "DIFFERENCE"
 EXCEL_EPOCH = date(1899, 12, 30)
 SECONDS_PER_DAY = 86400
 
@@ -198,6 +201,64 @@ def omitted_note(omitted: int) -> str:
         return ""
     return f"{omitted} row{'s' if omitted != 1 else ''} with the result {MATCH} {'are' if omitted != 1 else 'is'} " \
            "left out; the workbook version of the report has every row."
+
+
+def plural(count: int, one: str, many: str) -> str:
+    return f"{count} {one if count == 1 else many}"
+
+
+def absolute(value: Any) -> float:
+    """The absolute value of a figure of a reconciliation; 0 for a blank or a text."""
+    try:
+        return abs(float(value))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def pdf_trade_rows(rows: Sequence[Sequence[Any]], result_index: int, difference_index: int,
+                   limit: int) -> tuple[list[Sequence[Any]], int, int]:
+    """The rows of the reconciliation of trade legs the PDF shows: DIFFERENCE rows, largest absolute difference
+    first and ties in their order on the sheet, at most limit of them; with the number of DIFFERENCE rows and
+    the number of rows left out."""
+    differences = [row for row in rows if str(row[result_index]).strip().upper() == DIFFERENCE]
+    kept = sorted(differences, key=lambda row: -absolute(row[difference_index]))[:limit]
+    return kept, len(differences), len(rows) - len(kept)
+
+
+def differences_note(shown: int, differences: int, left_out: int) -> str:
+    """The line under the reconciliation of trade legs in the PDF; blank when nothing is left out."""
+    if left_out == 0:
+        return ""
+    rest = (f"the other {plural(left_out, 'row is', 'rows are')} left out, counted by result above; "
+            "the workbook version of the report has every row.")
+    if differences == 0:
+        return f"No row has the result {DIFFERENCE}; " + rest
+    if shown == differences:
+        what = "The row" if shown == 1 else f"The {shown} rows"
+        return f"{what} with the result {DIFFERENCE} {'is' if shown == 1 else 'are'} shown; " + rest
+    return (f"The {shown} rows with the result {DIFFERENCE} and the largest absolute difference are shown, "
+            f"of {differences}; " + rest)
+
+
+def pdf_checks_rows(rows: Sequence[Sequence[Any]], per_code: int, severity_index: int = 0,
+                    code_index: int = 6) -> tuple[list[Sequence[Any]], int]:
+    """The rows of Checks the PDF shows, in code order, at most per_code of each code; and how many are left out."""
+    seen: dict[str, int] = {}
+    kept = []
+    for row in checks_in_code_order(rows, severity_index, code_index):
+        code = check_code(row, code_index)
+        seen[code] = seen.get(code, 0) + 1
+        if seen[code] <= per_code:
+            kept.append(row)
+    return kept, len(rows) - len(kept)
+
+
+def checks_note(per_code: int, left_out: int) -> str:
+    """The line under the title of the rows of Checks in the PDF; blank when nothing is left out."""
+    if left_out == 0:
+        return ""
+    return (f"At most {per_code} rows of each code are shown; {plural(left_out, 'row is', 'rows are')} left out; "
+            "the workbook version of the report has every row.")
 
 
 def check_spec(spec: dict[str, Any]) -> list[str]:

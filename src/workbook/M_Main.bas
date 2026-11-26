@@ -249,8 +249,21 @@ Attribute VB_Name = "M_Main"
     'the workbook's sheets (docs/workbook/sheet-style.json), as BGR values.
         Private Const RPT_FONT                As String = "Aptos"       'Font of every cell
         Private Const RPT_HEADER_FILL         As Long = &H64381F        'Header fill 1F3864, with white bold text
-        Private Const RPT_TAB_REFERENCE       As Long = &H64381F        'Tab 1F3864: Run and Limitations
+        Private Const RPT_TAB_REFERENCE       As Long = &H64381F        'Tab 1F3864: Run
         Private Const RPT_TAB_OUTPUT          As Long = &HB6752E        'Tab 2E75B6: every other section
+    'The pages of a PDF report: A4 landscape, 841.89 by 595.28 points, with
+    'the margins every sheet is given and the printable area they leave,
+    'in which the Charts sheet is laid out; the pictures of the charts.
+        Private Const RPT_MARGIN_SIDE         As Double = 50.4          'Left and right margins, 0.7 inch
+        Private Const RPT_MARGIN_END          As Double = 54#           'Top and bottom margins, 0.75 inch
+        Private Const RPT_PRINT_WIDTH         As Double = 741#          'Page width less the side margins
+        Private Const RPT_PRINT_HEIGHT        As Double = 487#          'Page height less the end margins
+        Private Const RPT_CHART_GAP           As Double = 12#           'Points around and between pictures
+        Private Const RPT_CHART_ZOOM          As Long = 300             'Window zoom the charts are pictured at
+    'What the PDF keeps of long tables, as report.json gives it (owner's
+    'decision of 2026-11-26, after a real portfolio gave 163 pages).
+        Private Const RPT_PDF_TRADE_DIFFERENCES As Long = 50            'Largest differences of the trade legs
+        Private Const RPT_PDF_CHECKS_PER_CODE   As Long = 10            'Rows of Checks of each code
 
 '------------------------------------------------------------------------------
 ' TYPES
@@ -2327,7 +2340,7 @@ Private Function WriteReport( _
 '   - Gives the new workbook the font and the vertical alignment of the
 '     K-SACCR sheets (docs/workbook/sheet-style.json)
 '   - Writes Run, Dashboard, Charts (PDF only), Totals, Results, Checks,
-'     the two reconciliations when they were made, and Limitations
+'     and the two reconciliations when they were made
 '   - Hides the gridlines, saves or exports beside the target, closes
 '     the new workbook and replaces the target (ReplaceReportFile)
 '
@@ -2339,7 +2352,7 @@ Private Function WriteReport( _
 ' DEPENDENCIES
 '   AddReportSheet, WriteReportRun, WriteReportDashboard,
 '   WriteReportCharts, WriteReportTotals, WriteReportResults,
-'   WriteReportChecks, WriteReportReconciliation, WriteReportLimitations,
+'   WriteReportChecks, WriteReportReconciliation,
 '   ApplyReportPageSetup, HideReportGridlines, ReportSiblingPath,
 '   ReplaceReportFile
 '
@@ -2367,6 +2380,7 @@ Private Function WriteReport( _
     Dim NewPath             As String       'The file before it replaces FilePath; "" once renamed
     Dim SheetCount          As Long         'Sheets written
     Dim ChartCount          As Long         'Charts pictured
+    Dim ChartZoom           As Long         'Print zoom of the Charts sheet
     Dim SetupProblems       As String       'Page settings that could not be applied
     Dim Footer              As String       'Footer of every page of a PDF
     Dim TitleRow            As Long         'Row a sheet repeats on its pages; 0 for none
@@ -2420,8 +2434,8 @@ Private Function WriteReport( _
         If AsPdf Then SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, TitleRow)
         If AsPdf Then
             Set ReportSheet = AddReportSheet(ReportBook, "Charts")
-            ChartCount = WriteReportCharts(ReportSheet)
-            SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, 0)
+            ChartCount = WriteReportCharts(ReportSheet, ChartZoom)
+            SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, 0, ChartZoom)
         End If
         Set ReportSheet = AddReportSheet(ReportBook, "Totals")
         TitleRow = WriteReportTotals(ReportSheet, AsPdf)
@@ -2442,9 +2456,6 @@ Private Function WriteReport( _
                 End If
             End If
         Next kind
-        Set ReportSheet = AddReportSheet(ReportBook, "Limitations")
-        TitleRow = WriteReportLimitations(ReportSheet, AsPdf)
-        If AsPdf Then SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, TitleRow)
         SheetCount = ReportBook.Worksheets.Count
 
 '------------------------------------------------------------------------------
@@ -2541,8 +2552,8 @@ Private Function AddReportSheet( _
 ' BEHAVIOR
 '   - Uses the first sheet for Run, then adds sheets at the end
 '   - Gives the tab the color of the workbook's sheets of its role: Run
-'     and Limitations that of the reference sheets, the others that of
-'     the output sheets (docs/workbook/sheet-style.json)
+'     that of the reference sheets, the others that of the output sheets
+'     (docs/workbook/sheet-style.json)
 '
 ' ERROR POLICY
 '   Raises an error of Excel
@@ -2573,7 +2584,7 @@ Private Function AddReportSheet( _
         End If
         NewSheet.Name = SheetName
     'The tab color of the workbook's sheets of the same role
-        If SheetName = "Run" Or SheetName = "Limitations" Then
+        If SheetName = "Run" Then
             NewSheet.Tab.Color = RPT_TAB_REFERENCE
         Else
             NewSheet.Tab.Color = RPT_TAB_OUTPUT
@@ -3179,7 +3190,8 @@ End Function
 
 
 Private Function WriteReportCharts( _
-    ByVal ReportSheet As Worksheet) _
+    ByVal ReportSheet As Worksheet, _
+    ByRef PrintZoom As Long) _
     As Long
 '
 '------------------------------------------------------------------------------
@@ -3187,31 +3199,40 @@ Private Function WriteReportCharts( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Places a picture of each chart of the Dashboard sheet on the report's
-'   Charts sheet, two by row, and returns how many
+'   Charts sheet, in rows that never cross a page, and returns how many
 '
 ' WHY THIS EXISTS
 '   The PDF shows the Dashboard's charts as the sheet shows them (#259);
 '   a picture, unlike a chart, reads nothing from the K-SACCR workbook.
 '   Excel draws a chart only where it shows it: exported from a sheet it
 '   does not show, with screen updating off, a chart came out empty, its
-'   frame and title alone (owner's verification of 2026-11-26)
+'   frame and title alone. Exported at the window's 100% zoom a chart is
+'   pictured at screen resolution, which the PDF showed blurred, and a
+'   row of charts could be cut by a page break (owner's verification of
+'   2026-11-26)
 '
 ' INPUTS
 '   ReportSheet
 '     The report's Charts sheet
 '
+'   PrintZoom
+'     Receives the print zoom of the sheet, in percent, at which its rows
+'     of pictures fit the page width (LayOutReportCharts)
+'
 ' RETURNS
 '   The number of charts pictured
 '
 ' BEHAVIOR
-'   - Shows the Dashboard sheet, with screen updating on, while its charts
-'     are pictured
+'   - Shows the Dashboard sheet, with screen updating on and the window
+'     zoomed to RPT_CHART_ZOOM, while its charts are pictured, so that
+'     each picture has three times the screen's resolution
 '   - For each chart: scrolls the window to it (ShowReportChart), exports
 '     it as a PNG file to the temporary folder, places the picture at the
 '     chart's size and deletes the file
-'   - Rows of two pictures, the height of the taller one apart
-'   - Puts back the Dashboard's scroll position and screen updating, and
-'     activates the report again, on success and on failure
+'   - Puts back the Dashboard's zoom, scroll position and screen updating,
+'     and activates the report again, on success and on failure
+'   - Lays the pictures out in rows, a new page before a row that would
+'     cross one (LayOutReportCharts)
 '
 ' ERROR POLICY
 '   Raises an error of Excel after deleting the picture file and putting
@@ -3219,7 +3240,8 @@ Private Function WriteReportCharts( _
 '
 ' DEPENDENCIES
 '   GetSheet, FileExists, ReportTempFolder, ReportSourceWindow,
-'   ShowReportChart, ScrollReportWindow
+'   SetReportWindowZoom, ShowReportChart, ScrollReportWindow,
+'   LayOutReportCharts
 '
 ' NOTES
 '   The pictures are embedded, not linked to the files. WriteReport runs
@@ -3234,20 +3256,18 @@ Private Function WriteReportCharts( _
 ' DECLARE
 '------------------------------------------------------------------------------
     Const PROC_NAME     As String = "M_Main.WriteReportCharts"
-    Const GAP           As Double = 12#    'Points between pictures
 
     Dim SourceSheet     As Worksheet       'The Dashboard sheet
     Dim SourceWindow    As Window          'The K-SACCR window; Nothing when there is none
     Dim SavedScreen     As Boolean         'ScreenUpdating before the charts
     Dim SavedRow        As Long            'Scroll row of the Dashboard before the charts
     Dim SavedColumn     As Long            'Its scroll column
+    Dim SavedZoom       As Variant         'Its zoom; Empty when it could not be read
     Dim Shown           As Boolean         'True once the Dashboard is shown
     Dim ChartFrame      As ChartObject     'A chart of the Dashboard
     Dim PictureFile     As String          'Its picture file; "" once deleted
+    Dim Pictures        As Collection      'The pictures placed, in the charts' order
     Dim ChartCount      As Long            'Charts pictured
-    Dim LeftEdge        As Double          'Left of the next picture
-    Dim TopEdge         As Double          'Top of the next picture
-    Dim RowHeight       As Double          'Height of the current row of pictures
     Dim ErrorNumber     As Long            'First error; 0 on success
     Dim ErrorSource     As String          'Its source
     Dim ErrorText       As String          'Its description
@@ -3256,11 +3276,10 @@ Private Function WriteReportCharts( _
 ' INITIALIZE
 '------------------------------------------------------------------------------
         On Error GoTo ErrorHandler
-    'The title of the sheet, then the first picture's place
+    'The title of the sheet
         ReportSheet.Cells(1, 1).Value2 = "Dashboard charts"
         ReportSheet.Cells(1, 1).Font.Bold = True
-        LeftEdge = GAP
-        TopEdge = ReportSheet.Rows(3).Top
+        Set Pictures = New Collection
 
 '------------------------------------------------------------------------------
 ' SHOW THE DASHBOARD
@@ -3272,8 +3291,10 @@ Private Function WriteReportCharts( _
         Application.ScreenUpdating = True
         ThisWorkbook.Activate
         SourceSheet.Activate
-    'Keep the window and its scroll position, to put them back
+    'Keep the window, its scroll position and its zoom, to put them back;
+    'a zoomed window pictures each chart at a higher resolution
         Set SourceWindow = ReportSourceWindow(SavedRow, SavedColumn)
+        SavedZoom = SetReportWindowZoom(SourceWindow, RPT_CHART_ZOOM)
 
 '------------------------------------------------------------------------------
 ' PICTURE THE CHARTS
@@ -3285,28 +3306,34 @@ Private Function WriteReportCharts( _
             PictureFile = ReportTempFolder() & Application.PathSeparator & "K-SACCR_report_chart_" & ChartCount & ".png"
             If FileExists(PictureFile) Then Kill PictureFile
             ChartFrame.Chart.Export Filename:=PictureFile, FilterName:="PNG"
-            ReportSheet.Shapes.AddPicture PictureFile, msoFalse, msoTrue, LeftEdge, TopEdge, _
-                                          ChartFrame.Width, ChartFrame.Height
+            Pictures.Add ReportSheet.Shapes.AddPicture(PictureFile, msoFalse, msoTrue, 0#, 0#, _
+                                                       ChartFrame.Width, ChartFrame.Height)
             Kill PictureFile
             PictureFile = vbNullString
-            If ChartFrame.Height > RowHeight Then RowHeight = ChartFrame.Height
-            If ChartCount Mod 2 = 1 Then
-                LeftEdge = LeftEdge + ChartFrame.Width + GAP
-            Else
-                LeftEdge = GAP
-                TopEdge = TopEdge + RowHeight + GAP
-                RowHeight = 0#
-            End If
         Next ChartFrame
         WriteReportCharts = ChartCount
 
 '------------------------------------------------------------------------------
-' EXIT PROCEDURE
+' PUT THE DASHBOARD BACK
 '------------------------------------------------------------------------------
-    'Put the window and screen updating back, then the report in front
+    'The window's zoom and scroll position, screen updating, then the
+    'report in front
+        SetReportWindowZoom SourceWindow, SavedZoom
         ScrollReportWindow SourceWindow, SavedRow, SavedColumn
         Application.ScreenUpdating = SavedScreen
+        Shown = False
         ReportSheet.Parent.Activate
+
+'------------------------------------------------------------------------------
+' LAY OUT THE PICTURES
+'------------------------------------------------------------------------------
+    'Rows of pictures, none across a page, at the zoom that fits the width
+        PrintZoom = LayOutReportCharts(ReportSheet, Pictures)
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+    'Leave before the error handler
         Exit Function
 
 '------------------------------------------------------------------------------
@@ -3322,14 +3349,275 @@ ErrorHandler:
         If VBA.Len(PictureFile) > 0 Then
             If FileExists(PictureFile) Then Kill PictureFile
         End If
-        ScrollReportWindow SourceWindow, SavedRow, SavedColumn
-        If Shown Then Application.ScreenUpdating = SavedScreen
+        If Shown Then
+            SetReportWindowZoom SourceWindow, SavedZoom
+            ScrollReportWindow SourceWindow, SavedRow, SavedColumn
+            Application.ScreenUpdating = SavedScreen
+        End If
         ReportSheet.Parent.Activate
     'Raise the first error
         On Error GoTo 0
         Err.Raise ErrorNumber, ErrorSource, "Chart " & ChartCount & ": " & ErrorText
 
 End Function
+
+
+Private Function LayOutReportCharts( _
+    ByVal ReportSheet As Worksheet, _
+    ByVal Pictures As Collection) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                 LAY OUT THE CHART PICTURES ON WHOLE PAGES
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Places the pictures of the Charts sheet in rows, left to right in the
+'   charts' order, starts a new page before a row that would cross one,
+'   and returns the print zoom at which the rows fit the page width
+'
+' WHY THIS EXISTS
+'   A row of charts cut by a page break showed half charts on two pages
+'   (owner's verification of 2026-11-26, #259). Excel ignores manual page
+'   breaks on a sheet printed to fit a number of pages, so the Charts
+'   sheet is printed at a zoom computed here instead
+'
+' INPUTS
+'   ReportSheet
+'     The report's Charts sheet
+'
+'   Pictures
+'     The pictures, as WriteReportCharts placed them
+'
+' RETURNS
+'   The print zoom in percent, from 10 to 100
+'
+' BEHAVIOR
+'   - A row holds pictures while their widths, with RPT_CHART_GAP between
+'     them, fit twice the widest picture: two wide charts, or three
+'     narrow ones
+'   - The zoom is the printable width (RPT_PRINT_WIDTH) over the widest
+'     row with its margins, rounded down; a page then holds
+'     RPT_PRINT_HEIGHT at that zoom
+'   - Each row starts on a row of cells, from row 3; a row that would end
+'     beyond its page starts a new page there (AddReportPageBreak),
+'     unless it is the first row of the page
+'
+' ERROR POLICY
+'   Raises an error of Excel; a page break Excel refuses is skipped
+'
+' DEPENDENCIES
+'   AddReportPageBreak
+'
+' NOTES
+'   The pictures keep their size: the zoom scales the whole sheet, as
+'   the fit to one page wide did
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim RowLimit        As Double     'Widest a row of pictures may be
+    Dim WidestRow       As Double     'Widest row laid out
+    Dim RowWidth        As Double     'Width of the row being filled
+    Dim RowOf()         As Long       'Row of pictures of each picture
+    Dim RowCount        As Long       'Rows of pictures
+    Dim Zoom            As Long       'Print zoom in percent
+    Dim PageHeight      As Double     'Points of the sheet a page holds
+    Dim PageTop         As Double     'Top of the current page
+    Dim CellRow         As Long       'Row of cells the next row of pictures starts on
+    Dim RowTop          As Double     'Top of the row of pictures
+    Dim RowHeight       As Double     'Height of the row of pictures
+    Dim LeftEdge        As Double     'Left of the next picture
+    Dim PictureIndex    As Long       'Picture
+    Dim r               As Long       'Row of pictures
+
+'------------------------------------------------------------------------------
+' FORM THE ROWS
+'------------------------------------------------------------------------------
+    'Nothing to lay out without pictures
+        LayOutReportCharts = 100
+        If Pictures.Count = 0 Then Exit Function
+    'A row is at most as wide as two of the widest pictures
+        For PictureIndex = 1 To Pictures.Count
+            If 2# * Pictures(PictureIndex).Width + RPT_CHART_GAP > RowLimit Then
+                RowLimit = 2# * Pictures(PictureIndex).Width + RPT_CHART_GAP
+            End If
+        Next PictureIndex
+    'Fill each row left to right while the pictures fit
+        ReDim RowOf(1 To Pictures.Count)
+        RowCount = 1
+        For PictureIndex = 1 To Pictures.Count
+            If RowWidth > 0# And RowWidth + RPT_CHART_GAP + Pictures(PictureIndex).Width > RowLimit Then
+                RowCount = RowCount + 1
+                RowWidth = 0#
+            End If
+            If RowWidth > 0# Then RowWidth = RowWidth + RPT_CHART_GAP
+            RowWidth = RowWidth + Pictures(PictureIndex).Width
+            RowOf(PictureIndex) = RowCount
+            If RowWidth > WidestRow Then WidestRow = RowWidth
+        Next PictureIndex
+
+'------------------------------------------------------------------------------
+' FIND THE ZOOM
+'------------------------------------------------------------------------------
+    'The widest row with a gap on each side fits the printable width
+        Zoom = Int(100# * RPT_PRINT_WIDTH / (WidestRow + 2# * RPT_CHART_GAP))
+        If Zoom > 100 Then Zoom = 100
+        If Zoom < 10 Then Zoom = 10
+        PageHeight = RPT_PRINT_HEIGHT * 100# / Zoom
+        LayOutReportCharts = Zoom
+
+'------------------------------------------------------------------------------
+' PLACE THE ROWS
+'------------------------------------------------------------------------------
+    'Each row on a row of cells; a new page before a row that would cross one
+        PageTop = 0#
+        CellRow = 3
+        PictureIndex = 1
+        For r = 1 To RowCount
+            RowTop = ReportSheet.Rows(CellRow).Top
+            RowHeight = 0#
+            LeftEdge = RPT_CHART_GAP
+            Do While PictureIndex <= Pictures.Count
+                If RowOf(PictureIndex) <> r Then Exit Do
+                Pictures(PictureIndex).Left = LeftEdge
+                Pictures(PictureIndex).Top = RowTop
+                LeftEdge = LeftEdge + Pictures(PictureIndex).Width + RPT_CHART_GAP
+                If Pictures(PictureIndex).Height > RowHeight Then RowHeight = Pictures(PictureIndex).Height
+                PictureIndex = PictureIndex + 1
+            Loop
+            If RowTop + RowHeight - PageTop > PageHeight And RowTop > PageTop Then
+                AddReportPageBreak ReportSheet, CellRow
+                PageTop = RowTop
+            End If
+        'The next row starts on the first row of cells below this one and its gap
+            Do While ReportSheet.Rows(CellRow).Top < RowTop + RowHeight + RPT_CHART_GAP
+                CellRow = CellRow + 1
+            Loop
+        Next r
+
+End Function
+
+
+Private Function SetReportWindowZoom( _
+    ByVal SourceWindow As Window, _
+    ByVal Zoom As Variant) _
+    As Variant
+'
+'------------------------------------------------------------------------------
+'                    ZOOM THE K-SACCR WINDOW FOR THE CHARTS
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Sets the zoom of the window and returns the zoom it had, so that it
+'   can be put back
+'
+' WHY THIS EXISTS
+'   Excel pictures a chart at the window's zoom: at RPT_CHART_ZOOM the
+'   pictures of the PDF have three times the screen's resolution (#259)
+'
+' INPUTS
+'   SourceWindow
+'     The window; Nothing to do nothing
+'
+'   Zoom
+'     The zoom in percent; Empty to do nothing
+'
+' RETURNS
+'   The zoom the window had; Empty when there is no window or its zoom
+'   could not be read
+'
+' BEHAVIOR
+'   Reads the zoom, then sets the new one
+'
+' ERROR POLICY
+'   Best effort: never raises; a window that keeps its zoom gives pictures
+'   at the screen's resolution
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'The zoom is an aid, never a failure
+        On Error Resume Next
+        SetReportWindowZoom = Empty
+
+'------------------------------------------------------------------------------
+' ZOOM
+'------------------------------------------------------------------------------
+    'Keep the zoom the window had, then set the new one
+        If SourceWindow Is Nothing Then Exit Function
+        If IsEmpty(Zoom) Then Exit Function
+        SetReportWindowZoom = SourceWindow.Zoom
+        SourceWindow.Zoom = Zoom
+
+End Function
+
+
+Private Sub AddReportPageBreak( _
+    ByVal ReportSheet As Worksheet, _
+    ByVal CellRow As Long)
+'
+'------------------------------------------------------------------------------
+'                     START A NEW PAGE OF THE CHARTS SHEET
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Adds a manual page break above a row of the Charts sheet (#259)
+'
+' WHY THIS EXISTS
+'   A row of charts starts a new page rather than being cut by one
+'
+' INPUTS
+'   ReportSheet
+'     The report's Charts sheet
+'
+'   CellRow
+'     The row the new page starts with
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   Adds the break with HPageBreaks.Add
+'
+' ERROR POLICY
+'   Best effort: never raises; a break Excel refuses, as without a
+'   printer, leaves the page to Excel
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'A page break is an aid, never a failure
+        On Error Resume Next
+
+'------------------------------------------------------------------------------
+' ADD
+'------------------------------------------------------------------------------
+    'The new page starts with CellRow
+        ReportSheet.HPageBreaks.Add Before:=ReportSheet.Rows(CellRow)
+
+End Sub
 
 
 Private Function ReportSourceWindow( _
@@ -3943,11 +4231,13 @@ Private Function WriteReportChecks( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Writes the Checks sheet of the report: a row per code with its
-'   highest severity and its rows, then every row of Checks grouped by
-'   code
+'   highest severity and its rows, then the rows of Checks grouped by
+'   code: every row in the XLSX, at most RPT_PDF_CHECKS_PER_CODE of each
+'   code in the PDF
 '
 ' WHY THIS EXISTS
-'   The owner's decision of 2026-11-26 on Checks by code (#259)
+'   The owner's decisions of 2026-11-26 on Checks by code (#259): with a
+'   real portfolio Checks can hold a row per trade
 '
 ' INPUTS
 '   ReportSheet
@@ -3959,18 +4249,24 @@ Private Function WriteReportChecks( _
 '   The header row of the rows of Checks, repeated on every page of a PDF
 '
 ' BEHAVIOR
-'   Orders the rows with CORE_Export.ReportCodeOrder and writes the two
-'   tables
+'   - Orders the rows with CORE_Export.ReportCodeOrder
+'   - PDF: keeps the first RPT_PDF_CHECKS_PER_CODE rows of each code and
+'     says how many are left out (CORE_Export.ReportChecksNote)
+'   - Writes the two tables
 '
 ' ERROR POLICY
 '   Raises an error of Excel
 '
 ' DEPENDENCIES
-'   ReadReportTable, CORE_Export.ReportCodeOrder, WriteReportTable,
-'   FitReportColumns
+'   ReadReportTable, CORE_Export.ReportCodeOrder,
+'   CORE_Export.ReportCellText, CORE_Export.ReportChecksNote,
+'   WriteReportTable, FitReportColumns, TopRows
 '
 ' NOTES
-'   The severity is the first column of Checks and the code the seventh
+'   The severity is the first column of Checks and the code the seventh;
+'   the summary by code always counts every row. The rows of a code are
+'   together in ReportCodeOrder's order, so a change of the code's text
+'   starts the next code
 '
 ' UPDATED
 '   2026-11-26
@@ -3983,7 +4279,12 @@ Private Function WriteReportChecks( _
     Dim TableRows   As Variant    'Rows of Checks
     Dim Summary     As Variant    'A row per code
     Dim Order       As Variant    'Rows in the order of the report
-    Dim Ordered     As Variant    'The rows in that order
+    Dim Ordered     As Variant    'The rows written, in that order
+    Dim KeptCount   As Long       'Rows written
+    Dim LeftOut     As Long       'Rows a PDF leaves out
+    Dim Code        As String     'Code of a row
+    Dim LastCode    As String     'Code of the row before
+    Dim OfCode      As Long       'Rows of the current code so far
     Dim HeaderRow   As Long       'Header row of the summary
     Dim i           As Long       'Row of the report
     Dim c           As Long       'Column
@@ -3991,16 +4292,29 @@ Private Function WriteReportChecks( _
 '------------------------------------------------------------------------------
 ' ORDER THE ROWS
 '------------------------------------------------------------------------------
-    'Codes by severity, then code; each code's rows as on the sheet
+    'Codes by severity, then code; each code's rows as on the sheet; a PDF
+    'keeps the first of each code
         TableRows = ReadReportTable(SH_CHECKS, CK_NCOLS, Headers)
         Order = CORE_Export.ReportCodeOrder(TableRows, 1, CK_CODE_COL, Summary)
         If IsArray(TableRows) Then
             ReDim Ordered(1 To UBound(TableRows, 1), 1 To CK_NCOLS)
             For i = 1 To UBound(TableRows, 1)
-                For c = 1 To CK_NCOLS
-                    Ordered(i, c) = TableRows(Order(i), c)
-                Next c
+                Code = VBA.Trim$(CORE_Export.ReportCellText("text", TableRows(Order(i), CK_CODE_COL)))
+                If i = 1 Or Code <> LastCode Then
+                    OfCode = 0
+                    LastCode = Code
+                End If
+                OfCode = OfCode + 1
+                If AsPdf And OfCode > RPT_PDF_CHECKS_PER_CODE Then
+                    LeftOut = LeftOut + 1
+                Else
+                    KeptCount = KeptCount + 1
+                    For c = 1 To CK_NCOLS
+                        Ordered(KeptCount, c) = TableRows(Order(i), c)
+                    Next c
+                End If
             Next i
+            Ordered = TopRows(Ordered, KeptCount)
         Else
             Ordered = Empty
         End If
@@ -4008,11 +4322,12 @@ Private Function WriteReportChecks( _
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-    'The summary, then the rows
+    'The summary, then the rows, with what a PDF leaves out
         HeaderRow = WriteReportTable(ReportSheet, 1, "Checks by code", Array(), Array("Code", "Severity", "Rows"), _
                                      VBA.Split("text|text|count", "|"), Summary, AsPdf, 0, vbNullString)
         WriteReportChecks = WriteReportTable(ReportSheet, HeaderRow + RowsOf(Summary) + 2, "Checks, grouped by code", _
-                                             Array(), Headers, VBA.Split(RPT_CHECKS_KINDS, "|"), Ordered, AsPdf, 0, _
+                                             Array(CORE_Export.ReportChecksNote(RPT_PDF_CHECKS_PER_CODE, LeftOut)), _
+                                             Headers, VBA.Split(RPT_CHECKS_KINDS, "|"), Ordered, AsPdf, 0, _
                                              vbNullString)
         FitReportColumns ReportSheet
 
@@ -4079,11 +4394,14 @@ Private Function WriteReportReconciliation( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Writes a reconciliation sheet of the report: the summary of the
-'   reconciliation and its rows; in the PDF only the rows that are not
-'   MATCH, with a line saying how many are left out
+'   reconciliation and its rows. The XLSX has every row; the PDF the rows
+'   of netting sets that are not MATCH, or the largest differences of the
+'   trade legs, with a line saying what is left out
 '
 ' WHY THIS EXISTS
-'   The owner's decision of 2026-11-26 on the reconciliation rows (#259)
+'   The owner's decisions of 2026-11-26 on the reconciliation rows (#259):
+'   a real portfolio gave a PDF of 163 pages, most of them trade legs
+'   not in the bank's file
 '
 ' INPUTS
 '   ReportSheet
@@ -4098,7 +4416,9 @@ Private Function WriteReportReconciliation( _
 '
 ' BEHAVIOR
 '   - Reads the summary line of the sheet and its table
-'   - PDF: keeps the rows whose Result is not MATCH
+'   - PDF, netting sets: keeps the rows whose Result is not MATCH
+'   - PDF, trade legs: keeps the DIFFERENCE rows with the largest absolute
+'     difference, at most RPT_PDF_TRADE_DIFFERENCES (LargestDifferences)
 '   - The figures take the format of their measure (report.json,
 '     measure_ratios)
 '
@@ -4106,12 +4426,13 @@ Private Function WriteReportReconciliation( _
 '   Raises an error of Excel
 '
 ' DEPENDENCIES
-'   ReadReportTable, ReconSheetOf, CORE_Export.ReportOmittedNote,
+'   ReadReportTable, ReconSheetOf, LargestDifferences,
+'   CORE_Export.ReportOmittedNote, CORE_Export.ReportDifferencesNote,
 '   WriteReportTable, FitReportColumns
 '
 ' NOTES
-'   The measure is the sixth column and the result the eleventh in both
-'   tables
+'   The measure is the sixth column, the absolute difference the ninth and
+'   the result the eleventh in both tables
 '
 ' UPDATED
 '   2026-11-26
@@ -4120,22 +4441,25 @@ Private Function WriteReportReconciliation( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Const MEASURE_COLUMN   As Long = 6      'Measure, in both tables
-    Const RESULT_COLUMN    As Long = 11     'Result, in both tables
+    Const MEASURE_COLUMN     As Long = 6      'Measure, in both tables
+    Const DIFFERENCE_COLUMN  As Long = 9      'Absolute difference, in both tables
+    Const RESULT_COLUMN      As Long = 11     'Result, in both tables
 
-    Dim SheetName          As String        'The reconciliation sheet
-    Dim ColumnCount        As Long          'Its columns
-    Dim Headers            As Variant       'Its headers
-    Dim TableRows          As Variant       'Its rows
-    Dim Kept               As Variant       'The rows written
-    Dim KeptCount          As Long          'Rows written
-    Dim Omitted            As Long          'MATCH rows left out of a PDF
-    Dim Summary            As String        'The summary line of the sheet
-    Dim Title              As String        'Title of the table
-    Dim Notes              As Variant       'Lines under the title
-    Dim Kinds              As Variant       'Kind of each column
-    Dim i                  As Long          'Row
-    Dim c                  As Long          'Column
+    Dim SheetName            As String        'The reconciliation sheet
+    Dim ColumnCount          As Long          'Its columns
+    Dim Headers              As Variant       'Its headers
+    Dim TableRows            As Variant       'Its rows
+    Dim Kept                 As Variant       'The rows written
+    Dim KeptCount            As Long          'Rows written
+    Dim Omitted              As Long          'MATCH rows left out of a PDF
+    Dim Differences          As Long          'DIFFERENCE rows of the trade legs
+    Dim LeftNote             As String        'What a PDF leaves out
+    Dim Summary              As String        'The summary line of the sheet
+    Dim Title                As String        'Title of the table
+    Dim Notes                As Variant       'Lines under the title
+    Dim Kinds                As Variant       'Kind of each column
+    Dim i                    As Long          'Row
+    Dim c                    As Long          'Column
 
 '------------------------------------------------------------------------------
 ' READ
@@ -4145,9 +4469,18 @@ Private Function WriteReportReconciliation( _
         ColumnCount = IIf(ReconKind = RECON_NS, RC_NCOLS, TRC_NCOLS)
         Summary = CORE_Export.ReportCellText("text", GetSheet(SheetName).Range(RECON_INFO_CELL).Value2)
         TableRows = ReadReportTable(SheetName, ColumnCount, Headers)
-    'A PDF keeps the rows that are not MATCH
         Kept = TableRows
-        If AsPdf And IsArray(TableRows) Then
+
+'------------------------------------------------------------------------------
+' CHOOSE THE ROWS OF A PDF
+'------------------------------------------------------------------------------
+    'Trade legs: the largest differences, the rest counted by the summary
+        If AsPdf And ReconKind = RECON_TR Then
+            Kept = LargestDifferences(TableRows, RESULT_COLUMN, DIFFERENCE_COLUMN, RPT_PDF_TRADE_DIFFERENCES, _
+                                      Differences, KeptCount)
+            LeftNote = CORE_Export.ReportDifferencesNote(KeptCount, Differences, RowsOf(TableRows) - KeptCount)
+    'Netting sets: the rows that are not MATCH
+        ElseIf AsPdf And IsArray(TableRows) Then
             ReDim Kept(1 To UBound(TableRows, 1), 1 To ColumnCount)
             For i = 1 To UBound(TableRows, 1)
                 If VBA.UCase$(VBA.Trim$(CORE_Export.ReportCellText("text", TableRows(i, RESULT_COLUMN)))) = "MATCH" Then
@@ -4164,6 +4497,7 @@ Private Function WriteReportReconciliation( _
             Else
                 Kept = TopRows(Kept, KeptCount)
             End If
+            LeftNote = CORE_Export.ReportOmittedNote(Omitted)
         End If
 
 '------------------------------------------------------------------------------
@@ -4173,7 +4507,7 @@ Private Function WriteReportReconciliation( _
         Title = IIf(ReconKind = RECON_NS, "Reconciliation of netting sets", "Reconciliation of trade legs")
         Notes = Array(Summary, "Amounts in units of " & ReportCurrencyText() & _
                       "; the bank's figures multiplied by the scale of the settings; ratios are not scaled.", _
-                      CORE_Export.ReportOmittedNote(Omitted))
+                      LeftNote)
         Kinds = VBA.Split(IIf(ReconKind = RECON_NS, RPT_RECON_KINDS, RPT_TRADE_RECON_KINDS), "|")
         WriteReportReconciliation = WriteReportTable(ReportSheet, 1, Title, Notes, Headers, Kinds, Kept, AsPdf, _
                                                      MEASURE_COLUMN, IIf(ReconKind = RECON_NS, RPT_RECON_RATIOS, _
@@ -4183,38 +4517,55 @@ Private Function WriteReportReconciliation( _
 End Function
 
 
-Private Function WriteReportLimitations( _
-    ByVal ReportSheet As Worksheet, _
-    ByVal AsPdf As Boolean) _
-    As Long
+Private Function LargestDifferences( _
+    ByVal TableRows As Variant, _
+    ByVal ResultColumn As Long, _
+    ByVal DifferenceColumn As Long, _
+    ByVal Limit As Long, _
+    ByRef Differences As Long, _
+    ByRef KeptCount As Long) _
+    As Variant
 '
 '------------------------------------------------------------------------------
-'                         WRITE THE LIMITATIONS OF THE REPORT
+'              CHOOSE THE LARGEST DIFFERENCES OF A RECONCILIATION
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Writes the Limitations sheet: the statements of the evidence CSV and
-'   the report's own, numbered
+'   Returns the rows whose Result is DIFFERENCE with the largest absolute
+'   difference, at most Limit of them, largest first; ties keep their
+'   order on the sheet
 '
 ' WHY THIS EXISTS
-'   The report says what it does not show, as the CSV does (#259)
+'   The PDF shows the largest differences of the trade legs (#259, owner's
+'   decision of 2026-11-26); tools/report.py (pdf_trade_rows) is the
+'   reference
 '
 ' INPUTS
-'   ReportSheet
-'     The report's Limitations sheet
-'   AsPdf
-'     As WriteReportTable
+'   TableRows
+'     The rows of the reconciliation, a 2-D array from 1; Empty for none
+'   ResultColumn
+'     Column of the Result
+'   DifferenceColumn
+'     Column of the absolute difference
+'   Limit
+'     Rows kept at most
+'   Differences
+'     Receives the number of DIFFERENCE rows
+'   KeptCount
+'     Receives the number of rows returned
 '
 ' RETURNS
-'   0: the sheet is short and repeats no row on its pages
+'   A 2-D array of the rows kept, from 1; Empty when none
 '
 ' BEHAVIOR
-'   One row per statement of CORE_Export.ReportLimitationTexts
+'   Picks, Limit times, the remaining DIFFERENCE row of the largest
+'   absolute difference, the first on the sheet among equals: a pass per
+'   row kept, so thousands of rows take no time to speak of
 '
 ' ERROR POLICY
-'   Raises an error of Excel
+'   None: a difference that is not a number counts as 0
 '
 ' DEPENDENCIES
-'   CORE_Export.ReportLimitationTexts, WriteReportTable
+'   CORE_Export.ReportCellText, CORE_Util.ToDbl
 '
 ' NOTES
 '   None
@@ -4226,24 +4577,61 @@ Private Function WriteReportLimitations( _
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim Notes       As Variant    'The statements
-    Dim TableRows   As Variant    'Number and statement of each row
-    Dim i           As Long       'Statement
+    Dim RowCount        As Long       'Rows of the table
+    Dim ColumnCount     As Long       'Its columns
+    Dim Candidate()     As Boolean    'A DIFFERENCE row not yet kept
+    Dim Size()          As Double     'Its absolute difference
+    Dim Kept            As Variant    'The rows kept
+    Dim Best            As Long       'Row of the largest difference left
+    Dim i               As Long       'Row
+    Dim c               As Long       'Column
 
 '------------------------------------------------------------------------------
-' WRITE
+' FIND THE DIFFERENCES
 '------------------------------------------------------------------------------
-    'Numbered from 1
-        Notes = CORE_Export.ReportLimitationTexts()
-        ReDim TableRows(1 To UBound(Notes) - LBound(Notes) + 1, 1 To 2)
-        For i = 1 To UBound(TableRows, 1)
-            TableRows(i, 1) = i
-            TableRows(i, 2) = Notes(LBound(Notes) + i - 1)
+    'Nothing to keep without rows
+        Differences = 0
+        KeptCount = 0
+        LargestDifferences = Empty
+        If Not IsArray(TableRows) Then Exit Function
+        RowCount = UBound(TableRows, 1)
+        ColumnCount = UBound(TableRows, 2)
+    'Mark the DIFFERENCE rows and their size
+        ReDim Candidate(1 To RowCount)
+        ReDim Size(1 To RowCount)
+        For i = 1 To RowCount
+            If VBA.UCase$(VBA.Trim$(CORE_Export.ReportCellText("text", TableRows(i, ResultColumn)))) = _
+                    "DIFFERENCE" Then
+                Candidate(i) = True
+                Size(i) = VBA.Abs(CORE_Util.ToDbl(TableRows(i, DifferenceColumn), 0#))
+                Differences = Differences + 1
+            End If
         Next i
-        WriteReportTable ReportSheet, 1, "Limitations", Array(), Array("No.", "Statement"), _
-                         VBA.Split("count|text", "|"), TableRows, AsPdf, 0, vbNullString
-        FitReportColumns ReportSheet
-        WriteReportLimitations = 0
+        If Differences = 0 Or Limit < 1 Then Exit Function
+
+'------------------------------------------------------------------------------
+' KEEP THE LARGEST
+'------------------------------------------------------------------------------
+    'The largest left, the first among equals, until the limit
+        ReDim Kept(1 To IIf(Differences < Limit, Differences, Limit), 1 To ColumnCount)
+        Do While KeptCount < UBound(Kept, 1)
+            Best = 0
+            For i = 1 To RowCount
+                If Candidate(i) Then
+                    If Best = 0 Then
+                        Best = i
+                    ElseIf Size(i) > Size(Best) Then
+                        Best = i
+                    End If
+                End If
+            Next i
+            KeptCount = KeptCount + 1
+            For c = 1 To ColumnCount
+                Kept(KeptCount, c) = TableRows(Best, c)
+            Next c
+            Candidate(Best) = False
+        Loop
+        LargestDifferences = Kept
 
 End Function
 
@@ -4329,7 +4717,8 @@ End Sub
 Private Function ApplyReportPageSetup( _
     ByVal ReportSheet As Worksheet, _
     ByVal Footer As String, _
-    ByVal TitleRow As Long) _
+    ByVal TitleRow As Long, _
+    Optional ByVal PrintZoom As Long = 0) _
     As String
 '
 '------------------------------------------------------------------------------
@@ -4351,13 +4740,20 @@ Private Function ApplyReportPageSetup( _
 '     The footer, with &P and &N for the page and the pages
 '   TitleRow
 '     The header row repeated on every page; 0 for none
+'   PrintZoom
+'     The print zoom in percent, for a sheet with its own page breaks
+'     (the Charts sheet); 0, the default, to fit one page wide
 '
 ' RETURNS
 '   "" when every setting was applied, else "sheet: error; "
 '
 ' BEHAVIOR
-'   Communication with the printer is paused while the settings are
-'   written
+'   - Communication with the printer is paused while the settings are
+'     written
+'   - The margins are RPT_MARGIN_SIDE and RPT_MARGIN_END, which
+'     LayOutReportCharts lays the charts out for
+'   - One page wide, or the zoom given: Excel ignores manual page breaks
+'     on a sheet printed to fit a number of pages
 '
 ' ERROR POLICY
 '   Never raises: a failure is returned
@@ -4385,9 +4781,17 @@ Private Function ApplyReportPageSetup( _
         With ReportSheet.PageSetup
             .Orientation = xlLandscape
             .PaperSize = xlPaperA4
-            .Zoom = False
-            .FitToPagesWide = 1
-            .FitToPagesTall = False
+            .LeftMargin = RPT_MARGIN_SIDE
+            .RightMargin = RPT_MARGIN_SIDE
+            .TopMargin = RPT_MARGIN_END
+            .BottomMargin = RPT_MARGIN_END
+            If PrintZoom > 0 Then
+                .Zoom = PrintZoom
+            Else
+                .Zoom = False
+                .FitToPagesWide = 1
+                .FitToPagesTall = False
+            End If
             If TitleRow > 0 Then
                 .PrintTitleRows = "$" & TitleRow & ":$" & TitleRow
             End If

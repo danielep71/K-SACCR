@@ -110,17 +110,13 @@ class ReportSpecTests(unittest.TestCase):
             self.assertLessEqual(len(section["sheet"]), 31)
             self.assertNotRegex(section["sheet"], r"[\[\]:*?/\\]")
 
-    def test_the_limitations_are_those_of_the_evidence_export_and_one_more(self) -> None:
-        export = read_vba("src/core/CORE_Export.bas")
-        body = export[export.index("Public Function LimitationTexts()"):]
-        notes = body[body.index("LimitationTexts = Array("):body.index("End Function")]
-        statements = len(re.findall(r'^ {12}"', notes, flags=re.M))  # a statement starts at 12 spaces, its continuation at 16
-        self.assertEqual(statements, 7)
-        self.assertEqual(self.section("limitations")["statements"], statements + 1)
-        report_body = export[export.index("Public Function ReportLimitationTexts()"):]
-        report_body = report_body[:report_body.index("End Function")]
-        self.assertIn("Notes = LimitationTexts()", report_body)
-        self.assertEqual(report_body.count("Texts(UBound(Texts)) = "), 1)  # one statement more
+    def test_the_report_has_no_limitations_sheet(self) -> None:
+        # The owner's verification of 2026-11-26: the limitations stay in the evidence CSV only.
+        self.assertNotIn("limitations", [s["id"] for s in self.spec["sections"]])
+        main = read_vba("src/workbook/M_Main.bas")
+        self.assertNotIn('AddReportSheet(ReportBook, "Limitations")', main)
+        self.assertNotIn("ReportLimitationTexts", read_vba("src/core/CORE_Export.bas"))
+        self.assertIn('"no-limitations"', read_vba("tests/modules/TEST_Report.bas"))
 
     def test_the_measures_that_are_not_amounts_are_those_the_reconciliation_does_not_scale(self) -> None:
         source = read_vba("src/core/CORE_Reconcile.bas")
@@ -202,6 +198,42 @@ class ReportSpecTests(unittest.TestCase):
         self.assertIn(".Font.Color = vbWhite", writer)
         self.assertIn(".Interior.Color = RPT_HEADER_FILL", writer)
         self.assertNotIn("RGB(217, 225, 242)", main)
+
+    def test_the_charts_are_laid_out_in_the_printable_area_of_the_page(self) -> None:
+        # A4 landscape is 841.89 by 595.28 points; the Charts sheet is laid out in what the margins leave.
+        main = read_vba("src/workbook/M_Main.bas")
+
+        def constant(name: str) -> float:
+            found = re.search(rf"Private Const {name}\s+As (?:Double|Long) = ([\d.]+)#?", main)
+            self.assertIsNotNone(found, name)
+            return float(found.group(1)) if found else 0.0
+
+        self.assertLessEqual(constant("RPT_PRINT_WIDTH"), 841.89 - 2 * constant("RPT_MARGIN_SIDE"))
+        self.assertLessEqual(constant("RPT_PRINT_HEIGHT"), 595.28 - 2 * constant("RPT_MARGIN_END"))
+        self.assertGreater(constant("RPT_PRINT_WIDTH"), 841.89 - 2 * constant("RPT_MARGIN_SIDE") - 1)
+        self.assertGreater(constant("RPT_PRINT_HEIGHT"), 595.28 - 2 * constant("RPT_MARGIN_END") - 1)
+        setup = main[main.index("Private Function ApplyReportPageSetup("):]
+        setup = setup[:setup.index("End Function")]
+        for line in (".LeftMargin = RPT_MARGIN_SIDE", ".TopMargin = RPT_MARGIN_END", ".Zoom = PrintZoom"):
+            self.assertIn(line, setup)
+
+    def test_the_pdf_keeps_of_long_tables_what_the_specification_says(self) -> None:
+        # The owner's decision of 2026-11-26, after a real portfolio gave a PDF of 163 pages.
+        main = read_vba("src/workbook/M_Main.bas")
+        limit = self.spec["reconciliation_rows"]["pdf_trade_limit"]
+        per_code = self.spec["checks_by_code"]["pdf_rows_per_code"]
+        self.assertRegex(main, rf"Private Const RPT_PDF_TRADE_DIFFERENCES As Long = {limit}\b")
+        self.assertRegex(main, rf"Private Const RPT_PDF_CHECKS_PER_CODE   As Long = {per_code}\b")
+        export = read_vba("src/core/CORE_Export.bas").replace("\r\n", "\n")
+        # The literal pieces of the two notes, as the reference writes them.
+        for piece in ("No row has the result DIFFERENCE; ", "The row with the result DIFFERENCE is shown; ",
+                      " rows with the result DIFFERENCE are shown; ", " rows with the result DIFFERENCE and the largest ",
+                      "absolute difference are shown, of ", ", counted by result above; the workbook version of the "
+                      "report has every row.", "the other 1 row is left out", " rows of each code are shown; "):
+            self.assertIn(piece, export.replace('" & _\n                                    "', "")
+                                       .replace('" & _\n                               "', ""), piece)
+        self.assertIn(report.differences_note(50, 80, 5030).split(" of 80")[0].replace("The 50", ""),
+                      " rows with the result DIFFERENCE and the largest absolute difference are shown,")
 
     def test_the_vba_suite_checks_every_example_of_the_specification(self) -> None:
         suite = read_vba("tests/modules/TEST_Report.bas")

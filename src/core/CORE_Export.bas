@@ -264,8 +264,8 @@ Public Function LimitationTexts() As Variant
 '   report: what the report does and does not show
 '
 ' WHY THIS EXISTS
-'   The evidence CSV (#45) and the formatted run report (#259) state the
-'   same limitations; one list keeps them the same
+'   The evidence CSV (#45) states what it does and does not show;
+'   LimitationLines writes the statements, numbered
 '
 ' INPUTS
 '   None
@@ -283,7 +283,8 @@ Public Function LimitationTexts() As Variant
 '   None
 '
 ' NOTES
-'   ReportLimitationTexts adds the statement of the formatted report
+'   The formatted run report (#259) has no limitations sheet: the owner
+'   found it of no use (2026-11-26)
 '
 ' UPDATED
 '   2026-11-26
@@ -1359,35 +1360,129 @@ Public Function ReportOmittedNote( _
 End Function
 
 
-Public Function ReportLimitationTexts() As Variant
-
+Public Function ReportDifferencesNote( _
+    ByVal Shown As Long, _
+    ByVal Differences As Long, _
+    ByVal LeftOut As Long) _
+    As String
 '
 '------------------------------------------------------------------------------
-'                      LIST THE LIMITATIONS OF A RUN REPORT
+'             SAY WHAT THE PDF SHOWS OF THE RECONCILIATION OF TRADES
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Returns the statements of the Limitations sheet of a formatted run
-'   report: those of the evidence CSV and one more
+'   Returns the line under the reconciliation of trade legs in the PDF of
+'   a report: which DIFFERENCE rows it shows and how many rows it leaves
+'   out; "" when none
 '
 ' WHY THIS EXISTS
-'   The report is a readable view of the run, and the CSV of Export
-'   evidence its machine-readable record (#259); docs/workbook/report.json
-'   counts eight statements
+'   A real portfolio gave a PDF of 163 pages: the PDF now shows the
+'   largest differences only (#259, owner's decision of 2026-11-26), and
+'   an omission is never silent. tools/report.py (differences_note) is
+'   the reference
 '
 ' INPUTS
-'   None
+'   Shown
+'     DIFFERENCE rows shown, 0 or more
+'
+'   Differences
+'     DIFFERENCE rows of the reconciliation, Shown or more
+'
+'   LeftOut
+'     Rows left out, 0 or more
 '
 ' RETURNS
-'   A zero-based array of the eight statements
+'   The line, or "" when LeftOut is 0
 '
 ' BEHAVIOR
-'   Copies LimitationTexts and adds the report's statement
+'   Says that no row is a DIFFERENCE, that every DIFFERENCE row is shown,
+'   or that the largest are shown of how many; then how many rows are
+'   left out, in the singular for one
 '
 ' ERROR POLICY
 '   None
 '
 ' DEPENDENCIES
-'   LimitationTexts
+'   None
+'
+' NOTES
+'   The summary line above the table counts the rows by result
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Rest    As String    'What is left out
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'Nothing to say when every row is shown
+        If LeftOut = 0 Then
+            ReportDifferencesNote = vbNullString
+            Exit Function
+        End If
+    'How many rows are left out
+        If LeftOut = 1 Then
+            Rest = "the other 1 row is left out"
+        Else
+            Rest = "the other " & VBA.CStr(LeftOut) & " rows are left out"
+        End If
+        Rest = Rest & ", counted by result above; the workbook version of the report has every row."
+    'Then what is shown
+        If Differences = 0 Then
+            ReportDifferencesNote = "No row has the result DIFFERENCE; " & Rest
+        ElseIf Shown = Differences And Shown = 1 Then
+            ReportDifferencesNote = "The row with the result DIFFERENCE is shown; " & Rest
+        ElseIf Shown = Differences Then
+            ReportDifferencesNote = "The " & VBA.CStr(Shown) & " rows with the result DIFFERENCE are shown; " & Rest
+        Else
+            ReportDifferencesNote = "The " & VBA.CStr(Shown) & " rows with the result DIFFERENCE and the largest " & _
+                                    "absolute difference are shown, of " & VBA.CStr(Differences) & "; " & Rest
+        End If
+
+End Function
+
+
+Public Function ReportChecksNote( _
+    ByVal PerCode As Long, _
+    ByVal LeftOut As Long) _
+    As String
+'
+'------------------------------------------------------------------------------
+'                 SAY HOW MANY ROWS OF CHECKS THE PDF LEAVES OUT
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the line under the title of the rows of Checks in the PDF of a
+'   report: at most PerCode rows of each code are shown, and how many are
+'   left out; "" when none
+'
+' WHY THIS EXISTS
+'   With a real portfolio Checks can hold a row per trade: the PDF shows a
+'   few of each code (#259, owner's decision of 2026-11-26), and an
+'   omission is never silent. tools/report.py (checks_note) is the
+'   reference
+'
+' INPUTS
+'   PerCode
+'     Rows of each code the PDF shows at most
+'
+'   LeftOut
+'     Rows left out, 0 or more
+'
+' RETURNS
+'   The line, or "" when LeftOut is 0
+'
+' BEHAVIOR
+'   Writes the numbers, the rows left out in the singular for one
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   None
 '
 ' NOTES
 '   None
@@ -1397,24 +1492,19 @@ Public Function ReportLimitationTexts() As Variant
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
-' DECLARE
-'------------------------------------------------------------------------------
-    Dim Notes   As Variant    'The statements of the evidence CSV
-    Dim Texts   As Variant    'The statements of the report
-    Dim i       As Long       'Statement
-
-'------------------------------------------------------------------------------
 ' RETURN VALUE
 '------------------------------------------------------------------------------
-    'The evidence CSV's statements, then the report's
-        Notes = LimitationTexts()
-        ReDim Texts(0 To UBound(Notes) - LBound(Notes) + 1)
-        For i = LBound(Notes) To UBound(Notes)
-            Texts(i - LBound(Notes)) = Notes(i)
-        Next i
-        Texts(UBound(Texts)) = "This report is a readable view of the run; the CSV written by Export evidence is " & _
-                               "its machine-readable record."
-        ReportLimitationTexts = Texts
+    'Nothing to say when every row is shown
+        If LeftOut = 0 Then
+            ReportChecksNote = vbNullString
+        ElseIf LeftOut = 1 Then
+            ReportChecksNote = "At most " & VBA.CStr(PerCode) & " rows of each code are shown; 1 row is left out; " & _
+                               "the workbook version of the report has every row."
+        Else
+            ReportChecksNote = "At most " & VBA.CStr(PerCode) & " rows of each code are shown; " & _
+                               VBA.CStr(LeftOut) & " rows are left out; the workbook version of the report has " & _
+                               "every row."
+        End If
 
 End Function
 

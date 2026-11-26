@@ -112,6 +112,18 @@ Use only the categories needed by a release.
   Home and README sheets name it. After the owner's verification in Excel, the PDF's charts are
   pictured with the Dashboard shown, as Excel exported them empty from a sheet it did not show, and
   the report takes the font, header fill, tab colors and hidden gridlines of the K-SACCR sheets.
+- Finish the formatted run report after the owner's verification in Excel (#259): the PDF's charts
+  are pictured with the Dashboard zoomed to 300%, at three times the screen's resolution, and laid
+  out in rows that never cross a page (the Charts sheet is printed at a computed zoom, with a page
+  break before a row that would cross one; every report sheet gets the same margins). The report
+  no longer has a Limitations sheet, which the owner found of no use: the limitations stay in the
+  evidence CSV. `TEST_Report` checks that no such sheet is written (still 54 checks).
+- Keep the PDF of a real portfolio short (#259): a real portfolio gave 163 pages. The PDF now shows
+  of the reconciliation of trade legs only the 50 rows with the result `DIFFERENCE` and the largest
+  absolute difference, under the summary that counts every row by result, and of Checks at most 10
+  rows of each code, under the summary by code; a line says what is left out each time, and the
+  XLSX keeps every row (`report.json`: `pdf_trade_limit`, `pdf_rows_per_code`; `tools/report.py`;
+  `CORE_Export.ReportDifferencesNote` and `ReportChecksNote`).
 - Write the formatted run report (#259), the second of three parts: `ExportReport` and
   `ExportReport_Silent` write a report of the last run as a PDF or an XLSX, chosen by the file's
   extension, in the order and formats of `docs/workbook/report.json`. The report is built in a new
