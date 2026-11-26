@@ -25,7 +25,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Any, Iterable, Sequence
@@ -57,7 +57,7 @@ def significant(value: float) -> Decimal:
 
 def grouped(whole: int) -> str:
     text = str(whole)
-    parts = []
+    parts: list[str] = []
     while len(text) > 3:
         parts.insert(0, text[-3:])
         text = text[:-3]

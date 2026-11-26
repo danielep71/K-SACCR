@@ -4,7 +4,6 @@ from __future__ import annotations
 import re
 import unittest
 import zipfile
-from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
 
