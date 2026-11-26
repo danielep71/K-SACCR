@@ -2042,8 +2042,8 @@ Public Sub ExportReport()
 '   Notify
 '
 ' NOTES
-'   The Ribbon command follows with #259; the macro runs from the Macros
-'   dialog meanwhile
+'   Runs from Export report on the K-SACCR Ribbon tab (M_Ribbon), or the
+'   Macros dialog
 '
 ' UPDATED
 '   2026-11-26

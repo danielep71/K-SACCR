@@ -133,8 +133,9 @@ chooses decides the format; `ExportReport_Silent` takes the path and decides by
 the extension; it returns `RESULT=OK; format=PDF|XLSX; sheets=N; charts=N;
 page_setup=OK; file=...` or `RESULT=REFUSED; reason=...`. A printer driver that
 refuses a page setting does not stop the PDF: the result says
-`page_setup=FAILED (...)`. Until part C adds it to the Ribbon, the command runs
-from the Macros dialog as `ExportReport`. A refusal and a write failure are reported in a message, or in
+`page_setup=FAILED (...)`. The command is **Export report** in the Evidence group
+of the K-SACCR Ribbon tab, enabled like Export evidence while Results is current
+([`RIBBON.md`](RIBBON.md)); it also runs from the Macros dialog as `ExportReport`. A refusal and a write failure are reported in a message, or in
 the Immediate window in silent mode, and never raise. A failure leaves no
 partial file: the report is written beside the target and then renamed, as the
 evidence CSV is, and the temporary workbook is closed without saving whatever
