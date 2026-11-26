@@ -653,7 +653,7 @@ Use only the categories needed by a release.
 
 ### Changed
 
-- **The target date is required on every issue** (T05 of the template alignment). The issue audit
+- **The target date is required on every issue.** The issue audit
   (`tools/check_issues.py`) reports an open issue without a target date, as it already did for one
   without a start date, and the three issue forms make the **Target date** field required. The date
   must be a real `YYYY-MM-DD` date no later than the milestone's deadline, the deadline day itself
@@ -830,7 +830,9 @@ Use only the categories needed by a release.
   it creates its picture workbook, letting a refresh the suites left pending run there. Every script that starts Excel also
   registers an OLE message filter, `tools/Excel-BusyRetry.ps1`, which retries for up to two
   minutes a call Excel rejects while busy (`RPC_E_CALL_REJECTED`); when a call is still
-  rejected, the verify log names the windows of that Excel and pictures its dialogs.
+  rejected, the verify log names the windows of that Excel and pictures its dialogs. Each script
+  removes the filter once its Excel is closed (`Unregister-ExcelBusyRetry`), so it does not
+  outlive the Excel it was registered for.
 
 - Make the sums of ReconSummary comparable (#720): the sums of the bank's and the calculator's
   figures, the sum of the absolute differences and the largest of them now count only the rows
@@ -1027,27 +1029,27 @@ Use only the categories needed by a release.
 
 ### Maintenance
 
-- Make the Excel evidence record prove that a failed run is never silent, as K-TEMPLATE's
-  certification does. `TEST_Harness.RunTestsWithSkippedCase` runs the harness without its last
-  case, beside `RunTestsWithInjectedFailure`; `TEST_Suite.Certify` runs both after the suites, into
+- Make the Excel evidence record prove that a failed run is never silent.
+  `TEST_Harness.RunTestsWithSkippedCase` runs the harness without its last case, beside
+  `RunTestsWithInjectedFailure`; `TEST_Suite.Certify` runs both after the suites, into
   `harness-injected.log` and `harness-skipped.log`, each ending with the suite failure error that
-  reached it. The evidence policy (schema 4) lists them as `negative_runs`, and the record (schema 3)
-  binds each to its log: `PASS` when it failed as designed (its mode, a failed `RESULT` with the
-  expected completeness and counts, the one failure named, the error reaching the caller), `FAIL`,
-  a test failure, when it did not. `--check-policy` checks the runs against the harness and
+  reached it. The evidence policy (schema 4) lists them as `negative_runs`, and the record (schema
+  3) binds each to its log: `PASS` when it failed as designed (its mode, a failed `RESULT` with the
+  expected completeness and counts, the one failure named, the error reaching the caller), `FAIL`, a
+  test failure, when it did not. `--check-policy` checks the runs against the harness and
   `TEST_Suite.NegativeEntries`; `write_excel_evidence.py` records them; `docs/EXCEL_EVIDENCE.md`
   describes them.
 
-- Bring the issue audit and the issue forms in line with the K-TEMPLATE baseline. Every open issue
+- Tighten the issue audit and the issue forms. Every open issue
   needs a start date, a real `YYYY-MM-DD` date not after its target date, from the new required
   **Start date** field of the bug, feature and documentation forms or from a `Planned start date`
   line under Planning dates. A dependency section with nothing in it is a finding, and so is a
   target date whose milestone has no due date, which cannot be checked; a target on the due date
-  itself stays allowed, and the target date stays optional. Blocked issues that wait for one
+  itself stays allowed. Blocked issues that wait for one
   another are reported as a cycle (only a `blocked` issue is taken to wait for the open issues its
   section names, as a section may name related ones). The 31 open issues pass the new rules.
 
-- Bring the repository's workflows and checks in line with the K-TEMPLATE baseline. Dependabot
+- Tighten the repository's workflows and checks. Dependabot
   waits 14 days after a release for GitHub Actions too, as for pip (`check_workflows.py` requires
   it on both). `mypy` also reports unreachable code (`warn_unreachable`); it found nothing. Repository
   integrity runs for every pull request, whatever its base, and pushes are still checked on `main` and

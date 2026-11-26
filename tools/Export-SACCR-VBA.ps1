@@ -181,4 +181,5 @@ finally {
     }
     [GC]::Collect()
     [GC]::WaitForPendingFinalizers()
+    Unregister-ExcelBusyRetry
 }
