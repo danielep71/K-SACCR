@@ -38,9 +38,10 @@ lists of `CORE_Config` that the macros apply.
   ([Ribbon contract › Navigation bar](RIBBON.md#navigation-bar)). Its cells
   are locked and its shapes are protected with the sheet; their links still
   open their sheets, also with macros disabled. The **Navigation bar** toggle
-  of the K-SACCR tab hides and shows column A and the bar through the macros'
-  user-interface protection, for the session only: every save writes the bar
-  shown (#620).
+  of the K-SACCR tab, and the triangle in B1 of every sheet (#777), hide and
+  show column A and the bar through the macros' user-interface protection,
+  for the session only: every save writes the bar shown (#620). The triangle
+  is protected with the sheet and runs its macro on a protected sheet.
 
 ## 🔧 Maintenance unlock
 
@@ -66,6 +67,7 @@ The matrix names cells by their workbook names wherever the template has one, so
 | `Trades` | Input | Columns `C:AD` below `Trades_Header` | Sorting, filtering, inserting rows |
 | `Import_NettingSets` | Staging | Columns `D:U` below `ImportNettingSets_Header` | Inserting rows |
 | `Import_Trades` | Staging | Columns `D:AE` below `ImportTrades_Header` | Inserting rows |
+| `Dashboard` | Output | — | — (written by every run, #675) |
 | `Results`, `HedgingSets`, `Buckets`, `TradeCalc`, `Checks` | Output | — | Filtering (#754) |
 | `BankNettingSets` | Bank figures | `BankNS_Scale`, `BankNS_AbsTol`, `BankNS_RelTol` (amount scale and tolerances) and columns `C:P` below `BankNettingSets_Header` | Sorting, inserting rows |
 | `Reconciliation` | Working | — | Never protected: sort, filter, add columns and notes |

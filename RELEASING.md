@@ -71,7 +71,82 @@ The candidate is the merge commit that brings the release branch into `main`:
 it is certified, the artifacts are built from it, and the tag is put on it, so
 all three name one SHA.
 
-### 1. Finalize the changelog
+### 1. Run the maintenance audit
+
+Before the scope is fixed, check that GitHub tells the truth about the
+work. The audit corrects issues, comments and other repository text; it
+changes no code, merges no PR, changes no setting, deletes no branch and
+publishes nothing. Read [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) and
+[`CONTRIBUTING.md`](CONTRIBUTING.md) first, and go through every page of each
+list, not only the first.
+
+Judge each item by its evidence: the current code, the merged PRs, the CI and
+Excel results, the linked discussions and the dependencies. A title, a label,
+a ticked checkbox, a merged PR or a green check is not proof on its own that
+every acceptance criterion is met.
+
+1. **Closed issues in the release milestone and any other open milestone.**
+   Check that each one's scope and acceptance criteria are really met: title,
+   description, labels (priority, `blocked`), assignee, milestone, checkboxes,
+   comments, linked PRs, dependencies and follow-ups. Correct stale metadata
+   and text. Reopen an issue closed too early and say exactly what remains.
+   Tell completed work apart from duplicates, rejected proposals and work
+   deferred or abandoned on purpose, and close each with the matching reason.
+   Never tick a criterion that has not been verified.
+2. **Open issues.** Check that each one is still outstanding work, with the
+   same fields. Bring stale descriptions and progress up to date and fix
+   broken or obsolete links. Keep `blocked` only while a named prerequisite is
+   still open or an external condition still holds, and remove it once the
+   dependency is resolved. Close an issue only with the evidence that it is
+   done; for a duplicate, name the canonical issue and carry over any
+   requirement only the duplicate had.
+3. **PR comments and review threads**, on open and closed PRs. Look for wrong
+   claims, stale instructions, unresolved findings and misleading statements
+   about the implementation, the tests or the review. Check review evidence
+   against the commit it names, and tell a self-review, an automated review,
+   CI and a manual test apart. Correct an editable comment where needed. A
+   statement that was true when written stays; a later change is noted next
+   to it. Never edit another contributor's words, or a bot's status summary,
+   so that it implies an approval or a completion. Resolve a thread only when
+   its concern is addressed or explicitly accepted, with the evidence; a
+   finding that needs a code change is reported, not resolved.
+4. **Notifications** of this repository, with their discussions and review
+   threads. Handle what the audit covers. Mark a notification done only when
+   nothing remains to do; leave an actionable or blocked one pending, saying
+   what remains. Notifications of other repositories are not touched.
+5. **Repository scope and wording.** Look through the documentation,
+   configuration, templates, issues, PR descriptions and comments for text
+   copied from another repository. Remove or correct references that do not
+   apply, do not fit or are wrong. Keep real dependencies, source
+   attribution, provenance, licence notices, comparisons and deliberate links
+   to other repositories. In editable text written for the maintainer, prefer
+   direct, impersonal wording, or the first person, to references in the third
+   person such as "the owner" or "the user". Keep the records of authorship,
+   responsibility and approval that are needed. Never invent a statement or
+   an approval, and never change a quotation or another contributor's words.
+
+Apply routine corrections that the evidence supports directly. Leave an item
+unchanged when it is ambiguous, lacks evidence or needs a decision, and report
+it. Avoid speculative changes and duplicate comments.
+
+End with a report:
+
+- what was audited and how much: issues, PRs and comments, and notifications
+  examined;
+- the changes, by category, with links and a short reason each;
+- the issues reopened or closed, the dependencies corrected and the review
+  threads resolved;
+- the notifications marked done, and those left pending with what remains;
+- the findings still open and the next actions recommended;
+- what could not be examined, and why.
+
+Keep verified facts apart from assumptions. If pagination, permissions or
+missing evidence left something unexamined, the report says so and does not
+claim a complete audit. A finding that needs code is fixed through a task PR
+before step 2; an issue reopened for this release stays in its scope or is
+moved out of the milestone by decision, never left behind silently.
+
+### 2. Finalize the changelog
 
 Move the `[Unreleased]` entries into `## [X.Y.Z] - YYYY-MM-DD`, add the link
 reference for the new version, keep an empty `[Unreleased]` section, and create
@@ -80,25 +155,25 @@ or update `VERSION` to `X.Y.Z` in the same PR.
 references, newest-first order and the `VERSION` match. Merge this through a
 task PR into the release branch.
 
-### 2. Check the social preview
+### 3. Check the social preview
 
 Check that the figures in the social preview image still match its source
 notes in [`docs/assets/README.md`](docs/assets/README.md#social-preview), and
 update the release it names as those notes describe.
 
-### 3. Integrate into main and freeze the candidate
+### 4. Integrate into main and freeze the candidate
 
 Follow [integrating the release branch into main](docs/GOVERNANCE.md#integrating-the-release-branch-into-main),
 which leaves the release branch level with `main`. The merge commit on `main`
 is the candidate: record its full SHA, the previous tag (if any) and the
 intended version, and verify that the rulesets are still active in
 Settings → Rules. Until the tag exists, the release branch takes only fixes
-for a gate that failed on the candidate (steps 4 to 6). Such a fix records its
+for a gate that failed on the candidate (steps 5 to 7). Such a fix records its
 change in the dated `## [X.Y.Z]` section being released, not under
 `[Unreleased]`; each is integrated again and the new merge commit becomes the
 candidate.
 
-### 4. Run the static gates
+### 5. Run the static gates
 
 ```sh
 python tools/check.py --ci
@@ -106,7 +181,7 @@ python tools/check.py --ci
 
 Confirm the hosted **Repository integrity** check is green on the same SHA.
 
-### 5. Certify in Excel
+### 6. Certify in Excel
 
 On a clean checkout of the candidate, run the one-command certification:
 
@@ -196,7 +271,7 @@ The protection, the evidence export, the Home links with macros disabled and
 every automation entry point are covered by the certification above and its
 protection checks; repeat them by hand only when a check fails.
 
-### 6. Build artifacts
+### 7. Build artifacts
 
 From a clean checkout of the candidate, build:
 
@@ -211,7 +286,7 @@ From a clean checkout of the candidate, build:
   the candidate, with the command in that folder's README;
 - `SHA256SUMS.txt`: the SHA-256 of both files, in `sha256sum` format.
 
-Check the **development** workbook certified in step 5 the same way: export
+Check the **development** workbook certified in step 6 the same way: export
 it and run the source round trip in development mode against the candidate
 SHA. It is not published, but its round trip shows that the suites ran on
 exactly the candidate's code, test modules included, among them
@@ -221,7 +296,7 @@ candidate. Only `RESULT=PASS` with `binding=VERIFIED` qualifies it.
 
 Once attached to a published release, an asset is never replaced.
 
-### 7. Create the annotated tag
+### 8. Create the annotated tag
 
 Tag only the certified candidate, from the command line so the tag is
 annotated:
@@ -248,7 +323,7 @@ Deviations: none.
 Copy totals verbatim from the run; never round or reuse earlier figures. Never
 delete and recreate a published tag.
 
-### 8. Publish and verify
+### 9. Publish and verify
 
 Create the GitHub Release from the tag as a **draft**, attach the certified
 artifacts and `SHA256SUMS.txt`, and only then publish it. Publishing starts
@@ -324,6 +399,7 @@ it does not replace it.
 | # | Gate | Done |
 | ---: | --- | :---: |
 | 1 | Owner requested the release | ☐ |
+| 1a | Maintenance audit done and its report recorded; every finding fixed, moved out of the release or accepted | ☐ |
 | 2 | Changelog and `VERSION` finalized | ☐ |
 | 3 | Social preview checked | ☐ |
 | 4 | Release branch merged into `main` with a merge commit, and level with `main` again | ☐ |

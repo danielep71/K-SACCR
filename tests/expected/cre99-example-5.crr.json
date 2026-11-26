@@ -7,20 +7,20 @@
     {
       "quantity": "exposure_value",
       "rule": "CRR.274.3",
-      "value": 1879000,
+      "value": 1879212.63150155,
       "unit": "USD",
       "tolerance": {
-        "absolute": 500,
-        "relative": 0
+        "absolute": 1e-06,
+        "relative": 1e-09
       },
       "reference": {
-        "class": "illustrative",
-        "source": "CRR",
-        "locator": "CRE99 ex.5 + CRR Art. 274(3)",
-        "derivation": "Prototype TestCatalogue T15 (Example 5 under CRR: Art. 274(3) cap not binding, same EAD; CRE99 ex.5 + CRR Art. 274(3); derived - separate python implementation; workbook reference CRR-EX5, EAD). Catalogue note: Common core reproduces the Basel result. Value from a separate Python implementation that is not in the repository; illustrative unless an external implementation registered as a source reproduces it (#100). Amounts in USD: the template figure in thousands times 1,000.",
-        "derived_by": "danielep71",
+        "class": "independent",
+        "source": "IMPL-R-SACCR",
+        "locator": "runExampleCalcs, CRE99 example 5 under the CRR",
+        "derivation": "tools/rsaccr_crosscheck.py translates the fixture and tools/rsaccr_run.R runs the package on it; the package's figure agrees with this value at full precision (#100); the catalogue's figure was CRE99's 1,879,000 USD rounded to the thousand, which the package's figure is within",
+        "derived_by": "R 4.3.3, SACCR 3.4, Trading 3.2",
         "reviewed_by": null,
-        "date": "2026-10-09"
+        "date": "2026-11-23"
       },
       "catalogue": "T15"
     }

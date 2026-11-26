@@ -69,7 +69,7 @@ Attribute VB_Name = "TEST_Suite"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const SUITE_COUNT   As Long = 11    'Suites run by Test_RunAll
+        Private Const SUITE_COUNT   As Long = 12    'Suites run by Test_RunAll
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -307,6 +307,108 @@ Public Function Verify( _
 
 End Function
 
+Public Function Benchmark( _
+    ByVal Folder As String, _
+    ByVal Candidate As String, _
+    ByVal SizesText As String) _
+    As String
+'
+'------------------------------------------------------------------------------
+'                     RUN THE BENCHMARK INTO BENCHMARK.LOG
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Runs TEST_Benchmark.RunBenchmark once, into benchmark.log in Folder,
+'   with the line CANDIDATE=Candidate first
+'
+' WHY THIS EXISTS
+'   The benchmark's timings depend on the machine, so Test_RunAll does not
+'   run it; a quick check started by hand with benchmark sizes runs it on
+'   the self-hosted runner (#771), and its BENCH lines reach the artifact
+'   through this log
+'
+' INPUTS
+'   Folder
+'     The folder of the quick check; it must exist
+'
+'   Candidate
+'     The full lowercase SHA of the commit the workbook was built from
+'
+'   SizesText
+'     The sizes of the benchmark, as TEST_Benchmark.RunBenchmark reads them
+'
+' RETURNS
+'   "RESULT=DONE; logs=1; write_errors=0" once the benchmark has ended, the
+'   count of lines that could not be written last; "RESULT=REFUSED;
+'   reason=..." when the candidate is not a full lowercase SHA, the folder
+'   does not exist or benchmark.log exists already
+'
+' BEHAVIOR
+'   - Refuses, writing nothing, as described under RETURNS
+'   - Writes every line the benchmark prints, its BENCH lines and its
+'     RESULT line among them, to the Immediate window and to the log
+'
+' ERROR POLICY
+'   The benchmark contains its own errors and reports them in its RESULT
+'   line; a line that cannot be written is counted
+'
+' DEPENDENCIES
+'   IsCandidate, FolderExists, FileExists, WriteLogLine,
+'   TEST_Benchmark.RunBenchmark
+'
+' NOTES
+'   tools\Verify-SACCR-Branch.ps1 -Quick -BenchmarkSizes calls it through
+'   Application.Run, after the sheet review. Its result never changes the
+'   verdict of the quick check
+'
+' UPDATED
+'   2026-11-25
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME     As String = "TEST_Suite.Benchmark"
+    Const LOG_NAME      As String = "benchmark.log"
+
+    Dim Base            As String    'Folder with one path separator at its end
+
+'------------------------------------------------------------------------------
+' VALIDATE INPUTS
+'------------------------------------------------------------------------------
+    'Refuse a candidate that is not a full lowercase SHA
+        If Not IsCandidate(Candidate) Then
+            Benchmark = "RESULT=REFUSED; reason=the candidate is not a full lowercase commit SHA"
+            Exit Function
+        End If
+    'Refuse a folder that does not exist
+        Base = Folder
+        If VBA.Right$(Base, 1) <> Application.PathSeparator Then
+            Base = Base & Application.PathSeparator
+        End If
+        If Not FolderExists(Base) Then
+            Benchmark = "RESULT=REFUSED; reason=the folder does not exist: " & Folder
+            Exit Function
+        End If
+    'Refuse to write over an earlier log
+        If FileExists(Base & LOG_NAME) Then
+            Benchmark = "RESULT=REFUSED; reason=a log exists already: " & LOG_NAME
+            Exit Function
+        End If
+
+'------------------------------------------------------------------------------
+' RUN THE BENCHMARK
+'------------------------------------------------------------------------------
+    'Every line the benchmark prints goes to the log while it runs
+        mLogErrors = 0
+        mLogPath = Base & LOG_NAME
+        WriteLogLine "CANDIDATE=" & Candidate
+        TEST_Benchmark.RunBenchmark SizesText
+        mLogPath = vbNullString
+    'Say that it ran, and how many lines were lost
+        Benchmark = "RESULT=DONE; logs=1; write_errors=" & mLogErrors
+
+End Function
+
 
 Public Function CertificationReady() As String
 '
@@ -535,7 +637,8 @@ Private Function SuiteEntries() As Variant
                        "TEST_InputValidation.RunInputValidationTests", _
                        "TEST_Aggregation.RunAggregationTests", "TEST_Invariants.RunInvariantTests", _
                        "TEST_Reconcile.RunReconcileTests", "TEST_CsvReader.RunCsvReaderTests", _
-                       "TEST_Import.RunImportTests", "TEST_FormulaRandom.RunFormulaRandomTests")
+                       "TEST_Import.RunImportTests", "TEST_FormulaRandom.RunFormulaRandomTests", _
+                       "TEST_Dashboard.RunDashboardTests")
         SuiteEntries = Suites
 
 End Function
@@ -570,7 +673,8 @@ Private Sub RunEntry( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Run one entry point of SuiteEntries or NegativeEntries. An error it
-'   raises goes to the caller.
+'   raises goes to the caller, and so does an entry point with no branch
+'   here, which would otherwise be skipped without a RESULT line.
 '
 ' UPDATED
 '   2026-11-23
@@ -603,6 +707,11 @@ Private Sub RunEntry( _
                 TEST_Import.RunImportTests
             Case "TEST_FormulaRandom.RunFormulaRandomTests"
                 TEST_FormulaRandom.RunFormulaRandomTests
+            Case "TEST_Dashboard.RunDashboardTests"
+                TEST_Dashboard.RunDashboardTests
+            Case Else
+                Err.Raise vbObjectError + 513, "TEST_Suite.RunEntry", _
+                    "No branch runs " & EntryPoint
         End Select
 
 End Sub

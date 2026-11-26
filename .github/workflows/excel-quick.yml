@@ -19,6 +19,7 @@ on:
       - "tools/Check-SACCR-Protection.ps1"
       - "tools/Sync-SACCR-VBA.ps1"
       - "tools/Run-SACCR-QuickCheck.ps1"
+      - "tools/Excel-BusyRetry.ps1"
       - "tools/QuickCheck-Report.ps1"
       - ".github/workflows/excel-quick.yml"
   workflow_dispatch:
@@ -26,6 +27,11 @@ on:
       branch:
         description: Branch of this repository to check, as on GitHub
         required: true
+        type: string
+      benchmark_sizes:
+        description: Also run TEST_Benchmark with these legs per scenario, e.g. 1000,10000 (empty for none; #771)
+        required: false
+        default: ""
         type: string
 
 permissions: {}
@@ -41,7 +47,8 @@ jobs:
     name: Excel quick check
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Windows, X64, excel]
-    timeout-minutes: 90
+    # The benchmark, when asked for by hand, adds its own minutes to the quick check.
+    timeout-minutes: 120
     permissions:
       contents: read
       pull-requests: write
@@ -66,6 +73,7 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           ARTIFACT_NAME: excel-quick-check-${{ github.run_id }}-${{ github.run_attempt }}
+          BENCHMARK_SIZES: ${{ inputs.benchmark_sizes }}
         run: |
           & "$env:GITHUB_WORKSPACE\tools\Run-SACCR-QuickCheck.ps1" -Branch $env:HEAD_REF
           exit $LASTEXITCODE

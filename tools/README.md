@@ -18,7 +18,7 @@ pull request's whole range.
 
 | Gate | Checks |
 | --- | --- |
-| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), the record written from a certification run's logs (`test_write_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`) and its synthetic portfolio (`test_rsaccr_portfolio.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules, the import specification module included (`test_generate_csv_vba.py`), the import specification page and its examples (`test_import_spec.py`), the editability matrix and protection gate of the workbook template (`test_check_workbook_protection.py`), the Ribbon source and the `M_Ribbon` maps against their contract (`test_ribbon_contract.py`), the Ribbon gate of the template (`test_ribbon_template.py`), the buttons of the sheets, rounded shapes with their macros, the note on the CSV field-name row of the staging sheets, and the Clear outputs button of the Ribbon (`test_template_buttons.py`), the reconciliation sheets of the template and their summary tiles (`test_reconciliation_sheets.py`), the opening state of the template and the limits Excel puts on its validation messages (`test_template_defaults.py`), the FX table convention of the template and the engine (`test_fx_quote.py`), the navigation bar of the template (`test_navigation_bar.py`), the sheet style file and the template's tabs (`test_check_sheet_style.py`), the sheet review's functions that need no Excel (`test_review_sheets_script.py`, skipped without `pwsh`), the automatic quick check's guard against forks, report, artifact and cleanup (`test_quick_check_script.py`, skipped without `pwsh`), the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`), the issue triage rules (`test_check_issues.py`), the workflow invariants (`test_check_workflows.py`, which needs PyYAML: skipped without it locally, failed without it in GitHub Actions), the local and external link checks (`test_check_links.py`), the diagnostic registry gate (`test_check_diagnostics.py`), the derivation gate (`test_check_derivations.py`), the accuracy contracts (`test_check_accuracy_contracts.py`), the measured differences of an Excel run (`test_measured_differences.py`), the business-day calendar and its day-count conventions (`test_business_calendar.py`), the VBA identifier and dependency gates (`test_vba_static_gates.py`) and the traffic workflow's collection and alerts (`test_daily_traffic.py`) |
+| `tool-tests` | Fixtures for the source gate and public-API roles (`test_tooling.py`), regression cases from reviews (`test_review_regressions.py`), synthetic Excel evidence records (`test_excel_evidence.py`), the record written from a certification run's logs (`test_write_excel_evidence.py`), test-case files (`test_test_cases.py`), the case-module generator (`test_generate_case_tests.py`), the export comparison of the source round trip (`test_compare_vba_export.py`), the fixtures of the advisory call checker (`test_vba_calls.py`), the translation and comparison of the R cross-check (`test_rsaccr_crosscheck.py`) and its synthetic portfolio (`test_rsaccr_portfolio.py`), the checks of the ORE probe on ORE's recorded reports (`test_ore_saccr_probe.py`), the Dashboard's specification and the reference of its figures (`test_dashboard.py`) and the Dashboard sheet of the template against it (`test_dashboard_sheet.py`), the CSV contract and its reference validator (`test_csv_contract.py`), the generated CSV modules, the import specification module included (`test_generate_csv_vba.py`), the import specification page and its examples (`test_import_spec.py`), the editability matrix and protection gate of the workbook template (`test_check_workbook_protection.py`), the Ribbon source and the `M_Ribbon` maps against their contract (`test_ribbon_contract.py`), the Ribbon gate of the template (`test_ribbon_template.py`), the buttons of the sheets, rounded shapes with their macros, the note on the CSV field-name row of the staging sheets, and the Clear outputs button of the Ribbon (`test_template_buttons.py`), the reconciliation sheets of the template and their summary tiles (`test_reconciliation_sheets.py`), the opening state of the template and the limits Excel puts on its validation messages (`test_template_defaults.py`), the FX table convention of the template and the engine (`test_fx_quote.py`), the navigation bar of the template (`test_navigation_bar.py`), the same height of the frozen rows from sheet to sheet (`test_frozen_rows.py`), the sheet style file and the template's tabs (`test_check_sheet_style.py`), the sheet review's functions that need no Excel (`test_review_sheets_script.py`, skipped without `pwsh`), the automatic quick check's guard against forks, report, artifact and cleanup (`test_quick_check_script.py`, skipped without `pwsh`), the synchronizer's folder selection and document-module decoding in PowerShell 7 (`test_sync_script.py`, skipped without `pwsh`), the issue triage rules (`test_check_issues.py`), the workflow invariants (`test_check_workflows.py`, which needs PyYAML: skipped without it locally, failed without it in GitHub Actions), the local and external link checks (`test_check_links.py`), the diagnostic registry gate (`test_check_diagnostics.py`), the derivation gate (`test_check_derivations.py`), the accuracy contracts (`test_check_accuracy_contracts.py`), the measured differences of an Excel run (`test_measured_differences.py`), the business-day calendar and its day-count conventions (`test_business_calendar.py`), the arithmetic of the text hash every fingerprint uses (`test_text_hash.py`), the retry of calls Excel rejects while busy (`test_excel_busy_retry.py`), the engine's list of closing days against the calendar's reference (`test_closing_list.py`), the VBA identifier and dependency gates (`test_vba_static_gates.py`) and the traffic workflow's collection and alerts (`test_daily_traffic.py`) |
 | `*-fixtures` | The whitespace gate and the jump, conditional and public-API checkers run their own positive and negative self-tests first |
 | `check_source` | Every tracked text file is stored with LF in Git (CRLF, mixed or lone-CR blobs declared as text fail); VBA components sit only in the locations defined in `docs/REPOSITORY_STRUCTURE.md`, and modules in `src/core/` declare `Option Private Module`; standard modules (`.bas`) in `src/core/`, `src/modules/` and `tests/` carry the role prefix of their folder, `CORE_`, `SACCR_` and `TEST_`; exported VBA (`.bas`, `.cls`, `.frm`) checks out as CRLF, decodes as cp1252, has `Option Explicit`, a `VB_Name` equal to its filename and unique in the project and no string literal left open on its line (a compile error the VBE reports only on import; quotes after `'`, outside `[...]`, or after `Rem`, also behind a line number, are comment) and no module-level code after the first procedure, where Excel allows only comments (#708); each `.frm` references a tracked `.frx` large enough for its offset; `Sync-SACCR-VBA.ps1` and the template exist, every component lies in an active directory of the synchronizer's `$sourceRoots`, and the document modules match the template's sheets by CodeName; `CHANGELOG.md` starts with `## [Unreleased]`, uses `## [X.Y.Z] - YYYY-MM-DD` release headings with real calendar dates and has a link reference for each; once a release exists, `VERSION` holds the newest one; VBA source outside string literals, comments included, is ASCII |
 | `check_committed_whitespace` | `git diff --check` on staged and unstaged changes (local) or on the committed range (`--ci`) |
@@ -40,7 +40,7 @@ pull request's whole range.
 | `issue-config` | The issue forms assign the person `bug.yml` names, set exactly their default priority (`bug.yml` and `feature.yml` `P2`, `documentation.yml` `P3`), use only catalogue labels and have a dependencies field; blank issues are disabled; `blocked` is the catalogue's only dependency status label (`check_issues.py --check-config`) |
 | `generated-csv-modules` | `src/core/CORE_CsvSchema.bas` and `src/core/CORE_ImportSpec.bas` are exactly what `tools/generate_csv_vba.py --check` generates from `docs/csv/contract.json`, and `tests/modules/TEST_CsvReader.bas` what it generates from `tests/csv` |
 | `ribbon-template` | The template `src/workbook/SACCR_Template.xlsx` carries the Ribbon source `src/workbook/customUI14.xml` byte for byte as its `customUI/customUI14.xml` part, with exactly one Ribbon relationship and no other customUI part (`tools/ribbon_template.py`; `--write` embeds the source) |
-| `navigation-bar` | Every sheet of the template carries the navigation bar of #615 in column A: the Go to menu of `src/workbook/customUI14.xml` as linked shapes, Inputs in the frozen rows 1 to 3 and the other sections below with Start last, each sheet linking every other sheet; drawing the bar again on the committed template changes nothing (`tools/navigation_bar.py`; `--write` draws the bar) |
+| `navigation-bar` | Every sheet of the template carries the navigation bar of #615 in column A: the Go to menu of `src/workbook/customUI14.xml` as linked shapes, Inputs in the frozen rows 1 to 3 and the other sections below with Start last, each sheet linking every other sheet; the triangles at the far left of B1 that hide and show it (#777), with column A 18 wide, column B 2 wide, columns A and B frozen and the titles in C1 and C2; drawing the bar again on the committed template changes nothing (`tools/navigation_bar.py`; `--write` draws the bar) |
 
 `check_excel_evidence.py` validates a manual Excel evidence bundle against a
 candidate commit: the harness and every other suite the policy lists, each with
@@ -127,6 +127,17 @@ Excel are in `QuickCheck-Report.ps1`; `test_quick_check_script.py` tests them an
 runs the script end to end against a fake verification; see the
 [automatic quick check](../docs/EXCEL_EVIDENCE.md#automatic-quick-check).
 
+Every script that starts Excel (`Verify-SACCR-Branch.ps1`, `Check-SACCR-Protection.ps1`,
+`Sync-SACCR-VBA.ps1`, `Certify-SACCR.ps1`, `Export-SACCR-VBA.ps1`) first loads
+`Excel-BusyRetry.ps1` and registers its OLE message filter (#773). A call Excel rejects
+while busy (`RPC_E_CALL_REJECTED`, "retry later") is then retried every 250 ms for up to
+two minutes instead of stopping the script; a call refused outright still fails at once.
+The verify log reports how many calls were retried and abandoned; when a call is abandoned,
+or the workbook cannot be closed, it also lists the visible windows of that Excel, a dialog
+with its text, so that what keeps Excel busy can be named.
+`test_excel_busy_retry.py` checks that every such script registers the filter before it
+creates Excel, and checks the filter's decision rule in PowerShell 7.
+
 `Export-SACCR-VBA.ps1` and `compare_vba_export.py` are not gates either: they
 make up the [source round trip](../docs/EXCEL_EVIDENCE.md#source-round-trip).
 The script opens a built workbook read-only in Excel and exports every VBA
@@ -188,6 +199,31 @@ and with three or more trades the result can depend on their order. Its
 multiplier uses min(V − C, V), so collateral the bank posted does not raise
 it, where the engine applies V − C. The workbook comparison of #352 shows all
 three (record in [`docs/methodology/README.md`](../docs/methodology/README.md)).
+
+`rsaccr_formulas.R` computes with the package's trade classes the FormulaTest
+checks it can compute; `TEST_Formulas` (case `formula-test.independent`)
+holds the values it prints (#100):
+
+```bash
+Rscript tools/rsaccr_formulas.R
+```
+
+`dashboard.py` is the reference of the Dashboard sheet's figures (#675): it
+computes every block of [`docs/workbook/dashboard.json`](../docs/workbook/dashboard.json)
+from a run's records, as [`docs/workbook/DASHBOARD.md`](../docs/workbook/DASHBOARD.md)
+defines them; `--check` checks the specification. Its tests run in `tool-tests`.
+
+`ore_saccr_probe.py` records why Open Source Risk Engine 1.8.17 is not
+registered as a source (#100). It writes a small unmargined portfolio, runs
+ORE's SA-CCR analytic through the PyPI package `open-source-risk-engine` and
+reports whether ORE still gives the four results recorded in the
+[methodology](../docs/methodology/README.md#implementations-examined-and-not-registered).
+It needs the `Examples` folder of the ORE source for the market; its checks are
+tested in `tool-tests` on ORE's recorded reports (`test_ore_saccr_probe.py`):
+
+```bash
+python tools/ore_saccr_probe.py --examples <ORE>/Examples --out <folder>
+```
 
 `rsaccr_portfolio.py` compares a workbook run with the package, netting set by
 netting set, on a larger synthetic portfolio (#352). `generate` draws a
@@ -488,7 +524,7 @@ with cosign keyless signing, verifies each signature and attaches
 `<file>.sigstore.json`. Its one job holds `contents: write`, to attach the
 bundles, and `id-token: write`, for the short-lived signing certificate; it
 checks out no code and refuses a release that already carries signatures.
-[`RELEASING.md`](../RELEASING.md#8-publish-and-verify) gives its place in a
+[`RELEASING.md`](../RELEASING.md#9-publish-and-verify) gives its place in a
 release, [`INSTALLATION.md`](../INSTALLATION.md#released-workbook) the user's
 verification.
 

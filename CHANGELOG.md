@@ -97,6 +97,56 @@ Use only the categories needed by a release.
 
 ### Added
 
+- **The benchmark on the self-hosted runner** (#771). A run of the Excel quick check started by
+  hand may give benchmark sizes (`1000,10000`, for example): the quick check then also runs
+  `TEST_Benchmark.RunBenchmark` after the sheet review, through the new `TEST_Suite.Benchmark`,
+  into `benchmark.log`, which the artifact carries, and adds the BENCH lines to its summary. The
+  benchmark never changes the result of the quick check, and a pull request never runs it.
+  `Verify-SACCR-Branch.ps1 -Quick -BenchmarkSizes` refuses sizes that are not a list of at most
+  ten whole numbers.
+
+- **Hide and show the navigation bar from the sheet** (#777). A small triangle at the far left of
+  B1 of every sheet does what the Ribbon's Navigation bar toggle does, on every sheet at once: ◀
+  while the bar is shown hides it, ▶ while it is hidden shows it again, in the same place. The bar
+  in column A is narrower (width 18 instead of 21.75) and the margin column B narrower (2 instead
+  of 4); every sheet freezes at least columns A and B, so the triangle stays in view when the
+  sheet scrolls, and the titles move from B1 and B2 to C1 and C2, without indent, so the freeze
+  line never crosses them. `tools/navigation_bar.py` draws the triangles with the bar and checks
+  them; `TEST_MainState` (`navigation.bar-toggle`) checks the triangle shown on every sheet after
+  a hide, a save and a show.
+
+- **The same height of frozen rows from sheet to sheet** (#777). Moving from one sheet to another no
+  longer makes the view jump. Every sheet has the same title band (rows 1 to 3 at 24, 26.1 and 30
+  points). Home, the three input sheets, Dashboard, ReconSummary, FormulaTest and README freeze rows
+  1 to 4, 110.1 points high. The tables (Results, HedgingSets, Buckets, TradeCalc, Checks,
+  TestCatalogue, Basel_vs_CRR) start their column header at the same point, 110.1 points down, with
+  the same height, 63.75 points: 173.85 points are frozen on all seven. The two staging sheets freeze the same 235.35 points, the two bank sheets the
+  same 205.5 and the two reconciliation sheets the same 269.85. `tools/test_frozen_rows.py` checks it.
+
+- A **Dashboard** sheet, the first output tab (#675): the last run in one page, with four cards at
+  the top (EAD, RC and PFE per regime, and the share of the ten largest netting sets) and tables
+  and ten charts below. It holds key figures per regime, EAD by counterparty sector and clearing
+  role, the add-on by asset class, the composition of EAD, the ten largest netting sets with the
+  concentration, the maturity profile and the trades by asset class. It also shows data quality,
+  the reconciliation and the path from notional to EAD. Each regime is shown on its own, and each
+  table states its unit. The status cell turns red when the inputs change. The figures are defined
+  in [`docs/workbook/DASHBOARD.md`](docs/workbook/DASHBOARD.md), with a Python reference in
+  `tools/dashboard.py`. The Go to menu, the navigation bar, Home and README list the sheet. Every run
+  writes it after its reconciliations; every operation empties it first, so a run that fails leaves
+  none. `TEST_Dashboard` (6 cases, 65 checks) checks every block against the output sheets.
+- Independent values for more of the rules of #100. The R package `SACCR` 3.4 (`IMPL-R-SACCR`)
+  reproduces at full precision six checks of the ported catalogue, T15, T19, T21, T24, T25 and T28,
+  which are now `independent`. Because a case named `illustrative-*` holds only illustrative
+  values, their CRR files move to `swaption-forward-1pct`, `credit-quality-step`,
+  `negative-ir-forward` and `other-risks`; the BCBS files of the last two stay in
+  `illustrative-negative-ir-forward` and `illustrative-other-risks`. T15 now holds the package's
+  figure, 1,879,212.63 USD, instead of CRE99's rounded 1,879,000. `TEST_Formulas` has a case,
+  `formula-test.independent`, that checks 14 of the 22 FormulaTest rows against the values
+  `tools/rsaccr_formulas.R` computes with the package (11 cases, 131 checks). The methodology lists
+  the rows and rules no external source covers, and records why Open Source Risk Engine 1.8.17 is
+  not registered as a source: its SA-CCR analytic adds interest-rate effective notionals with their
+  signs and without maturity buckets, leaves credit default swaps out, swaps volatility and time in
+  an option delta and reports the netting set's value in USD (`tools/ore_saccr_probe.py`).
 - Record on every run how its dates became years and where its FX rates came from (#721, #745), so
   that two results are never compared without it. The run summary on Results C4 adds
   `| year 365 days, calendar TABLE | FX Manual` (with the entries and fingerprint of the table of
@@ -121,9 +171,11 @@ Use only the categories needed by a release.
   55 and 150. `TEST_Cases` has 41 cases and 261 checks, `TEST_MainState` 711 checks and
   `TEST_Reconcile` 239.
 
-- Reworked the three input sheets for the owner (#756). `Params`, `NettingSets` and `Trades` freeze
-  four rows, with the header on row 4, data from row 5 and rows 3 and 4 30 points high, so that the
-  view does not jump from one sheet to the next; `Params` also keeps the `Code` column in view. The
+- Reworked the three input sheets for the owner (#756). `Params`, `NettingSets` and `Trades` have the
+  header on row 5, below an empty row 4, data from row 6 and rows 3 to 5 30 points high, and freeze
+  rows 1 to 4 (the header scrolls with the data), as `Home` does, whose rows 3 and 4 are as high,
+  so that the frozen rows are the same height and the view does not jump from one sheet to the next; `Params` also keeps the `Code` column in view. The
+  workbook names move with the rows, so no code or test reads a row number. The
   column headers are short (`Margined`, `Client clearing role`, `Remargin freq. (BD)`, `Large or
   illiquid`, `Net VM`, `Hedging-set label`, `Strike (K)`, ...), on the staging sheets too, and every
   header of `NettingSets` and `Trades` carries a note: what the field is, the values allowed, what a
@@ -601,6 +653,43 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- **The target date is required on every issue** (T05 of the template alignment). The issue audit
+  (`tools/check_issues.py`) reports an open issue without a target date, as it already did for one
+  without a start date, and the three issue forms make the **Target date** field required. The date
+  must be a real `YYYY-MM-DD` date no later than the milestone's deadline, the deadline day itself
+  included. Traffic alerts, which the automation opens without a milestone or planning dates, are
+  the one exception. Every open issue already has a target date, so no finding appears today.
+
+- **Business days counted on a list of closing days** (#771). On a business-day convention
+  (TARGET or TARGET+TABLE) the engine counted each date of a trade by a call of
+  `SACCR_BusinessDays`, which recomputed a year of TARGET closing days and read the whole table
+  every time. It now builds once the sorted list of the closing weekdays of 1 January 1999 to
+  31 December 2100, TARGET and the table, and counts a date as its weekdays less the closing
+  weekdays before it, by binary search; the list is rebuilt only when the table changes, and a
+  date outside the window is counted as before. Every count is the same: `TEST_Formulas` (12
+  cases, 135 checks) compares it with `SACCR_BusinessDays` on every day of the window and on 2,000
+  intervals, with and without a table, and `tools/test_closing_list.py` with the calendar's
+  Python reference. `TEST_Benchmark` adds the largest size on a year of 250 business days and
+  TARGET, and every BENCH line gives the day count and the calendar.
+
+- **Faster fingerprints, same values** (#771). `CORE_Util.TextHash`, which every fingerprint
+  uses (inputs, outputs, reconciliation, staging, FX and holiday tables), adds the bytes three at
+  a time and takes the modulus once per three, where it took it after every byte. Every
+  intermediate value stays below 2^53 and every quotient is exact, so every fingerprint, stored
+  ones included, is unchanged. The status cells of Results, Dashboard and the reconciliation
+  sheets recompute the input fingerprint on every recalculation, so the gain is paid back on each
+  input edit. `TEST_MainState` (47 cases, 717 checks) compares the new hash with the previous
+  method, kept in the tests, on edge cases found by `tools/test_text_hash.py`; `TEST_Benchmark`
+  prints the time of both on the inputs it writes.
+
+- **Fewer small costs in a run** (#771). `CORE_Engine.ProcessTrades` sets the lambda format of
+  the commodity rows of TradeCalc (#708) once per run of consecutive commodity rows instead of
+  once per row, and `CheckEconomicTrades` receives the trades block by reference instead of a
+  copy. The formats and results are unchanged: `TEST_MainState` (48 cases, 719 checks) checks
+  after a run of the demo portfolio, whose commodity rows come in runs of one, three and five,
+  the last at the end of TradeCalc, that every commodity lambda shows as 0.0000 and every other
+  as the column's percentage.
+
 - Explain the row of CSV field names of the two staging sheets (#731). D8 of
   `Import_NettingSets` and `Import_Trades` now carries a note: the cells of row 8
   give the name each column has in the first line of a CSV file for the sheet, as
@@ -729,6 +818,20 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Refresh the K-SACCR tab only while its workbook is active (#773). A refresh scheduled with
+  `OnTime` (`ScheduleRefresh`) invalidated the Ribbon whenever Excel was next idle; with another
+  workbook active, Excel looked for the tab's callbacks there and stopped on "Cannot run the
+  macro 'RibbonGetEnabled'", a message that kept Excel busy until it was closed. Since the
+  Dashboard (#675) this happened in every quick check, right after the sheet review created its
+  picture workbook, and could happen to a user who switched workbooks after an edit.
+  `RefreshRibbon` now leaves the Ribbon alone while another workbook is active;
+  `Workbook_Activate` refreshes it on the way back. An invalidation is served at the next redraw,
+  so the sheet review also activates the workbook and leaves Excel idle for two seconds before
+  it creates its picture workbook, letting a refresh the suites left pending run there. Every script that starts Excel also
+  registers an OLE message filter, `tools/Excel-BusyRetry.ps1`, which retries for up to two
+  minutes a call Excel rejects while busy (`RPC_E_CALL_REJECTED`); when a call is still
+  rejected, the verify log names the windows of that Excel and pictures its dialogs.
+
 - Make the sums of ReconSummary comparable (#720): the sums of the bank's and the calculator's
   figures, the sum of the absolute differences and the largest of them now count only the rows
   compared, MATCH and DIFFERENCE. They counted every row shown, also those with a figure on one
@@ -824,6 +927,14 @@ Use only the categories needed by a release.
   the `validate.context` case of `TEST_Import` stages such a trade.
 
 ### Documentation
+
+- **A maintenance audit before every release.** `RELEASING.md` has a new first step, run before the
+  scope is fixed. It audits the closed issues of open milestones, the open issues, the PR comments
+  and review threads, the notifications and the repository's wording against the evidence: the
+  code, the merged PRs, the CI and Excel results. It corrects what the evidence supports and
+  reports what it cannot settle, and ends with a report of coverage, changes and open findings. It
+  changes no code and publishes nothing. The maintainer checklist has a matching gate, and the later
+  steps move one number down.
 
 - Document the CSV import of the bank sheets (#718, third part). The import
   specification page has a section on how a bank file is loaded (as a whole, with a

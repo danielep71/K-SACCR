@@ -606,6 +606,8 @@ Public Function RibbonSheet( _
                 RibbonSheet = "shImportNettingSets"
             Case "ksGoImportTrades"
                 RibbonSheet = "shImportTrades"
+            Case "ksGoDashboard"
+                RibbonSheet = "shDashboard"
             Case "ksGoResults"
                 RibbonSheet = "shResults"
             Case "ksGoHedgingSets"
@@ -783,46 +785,96 @@ Public Function PointerFromText( _
 
 End Function
 
-
 Public Sub RefreshRibbon()
+
 '
-'==============================================================================
-'                                RefreshRibbon
+'------------------------------------------------------------------------------
+'                           REFRESH THE K-SACCR TAB
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Ask Excel to call the state callbacks again, with the Ribbon object
-'   held or recovered after a VBA state reset (CurrentRibbon, #216). Also
-'   stores the pointer again when a cancelled save left it out. Without
-'   the object (tab not loaded, no pointer of this session) it does
-'   nothing.
+'   Asks Excel to call the state callbacks of the K-SACCR tab again, while
+'   this workbook is the active one
+'
+' WHY THIS EXISTS
+'   The tab's buttons are enabled or disabled from the workbook's state
+'   (#216). Excel looks for the callbacks, RibbonGetEnabled among them, in
+'   the active workbook: invalidated while another workbook is active, as
+'   a refresh scheduled with OnTime can be, Excel stops on "Cannot run the
+'   macro 'RibbonGetEnabled'" and stays busy until the message is closed
+'   (#773)
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Holds or recovers the Ribbon object (CurrentRibbon), and does nothing
+'     without it: tab not loaded, or no pointer of this session
+'   - Stores the pointer again when a cancelled save left it out
+'   - Invalidates the Ribbon only while this workbook is active; otherwise
+'     leaves it, as Workbook_Activate refreshes it when the workbook is
+'     active again
 '
 ' ERROR POLICY
-'   Never raises.
+'   Never raises: an error ends the refresh, which the next one repeats
+'
+' DEPENDENCIES
+'   CurrentRibbon, StoredPointerText, WritePointer, PointerText;
+'   ThisWorkbook.Workbook_Activate and Workbook_SheetActivate call it
+'
+' NOTES
+'   ActivateRibbonTab keeps to the active workbook in the same way
 '
 ' UPDATED
-'   2026-11-06
-'==============================================================================
-'
+'   2026-11-25
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim Ribbon  As IRibbonUI    'The Ribbon, held or recovered
+    Const PROC_NAME   As String = "M_Ribbon.RefreshRibbon"
+
+    Dim Ribbon        As IRibbonUI    'The Ribbon, held or recovered
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'End the refresh on any error
+        On Error GoTo Failed
+
+'------------------------------------------------------------------------------
+' FIND THE RIBBON
+'------------------------------------------------------------------------------
+    'Leave without the Ribbon object
+        Set Ribbon = CurrentRibbon()
+        If Ribbon Is Nothing Then Exit Sub
+    'Store the pointer again when a cancelled save left it out
+        If Len(StoredPointerText()) = 0 Then
+            WritePointer PointerText(ObjPtr(Ribbon), Application.Hwnd)
+        End If
 
 '------------------------------------------------------------------------------
 ' REFRESH
 '------------------------------------------------------------------------------
-        On Error GoTo Failed
-        Set Ribbon = CurrentRibbon()
-        If Ribbon Is Nothing Then
-            Exit Sub
-        End If
-        If Len(StoredPointerText()) = 0 Then
-            WritePointer PointerText(ObjPtr(Ribbon), Application.Hwnd)
-        End If
+    'Invalidate only while this workbook is active, where Excel finds the
+    'callbacks
+        If Not Application.ActiveWorkbook Is ThisWorkbook Then Exit Sub
         Ribbon.Invalidate
 
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+    'Leave before the error handler
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
 Failed:
+    'Leave the refresh to the next one
+        Exit Sub
 
 End Sub
 

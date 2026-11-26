@@ -50,6 +50,11 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Calls Excel rejects while it is busy are retried for up to two minutes
+# (#773); see tools\Excel-BusyRetry.ps1.
+. (Join-Path $PSScriptRoot "Excel-BusyRetry.ps1")
+[void](Register-ExcelBusyRetry)
+
 if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
     $scriptPath = $MyInvocation.MyCommand.Path
     if ([string]::IsNullOrWhiteSpace($scriptPath)) {

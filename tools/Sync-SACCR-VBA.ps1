@@ -115,6 +115,11 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Calls Excel rejects while it is busy are retried for up to two minutes
+# (#773); see tools\Excel-BusyRetry.ps1.
+. (Join-Path $PSScriptRoot "Excel-BusyRetry.ps1")
+[void](Register-ExcelBusyRetry)
+
 # Resolve the repository root after parameter binding. $PSScriptRoot is not
 # reliable as a parameter default in every Windows PowerShell invocation mode.
 if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
