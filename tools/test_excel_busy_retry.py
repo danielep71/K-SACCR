@@ -61,6 +61,24 @@ class ScriptsRegisterTheFilter(unittest.TestCase):
         # A dialog's text cannot be read, so it is pictured into the artifact's sheets folder.
         self.assertIn('Write-Log (Save-ExcelDialogPictures $script:excelProcess (Join-Path $Bundle "sheets"))', text)
 
+    def test_the_window_picture_is_compiled_only_on_request(self) -> None:
+        # Capturing another program's window is what an antivirus's behavioural
+        # protection blocks (Norton, IDP.Generic, 2026-11-26): the type that does it
+        # is compiled inside Enable-ExcelDialogPictures, never when the file is loaded.
+        text = HELPER.read_text(encoding="utf-8")
+        enable = text.index("function Enable-ExcelDialogPictures {")
+        self.assertEqual(text.count("PrintWindow("), 2)  # its declaration and its one call
+        self.assertGreater(text.index("PrintWindow("), enable)
+        self.assertLess(text.index("PrintWindow("), text.index("function Save-ExcelDialogPictures {"))
+        self.assertIn("$script:ExcelDialogPicturesRequested = $false", text[:enable])
+        verify = (TOOLS / "Verify-SACCR-Branch.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("[switch]$DialogPictures", verify)
+        self.assertIn("if ($DialogPictures) {\n    [void](Enable-ExcelDialogPictures)\n}", verify)
+        for path in sorted(TOOLS.glob("*.ps1")):
+            if path.name not in ("Excel-BusyRetry.ps1", "Verify-SACCR-Branch.ps1"):
+                with self.subTest(script=path.name):
+                    self.assertNotIn("Enable-ExcelDialogPictures", path.read_text(encoding="utf-8-sig"))
+
     def test_the_review_lets_excel_idle_on_its_workbook_before_the_picture_workbook(self) -> None:
         text = (TOOLS / "Review-SACCR-Sheets.ps1").read_text(encoding="utf-8-sig")
         activate = text.index("[void]$Workbook.Activate()")
@@ -101,11 +119,17 @@ class FilterInPowerShell(unittest.TestCase):
         self.assertEqual(lines[0], "Excel windows: the process is not known")
         self.assertTrue(lines[1].startswith("Excel windows: "), lines[1])
 
-    def test_dialog_pictures_need_a_process_and_windows_powershell(self) -> None:
-        output = self.run_pwsh("Save-ExcelDialogPictures 0 '.'; Save-ExcelDialogPictures 4242 '.'")
+    def test_dialog_pictures_are_off_until_enabled_and_need_windows_powershell(self) -> None:
+        output = self.run_pwsh(
+            "Save-ExcelDialogPictures 0 '.'; Save-ExcelDialogPictures 4242 '.'; "
+            "[string](Enable-ExcelDialogPictures); Save-ExcelDialogPictures 4242 '.'; "
+            "[string]('KSaccr.WindowPicture' -as [type])")
         lines = output.splitlines()
         self.assertEqual(lines[0], "Excel dialogs: the process is not known")
-        self.assertEqual(lines[1], "Excel dialogs: no picture taken here (System.Drawing is not available)")
+        self.assertEqual(lines[1], "Excel dialogs: not pictured (off; Verify-SACCR-Branch.ps1 -DialogPictures turns it on)")
+        self.assertEqual(lines[2], "False")
+        self.assertEqual(lines[3], "Excel dialogs: no picture taken here (System.Drawing is not available)")
+        self.assertTrue(len(lines) == 4 or lines[4] == "", lines)  # PowerShell 7 compiles nothing
 
     def test_registering_off_an_sta_thread_does_nothing(self) -> None:
         output = self.run_pwsh(

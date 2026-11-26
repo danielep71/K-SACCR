@@ -135,7 +135,11 @@ two minutes instead of stopping the script; a call refused outright still fails 
 Each script removes the filter (`Unregister-ExcelBusyRetry`) once its Excel is closed.
 The verify log reports how many calls were retried and abandoned; when a call is abandoned,
 or the workbook cannot be closed, it also lists the visible windows of that Excel, a dialog
-with its text, so that what keeps Excel busy can be named.
+with its text, so that what keeps Excel busy can be named. A picture of each dialog
+(`busy-dialog-N.png` in the bundle's `sheets` folder) is taken only with
+`Verify-SACCR-Branch.ps1 -DialogPictures`: capturing another program's window is what an
+antivirus's behavioural protection may block, and Norton blocked the script as IDP.Generic
+while that code was compiled on every run, so it is now compiled only on request.
 `test_excel_busy_retry.py` checks that every such script registers the filter before it
 creates Excel and removes it after closing Excel, and checks the filter's decision rule in PowerShell 7.
 
