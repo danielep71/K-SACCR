@@ -77,7 +77,7 @@
     {
       "entry_point": "TEST_Report.RunReportTests",
       "cases": 5,
-      "checks": {"32-bit": 54, "64-bit": 54}
+      "checks": {"32-bit": 55, "64-bit": 55}
     }
   ],
   "negative_runs": [

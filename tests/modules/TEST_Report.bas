@@ -6,8 +6,9 @@ Attribute VB_Name = "TEST_Report"
 '   Check the formatted run report (#259): the text the PDF writes for a
 '   number, a ratio, a count and a date, on the examples of
 '   docs/workbook/report.json, whatever the regional settings; Checks by
-'   code; the refusals of Export evidence; an XLSX read back from its file,
-'   with values only, its sheets in order and the figures of the run; a
+'   code; the refusals of Export evidence and a changed Dashboard; an XLSX
+'   read back from its file, with values only, its sheets in order and the
+'   figures of the run; a
 '   PDF; and the failures that must leave an older report as it was. The
 '   K-SACCR workbook must stay as it is: the results stay current.
 '
@@ -47,7 +48,7 @@ Attribute VB_Name = "TEST_Report"
 '------------------------------------------------------------------------------
         Private Const VALUATION   As String = "2026-09-30"    'Valuation date of the cases
         Private Const CASES       As Long = 5                 'Cases in a complete run
-        Private Const CHECKS      As Long = 54                'Checks in a complete run
+        Private Const CHECKS      As Long = 55                'Checks in a complete run
         Private Const CLASS_TAG   As String = "illustrative"  'Reference class of every check
         Private Const SHEET_ORDER As String = "Run|Dashboard|Totals|Results|Checks*"
 
@@ -185,7 +186,9 @@ Private Sub CheckRefusals()
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   The report refuses another extension, and an output cell edited after
-'   the run, as Export evidence does. 2 checks.
+'   the run, as Export evidence does; and a figure of the Dashboard changed
+'   after the run, which the evidence CSV does not copy (Codex on #805).
+'   3 checks.
 '
 ' UPDATED
 '   2026-11-26
@@ -194,6 +197,9 @@ Private Sub CheckRefusals()
     Dim Result        As String    'Result line
     Dim OutputCell    As Range     'An output cell
     Dim SavedOutput   As Variant   'Its value
+    Dim BlockNames    As Variant   'The Dashboard's blocks
+    Dim DashboardCell As Range     'A figure of the Dashboard
+    Dim SavedFigure   As Variant   'Its value
 
         Result = M_Main.RunSACCR_Silent()
         Application.Calculate
@@ -208,6 +214,20 @@ Private Sub CheckRefusals()
         OutputCell.Value2 = SavedOutput
         TEST_CaseRunner.ExpectTrue "edited-output", Left$(Result, 14) = "RESULT=REFUSED" And _
             InStr(1, Result, "output cell", vbBinaryCompare) > 0, Result, CLASS_TAG
+    'A figure of the Dashboard changed after the run, then put back.
+        BlockNames = CORE_Engine.DashboardBlockNames()
+        Set DashboardCell = ThisWorkbook.Names(CStr(BlockNames(LBound(BlockNames)))).RefersToRange.Cells(1, 1)
+        SavedFigure = DashboardCell.Value2
+        If VarType(SavedFigure) = vbDouble Then
+            DashboardCell.Value2 = SavedFigure + 1#
+        Else
+            DashboardCell.Value2 = SafeStr(SavedFigure) & "x"
+        End If
+        Application.Calculate
+        Result = M_Main.ExportReport_Silent(ReportPath("xlsx"))
+        DashboardCell.Value2 = SavedFigure
+        TEST_CaseRunner.ExpectTrue "edited-dashboard", Left$(Result, 14) = "RESULT=REFUSED" And _
+            InStr(1, Result, "Dashboard", vbBinaryCompare) > 0, Result, CLASS_TAG
 
 End Sub
 

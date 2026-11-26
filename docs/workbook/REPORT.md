@@ -24,8 +24,14 @@ the same number of columns, and the run lines are lines of the evidence CSV.
   as Export evidence, with the same reasons: recalculation pending, a staging
   validation on Checks, results that are not those of the current inputs, an
   output cell edited after the run, a reconciliation of bank figures that is not
-  current, and outputs that the run did not record. A report never describes
-  results that do not match the inputs.
+  current, and outputs that the run did not record. It also refuses a figure of
+  the Dashboard changed after the run, which the evidence CSV does not copy: the
+  run records the fingerprint of the Dashboard's data table in the hidden name
+  `SACCR_RunDashboard` beside that of the outputs (Codex on #805). A report never
+  describes results that do not match the inputs.
+- **One operation at a time.** The export holds the guard of the workbook's
+  operations from start to end, so that no Run or Clear outputs can start while
+  the charts are pictured and mix two runs in one report.
 - **No new calculation.** Every figure is read from the sheets as they are, as
   the evidence CSV reads them. The only figures the report computes are the
   number of rows of each code of Checks and the number of rows the PDF leaves
@@ -183,7 +189,7 @@ workbook and sheet, screen updating, alerts and calculation mode.
   keeps.
 - `tools/test_report_spec.py`: the specification against the template and the
   evidence export.
-- `TEST_Report` (5 cases, 54 checks): the text of the examples, Checks by code,
+- `TEST_Report` (5 cases, 55 checks): the text of the examples, Checks by code,
   the refusals, an XLSX read back from the file (sheets, values only, no link and
   no macro, the run's figures), a PDF with the charts, the results still current,
   and the failures `report-save`, `report-replace` and a read-only file, each

@@ -2047,8 +2047,8 @@ Public Sub ExportReport()
 '   Nothing
 '
 ' BEHAVIOR
-'   - Refuses, with the reason, in the cases of Export evidence
-'     (EvidenceProblem)
+'   - Refuses, with the reason, in the cases of Export evidence and when
+'     the Dashboard was changed after the run (ReportProblem)
 '   - Asks for the file; the extension, .pdf or .xlsx, decides the format
 '   - Writes the report (WriteReport) and says where
 '
@@ -2057,7 +2057,7 @@ Public Sub ExportReport()
 '   window in silent mode; never raises
 '
 ' DEPENDENCIES
-'   EvidenceProblem, ReportFileFormat, WriteReport, DefaultReportName,
+'   ReportProblem, ReportFileFormat, WriteReport, DefaultReportName,
 '   Notify
 '
 ' NOTES
@@ -2087,7 +2087,7 @@ Public Sub ExportReport()
 ' CHECK THE RUN
 '------------------------------------------------------------------------------
     'The report describes the run the evidence CSV would describe, or none
-        Problem = EvidenceProblem()
+        Problem = ReportProblem()
         If VBA.Len(Problem) > 0 Then
             Notify "Report not exported: " & Problem & ".", vbExclamation
             Exit Sub
@@ -2158,7 +2158,7 @@ Public Function ExportReport_Silent( _
 '   file=..." or "RESULT=REFUSED; reason=..."
 '
 ' BEHAVIOR
-'   Refuses another extension and the cases of EvidenceProblem, then
+'   Refuses another extension and the cases of ReportProblem, then
 '   calls WriteReport
 '
 ' ERROR POLICY
@@ -2166,7 +2166,7 @@ Public Function ExportReport_Silent( _
 '   WriteReport has put everything back
 '
 ' DEPENDENCIES
-'   ReportFileFormat, EvidenceProblem, WriteReport
+'   ReportFileFormat, ReportProblem, WriteReport
 '
 ' NOTES
 '   None
@@ -2193,7 +2193,7 @@ Public Function ExportReport_Silent( _
             Exit Function
         End If
     'The run the evidence CSV would describe, or none
-        Problem = EvidenceProblem()
+        Problem = ReportProblem()
         If VBA.Len(Problem) > 0 Then
             ExportReport_Silent = "RESULT=REFUSED; reason=" & Problem
             Exit Function
@@ -2335,7 +2335,11 @@ Private Function WriteReport( _
 '   could not be applied, "page_setup=FAILED (...)"
 '
 ' BEHAVIOR
-'   - Refuses a read-only target before anything is built
+'   - Refuses a read-only target before anything is built, and an export
+'     while an operation runs
+'   - Holds the operation guard (mRunning) until the end, on success and
+'     on failure, so that no Run or Clear outputs starts while the charts
+'     are pictured (Codex on #805)
 '   - Turns off screen updating, alerts and events
 '   - Gives the new workbook the font and the vertical alignment of the
 '     K-SACCR sheets (docs/workbook/sheet-style.json)
@@ -2375,6 +2379,7 @@ Private Function WriteReport( _
     Dim SavedBook           As Workbook     'Active workbook before the report
     Dim SavedSheet          As Object       'Active sheet before the report
     Dim StateCaptured       As Boolean      'True once the settings were read
+    Dim Guarded             As Boolean      'True once this export holds the operation guard
     Dim ReportBook          As Workbook     'The new workbook; Nothing once closed
     Dim ReportSheet         As Worksheet    'A sheet of the report
     Dim NewPath             As String       'The file before it replaces FilePath; "" once renamed
@@ -2399,6 +2404,13 @@ Private Function WriteReport( _
                 Err.Raise ERR_EXPORT_WRITE, PROC_NAME, "the file is read-only"
             End If
         End If
+    'One operation at a time: the export yields to Excel while it pictures
+    'the charts, and a Run or Clear outputs then would mix two runs
+        If mRunning Then
+            Err.Raise ERR_RUN_ACTIVE, PROC_NAME, "An SA-CCR operation is already running."
+        End If
+        mRunning = True
+        Guarded = True
     'Capture the settings the report changes
         SavedScreen = Application.ScreenUpdating
         SavedAlerts = Application.DisplayAlerts
@@ -2506,6 +2518,7 @@ CleanUp:
             Application.DisplayAlerts = SavedAlerts
             Application.ScreenUpdating = SavedScreen
         End If
+        If Guarded Then mRunning = False
         On Error GoTo 0
         If ErrorNumber <> 0 Then
             Err.Raise ErrorNumber, ErrorSource, "Could not write the report " & FilePath & ": " & ErrorText
@@ -5989,27 +6002,68 @@ End Function
 
 Private Sub RememberRunOutputs()
 '
-'==============================================================================
-'                              RememberRunOutputs
+'------------------------------------------------------------------------------
+'                    REMEMBER THE OUTPUTS OF A COMPLETED RUN
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Store the fingerprint of the output sheets when a run has completed,
-'   its reconciliations included.
+'   Stores the fingerprint of the output sheets when a run has completed,
+'   its reconciliations included, and that of the Dashboard's data table
+'
+' WHY THIS EXISTS
+'   The evidence export and the report refuse an output edited after the
+'   run (#45); the report also copies the Dashboard, which the fingerprint
+'   of the outputs does not cover (#259, Codex on #805)
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   Writes RUN_OUTPUTS_NAME (OutputFingerprint) and RUN_DASHBOARD_NAME
+'   (DashboardFingerprint) as hidden workbook names
 '
 ' ERROR POLICY
-'   Best effort: when the fingerprint cannot be taken or stored it is left
-'   empty, and the export refuses until the next run.
+'   Best effort: when a fingerprint cannot be taken or stored both are
+'   emptied, and the exports refuse until the next run
+'
+' DEPENDENCIES
+'   OutputFingerprint, DashboardFingerprint, ForgetRunOutputs
+'
+' NOTES
+'   The run writes the Dashboard before it calls this procedure
 '
 ' UPDATED
-'   2026-10-16
-'==============================================================================
-'
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'Empty both names on any error
         On Error GoTo Failed
+
+'------------------------------------------------------------------------------
+' STORE
+'------------------------------------------------------------------------------
+    'The outputs the evidence CSV copies, then the Dashboard
         ThisWorkbook.Names.Add Name:=RUN_OUTPUTS_NAME, RefersTo:="=""" & OutputFingerprint() & """", _
                                Visible:=False
+        ThisWorkbook.Names.Add Name:=RUN_DASHBOARD_NAME, RefersTo:="=""" & DashboardFingerprint() & """", _
+                               Visible:=False
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+    'Leave before the error handler
         Exit Sub
 
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
 Failed:
+    'Leave nothing that a later export could take for the run's
         ForgetRunOutputs
 
 End Sub
@@ -6017,25 +6071,196 @@ End Sub
 
 Private Sub ForgetRunOutputs()
 '
-'==============================================================================
-'                               ForgetRunOutputs
+'------------------------------------------------------------------------------
+'                    FORGET THE OUTPUTS OF THE LAST RUN
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Empty the stored fingerprint of the output sheets.
+'   Empties the stored fingerprints of the output sheets and of the
+'   Dashboard
+'
+' WHY THIS EXISTS
+'   Every operation starts by forgetting the last run, so that the exports
+'   refuse until a run completes again
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   Writes RUN_OUTPUTS_NAME and RUN_DASHBOARD_NAME empty
 '
 ' ERROR POLICY
-'   Contains any error.
+'   Contains any error
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   None
 '
 ' UPDATED
-'   2026-10-16
-'==============================================================================
-'
-        On Error GoTo Failed
-        ThisWorkbook.Names.Add Name:=RUN_OUTPUTS_NAME, RefersTo:="=""""", Visible:=False
+'   2026-11-26
+'------------------------------------------------------------------------------
 
-Failed:
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'An empty name is all that is needed; an error leaves it as it is
+        On Error Resume Next
+
+'------------------------------------------------------------------------------
+' FORGET
+'------------------------------------------------------------------------------
+    'Both fingerprints empty
+        ThisWorkbook.Names.Add Name:=RUN_OUTPUTS_NAME, RefersTo:="=""""", Visible:=False
+        ThisWorkbook.Names.Add Name:=RUN_DASHBOARD_NAME, RefersTo:="=""""", Visible:=False
 
 End Sub
+
+
+Private Function DashboardFingerprint() As String
+'
+'------------------------------------------------------------------------------
+'                    FINGERPRINT THE DASHBOARD'S DATA TABLE
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the fingerprint of the values of every block of the
+'   Dashboard's data table, the figures the report copies
+'
+' WHY THIS EXISTS
+'   A figure of the Dashboard changed after the run, with the sheet
+'   unprotected, would otherwise reach the report beside the run's
+'   fingerprints and a CURRENT status (Codex on #805, #259)
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   The fingerprint (TextHash); "" when the Dashboard has no block
+'
+' BEHAVIOR
+'   Joins the evidence text of each value of each block, in the order of
+'   CORE_Engine.DashboardBlockNames, and fingerprints it; a block whose
+'   name is missing adds its name, so that it cannot go unnoticed
+'
+' ERROR POLICY
+'   Raises an error of Excel
+'
+' DEPENDENCIES
+'   CORE_Engine.DashboardBlockNames, CORE_Export.CsvField, NameExists,
+'   TextHash
+'
+' NOTES
+'   The status cell of the Dashboard, a formula, is not a block and is not
+'   fingerprinted: it turns out of date by itself when the inputs change
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim BlockNames      As Variant    'The blocks, in order
+    Dim Values          As Variant    'The values of a block
+    Dim Text            As String     'The text fingerprinted
+    Dim n               As Long       'Block
+    Dim i               As Long       'Row of a block
+    Dim c               As Long       'Column of a block
+
+'------------------------------------------------------------------------------
+' FINGERPRINT
+'------------------------------------------------------------------------------
+    'Every value of every block, a separator between them
+        BlockNames = CORE_Engine.DashboardBlockNames()
+        For n = LBound(BlockNames) To UBound(BlockNames)
+            If NameExists(CStr(BlockNames(n))) Then
+                Values = ThisWorkbook.Names(CStr(BlockNames(n))).RefersToRange.Value2
+                If IsArray(Values) Then
+                    For i = LBound(Values, 1) To UBound(Values, 1)
+                        For c = LBound(Values, 2) To UBound(Values, 2)
+                            Text = Text & Chr$(31) & CORE_Export.CsvField(Values(i, c))
+                        Next c
+                    Next i
+                Else
+                    Text = Text & Chr$(31) & CORE_Export.CsvField(Values)
+                End If
+            Else
+                Text = Text & Chr$(29) & "missing " & CStr(BlockNames(n))
+            End If
+            Text = Text & Chr$(29)
+        Next n
+        If VBA.Len(Text) = 0 Then
+            DashboardFingerprint = vbNullString
+        Else
+            DashboardFingerprint = TextHash(Text)
+        End If
+
+End Function
+
+
+Private Function ReportProblem() As String
+'
+'------------------------------------------------------------------------------
+'                    TELL WHY THE REPORT CANNOT BE WRITTEN
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns why the formatted report of the run cannot be written; ""
+'   when it can
+'
+' WHY THIS EXISTS
+'   The report refuses in the cases of Export evidence (EvidenceProblem)
+'   and also when the Dashboard, which it copies and the evidence CSV does
+'   not, was changed after the run (#259, Codex on #805)
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   The reason, as EvidenceProblem gives it; "" when the report can be
+'   written
+'
+' BEHAVIOR
+'   - EvidenceProblem first
+'   - Then the stored fingerprint of the Dashboard against the Dashboard as
+'     it is: missing when the run recorded none, as for a workbook run
+'     before this check, different when a figure was changed
+'
+' ERROR POLICY
+'   Raises an error of Excel
+'
+' DEPENDENCIES
+'   EvidenceProblem, StoredText, DashboardFingerprint
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Stored      As String    'The Dashboard's fingerprint at the run
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+    'The rules of the evidence export
+        ReportProblem = EvidenceProblem()
+        If VBA.Len(ReportProblem) > 0 Then Exit Function
+    'The Dashboard as the run wrote it
+        Stored = StoredText(RUN_DASHBOARD_NAME)
+        If VBA.Len(Stored) = 0 Then
+            ReportProblem = "the run recorded no Dashboard; press Run SA-CCR first"
+        ElseIf Stored <> DashboardFingerprint() Then
+            ReportProblem = "a figure on the Dashboard was changed after the run; press Run SA-CCR first"
+        End If
+
+End Function
 
 
 '
