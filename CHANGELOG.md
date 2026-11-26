@@ -653,6 +653,12 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Count issues and pull requests apart when the label sync refuses to delete a label in use (#787).
+  The refusal and the run summary gave one combined count, such as "12 issue/PR records"; they now
+  say "9 issues, 3 pull requests", a zero count included, followed by the lowest ten numbers as
+  before. The guard itself does not change: any use still refuses every change. The usage record
+  of each label, which the drift report also carries, gains `issues` and `pulls` next to `count`.
+
 - **The target date is required on every issue.** The issue audit
   (`tools/check_issues.py`) reports an open issue without a target date, as it already did for one
   without a start date, and the three issue forms make the **Target date** field required. The date

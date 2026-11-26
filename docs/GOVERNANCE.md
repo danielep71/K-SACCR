@@ -343,7 +343,8 @@ or a manual run on `main`; a manual run on any other branch skips it.
   and manual runs on main, reconcile live labels and verify an exact match. Only the
   reconciliation job receives `issues: write`. Before any mutation, a paginated
   `state=all` scan checks deletion candidates against open/closed issues and PRs.
-  If any candidate is in use, the entire apply is refused with counts per label;
+  If any candidate is in use, the entire apply is refused with the number of issues and the
+  number of pull requests that carry each label, and the lowest ten of their numbers;
   unreadable, malformed or incomplete usage scans also fail before mutation.
   Dry-run and drift summaries report the same refusal. Offline fixtures can
   include an `issues` array alongside `labels`; without it, usage is explicitly

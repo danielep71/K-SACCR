@@ -444,7 +444,7 @@ async function runSelfTest(manifestPath) {
     { number: 9, state: "closed", pull_request: {}, labels: [{ name: "out-of-band" }] }
   ]);
   assert.match(markdownReport({ ...driftFirst, deletion_usage: usage }),
-    /Refusing all label changes.*out-of-band.*1 issue\/PR records: #9/);
+    /Refusing all label changes.*out-of-band.*0 issues, 1 pull request: #9/);
   assert.match(markdownReport({ ...driftFirst, deletion_usage: [] }), /no label scheduled for deletion is in use/);
   assert.match(markdownReport(driftFirst), /NOT CHECKED/);
 
