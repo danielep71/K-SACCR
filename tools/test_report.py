@@ -121,6 +121,27 @@ class ReconciliationTests(unittest.TestCase):
                          "3 rows with the result MATCH are left out; the workbook version of the report has every row.")
 
 
+class MeasureTests(unittest.TestCase):
+    def test_a_ratio_measure_is_formatted_as_a_ratio_and_an_amount_measure_as_an_amount(self) -> None:
+        ratios = ["Multiplier"]
+        self.assertEqual(report.measure_kind("Multiplier", ratios), "ratio")
+        self.assertEqual(report.measure_kind("EAD", ratios), "amount")
+        # A multiplier of 0.958585 against 0.958586 must not both read 0.96: the difference stays visible.
+        kind = report.measure_kind("Multiplier", ratios)
+        self.assertEqual(report.cell_text(kind, 0.958585), "0.958585")
+        self.assertEqual(report.cell_text(kind, 0.958586), "0.958586")
+        self.assertEqual(report.cell_text(kind, 0.000001), "0.000001")
+        self.assertEqual(report.cell_text(report.measure_kind("EAD", ratios), 0.958585), "0.96")
+
+    def test_the_trade_measures_that_are_not_amounts(self) -> None:
+        ratios = report.load_spec()["sections"][-2]["measure_ratios"]
+        for measure in ("M", "Supervisory duration", "Supervisory delta", "MF unmargined", "MF margined"):
+            self.assertEqual(report.measure_kind(measure, ratios), "ratio", measure)
+        for measure in ("Notional", "MtM", "Adjusted notional d", "Effective notional unmargined",
+                        "Effective notional margined", "Stand-alone add-on"):
+            self.assertEqual(report.measure_kind(measure, ratios), "amount", measure)
+
+
 class SpecificationTests(unittest.TestCase):
     def test_the_specification_is_sound(self) -> None:
         self.assertEqual(report.check_spec(report.load_spec()), [])
@@ -130,8 +151,9 @@ class SpecificationTests(unittest.TestCase):
         spec["sections"][3]["columns"][0]["kind"] = "percent"
         spec["sections"][4]["sheet"] = "Results"
         spec["formats"]["examples"][0]["text"] = "1234567.89"
+        del spec["sections"][-2]["measure_ratios"]
         problems = report.check_spec(spec)
-        self.assertEqual(len(problems), 3, problems)
+        self.assertEqual(len(problems), 4, problems)
 
 
 if __name__ == "__main__":

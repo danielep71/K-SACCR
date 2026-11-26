@@ -115,6 +115,21 @@ class ReportSpecTests(unittest.TestCase):
         self.assertEqual(statements, 7)
         self.assertEqual(self.section("limitations")["statements"], statements + 1)
 
+    def test_the_measures_that_are_not_amounts_are_those_the_reconciliation_does_not_scale(self) -> None:
+        source = read_vba("src/core/CORE_Reconcile.bas")
+
+        def constant(name: str) -> str:
+            found = re.search(rf'Const {name}\s+As String = ((?:"[^"]*"(?:\s*&\s*_\s*)?)+)', source)
+            assert found is not None, name
+            return "".join(re.findall(r'"([^"]*)"', found.group(1)))
+
+        for section_id, measures, ratios in (("reconciliation", "NS_MEASURES", "NS_RATIOS"),
+                                             ("trade_reconciliation", "TR_MEASURES", "TR_RATIOS")):
+            names = constant(measures).split("|")
+            positions = [int(p) for p in constant(ratios).strip("|").split("|")]
+            with self.subTest(section=section_id):
+                self.assertEqual(self.section(section_id)["measure_ratios"], [names[p] for p in positions])
+
     def test_every_kind_is_a_format(self) -> None:
         formats = self.spec["formats"]
         for kind in report.KINDS:

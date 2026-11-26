@@ -33,6 +33,7 @@ from typing import Any, Iterable, Sequence
 ROOT = Path(__file__).resolve().parent.parent
 SPEC = ROOT / "docs" / "workbook" / "report.json"
 KINDS = {"text", "count", "amount", "ratio", "date", "datetime"}
+COLUMN_KINDS = KINDS | {"measure"}
 LAYOUTS = {"key_value", "blocks", "table", "summary_and_table", "list"}
 SEVERITIES = ("ERROR", "WARNING", "INFO")
 NO_CODE = "(none)"
@@ -111,6 +112,11 @@ def cell_text(kind: str, value: Any) -> str:
     raise ReportError(f"unknown kind {kind!r}")
 
 
+def measure_kind(measure: str, ratios: Iterable[str]) -> str:
+    """The format of a figure of a reconciliation row: ratio for a measure that is not an amount, else amount."""
+    return "ratio" if measure in set(ratios) else "amount"
+
+
 def severity_rank(severity: str) -> int:
     return SEVERITIES.index(severity) if severity in SEVERITIES else len(SEVERITIES)
 
@@ -172,8 +178,11 @@ def check_spec(spec: dict[str, Any]) -> list[str]:
             if len(set(headers)) != len(headers):
                 problems.append(f"{section['id']}: duplicate headers in {key}")
             for column in section.get(key, []):
-                if column["kind"] not in KINDS:
+                if column["kind"] not in COLUMN_KINDS:
                     problems.append(f"{section['id']}: unknown kind {column['kind']!r}")
+        measures = [c["header"] for c in section.get("columns", []) if c["kind"] == "measure"]
+        if measures and not section.get("measure_ratios"):
+            problems.append(f"{section['id']}: columns of kind measure need measure_ratios")
         for row in section.get("rows", []):
             if row["kind"] not in KINDS:
                 problems.append(f"{section['id']}: unknown kind {row['kind']!r}")

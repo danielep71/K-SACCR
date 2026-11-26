@@ -90,6 +90,14 @@ numbers as numbers and the dates as dates:
 | `date`, `datetime` | `yyyy-mm-dd`, `yyyy-mm-dd hh:mm:ss` | Dates |
 | `text` | text | Everything else |
 
+In the two reconciliations the format of the columns Bank figure, Calculator figure and
+Absolute difference follows the measure of the row: `ratio` for the measures that
+`CORE_Reconcile` does not scale and compares by relative tolerance only (the multiplier of a netting
+set; the maturity, the supervisory duration, the delta and the two maturity factors of a trade
+leg), `amount` for every other measure. A multiplier of 0.958585 against 0.958586 so reads as it is,
+and the difference of a `DIFFERENCE` row is never shown as `0.00`. `report.json` lists these measures
+as `measure_ratios`, and `tools/test_report_spec.py` checks them against `CORE_Reconcile`.
+
 Writing the file does not depend on the regional settings of the machine: the
 formats are the invariant codes of Excel, and the values are written as
 `Double` and `Date`, never converted to text with the machine's separators. A
