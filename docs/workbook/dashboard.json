@@ -9,12 +9,9 @@
       "notional": "Notional amounts"
     },
     "steps": [
-      {"factor": 1, "word": ""},
-      {"factor": 1000, "word": "thousand"},
-      {"factor": 1000000, "word": "million"},
-      {"factor": 1000000000, "word": "billion"}
+      {"factor": 1, "word": ""}
     ],
-    "rule": "The largest absolute amount of the family, over both regimes, sets k, the largest of 0 to 3 with 1000^k not above it; the family's amounts are written divided by steps[k].factor"
+    "rule": "Amounts are in units of the reporting currency, as on the input and output sheets (#810): every family has the factor 1, and its unit is the currency"
   },
   "blocks": [
     {

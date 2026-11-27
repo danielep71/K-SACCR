@@ -712,6 +712,13 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Show the Dashboard's amounts in units of the reporting currency, as on the input and output
+  sheets, with a thousands separator and no decimals (#810), as the owner asked. Each family of
+  amounts used to take a scale of thousands, millions or billions from its largest amount; on a
+  real portfolio a gross positive value above a billion put an EAD of about 500 million at `0.5`.
+  `Dashboard_Scale` now gives the factor 1 and the currency (`EUR`), which the cards and titles
+  name; the charts' axes and labels show whole units. `docs/workbook/dashboard.json`, its Python
+  reference, `CORE_Dashboard`, `TEST_Dashboard` and the report's Dashboard section follow.
 - Run a smoke check of every pull request in Excel instead of the quick check, as the owner asked
   (#801): the build, the compile and the calculation suites (`TEST_Suite.Smoke`: the harness,
   `TEST_Formulas`, `TEST_Cases`, `TEST_Aggregation` and `TEST_Invariants`), a few minutes instead

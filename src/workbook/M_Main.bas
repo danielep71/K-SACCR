@@ -3162,7 +3162,7 @@ Private Function WriteReportDashboard( _
 '   No formula is copied: the title's unit is the value its formula shows
 '
 ' UPDATED
-'   2026-11-26
+'   2026-11-27
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -3188,7 +3188,7 @@ Private Function WriteReportDashboard( _
     'A title, then each block with a blank row after it
         ReportSheet.Cells(1, 1).Value2 = "Dashboard"
         ReportSheet.Cells(1, 1).Font.Bold = True
-        ReportSheet.Cells(2, 1).Value2 = "Amounts on the scale named in each table's title"
+        ReportSheet.Cells(2, 1).Value2 = "Amounts in units of the reporting currency, as each table's title names"
         ReportSheet.Cells(2, 1).Font.Italic = True
         TopRow = 4
         Set SourceSheet = GetSheet(SH_DASHBOARD)
