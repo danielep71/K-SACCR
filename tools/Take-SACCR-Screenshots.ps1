@@ -14,7 +14,7 @@ silent entry points:
    Import_NettingSets and Import_Trades (ImportCsv_Silent);
 3. run: a run of the demonstration portfolio (RunSACCR_Silent);
 4. bank: the bank figures of the reconciliation screenshot entered on
-   BankNettingSets (BCBS-EX1 as on Results, MATCH; 5,400 for BCBS-EX3,
+   BankNettingSets (BCBS-EX1 as on Results, MATCH; 5,300 for BCBS-EX3,
    DIFFERENCE; BANK-ONLY-1, MISSING IN CALCULATOR) and a run.
 Each picture is Range.CopyPicture of rows and columns that the plan below
 names, through the review's Save-SheetPicture (tools\Review-SACCR-Sheets.ps1),
@@ -36,7 +36,7 @@ function Get-ScreenshotPlan {
         @{ State = "template"; File = "SACCR_Home"; Sheet = "Home"; First = 1; Last = 0; Column = "S"; Hide = "" },
         @{ State = "template"; File = "SACCR_NettingSets"; Sheet = "NettingSets"; First = 1; Last = 26; Column = "T"; Hide = "" },
         @{ State = "template"; File = "SACCR_Trades"; Sheet = "Trades"; First = 1; Last = 34; Column = "R"; Hide = "" },
-        @{ State = "template"; File = "SACCR_Params"; Sheet = "Params"; First = 1; Last = 29; Column = "G"; Hide = "" },
+        @{ State = "template"; File = "SACCR_Params"; Sheet = "Params"; First = 1; Last = 29; Column = "H"; Hide = "" },
         @{ State = "template"; File = "SACCR_Params_Supervisory"; Sheet = "Params"; First = 30; Last = 57; Column = "K"; Hide = "" },
         @{ State = "template"; File = "SACCR_README_sheet"; Sheet = "README"; First = 1; Last = 45; Column = "S"; Hide = "" },
         @{ State = "template"; File = "SACCR_TestCatalogue"; Sheet = "TestCatalogue"; First = 1; Last = 40; Column = "P"; Hide = "" },
@@ -55,7 +55,7 @@ function Get-ScreenshotPlan {
         @{ State = "run"; File = "SACCR_Basel_vs_CRR"; Sheet = "Basel_vs_CRR"; First = 1; Last = 16; Column = "K"; Hide = "" },
         @{ State = "bank"; File = "SACCR_BankNettingSets"; Sheet = "BankNettingSets"; First = 1; Last = 14; Column = "P"; Hide = "" },
         @{ State = "bank"; File = "SACCR_Reconciliation"; Sheet = "Reconciliation"; First = 1; Last = 0; Column = "N"; Hide = "" },
-        @{ State = "bank"; File = "SACCR_ReconSummary"; Sheet = "ReconSummary"; First = 1; Last = 0; Column = "L"; Hide = "" }
+        @{ State = "bank"; File = "SACCR_ReconSummary"; Sheet = "ReconSummary"; First = 1; Last = 0; Column = "M"; Hide = "" }
     )
 }
 
@@ -142,7 +142,8 @@ function Set-ScreenshotState {
             $ok = $outcome.StartsWith("RESULT=OK;")
         }
         "bank" {
-            # The figures of the reconciliation screenshot: BCBS-EX1 as on Results, 5,400 for BCBS-EX3, and a
+            # The figures of the reconciliation screenshot: BCBS-EX1 as on Results, 5,300 for BCBS-EX3 (beyond the
+            # relative tolerance of 1%), and a
             # netting set the calculator does not have.
             $results = $Workbook.Worksheets.Item("Results")
             $header = Get-NamedRow $Workbook "Results_Header"
@@ -169,8 +170,8 @@ function Set-ScreenshotState {
             }
             $eadValue = [double]$ead
             $ids = [string[]]@("BCBS-EX1", "BCBS-EX3", "BANK-ONLY-1")
-            $figures = [double[]]@($eadValue, 5400.0, 100.0)
-            $comments = [string[]]@("As on Results: MATCH", "5,400 against 5,405: DIFFERENCE",
+            $figures = [double[]]@($eadValue, 5300.0, 100.0)
+            $comments = [string[]]@("As on Results: MATCH", "5,300 against 5,405: DIFFERENCE",
                                     "Not on NettingSets: MISSING IN CALCULATOR")
             for ($i = 0; $i -lt 3; $i++) {
                 $row = [int]($first + $i)
@@ -180,9 +181,27 @@ function Set-ScreenshotState {
                 $bank.Cells.Item($row, 16).Value2 = [string]$comments[$i]
             }
             $lines.Add([string]("bank: BCBS-EX1 EAD " + $eadValue.ToString([System.Globalization.CultureInfo]::InvariantCulture) +
-                                " from Results, BCBS-EX3 5400, BANK-ONLY-1 100"))
+                                " from Results, BCBS-EX3 5300, BANK-ONLY-1 100"))
             $outcome = [string]$Excel.Run($qualified + "M_Main.RunSACCR_Silent")
             $lines.Add("bank: RunSACCR_Silent: " + $outcome)
+            # The tiles of Reconciliation that read the measure shown (X1 to X5), for the record
+            $recon = $Workbook.Worksheets.Item("Reconciliation")
+            foreach ($address in @("R1", "R2", "X1", "X2", "X3", "X4", "X5")) {
+                $cell = $recon.Range($address)
+                $lines.Add(("bank: Reconciliation {0} text={1}; has_array={2}" -f $address, [string]$cell.Text, [string]$cell.HasArray))
+            }
+            $lines.Add("bank: Reconciliation X1 formula2=" + [string]$recon.Range("X1").Formula2)
+            $probes = @("SUBTOTAL(103,OFFSET(`$M`$12,ROW(OFFSET(`$M`$12,0,0,`$R`$1,1))-ROW(`$M`$12),0))",
+                        "SUMPRODUCT(MATCH(1,SUBTOTAL(103,OFFSET(`$M`$12,ROW(OFFSET(`$M`$12,0,0,`$R`$1,1))-ROW(`$M`$12),0)),0))")
+            foreach ($probe in $probes) {
+                try {
+                    $value = $recon.Evaluate($probe)
+                    $lines.Add(("bank: Evaluate {0} = {1}" -f $probe, ((@($value) | ForEach-Object { [string]$_ }) -join ",")))
+                }
+                catch {
+                    $lines.Add(("bank: Evaluate {0} failed: {1}" -f $probe, $_.Exception.Message))
+                }
+            }
             $ok = ($null -ne $ead) -and $outcome.StartsWith("RESULT=OK;") -and $outcome.Contains("; reconciliation=DONE;")
         }
         default {
