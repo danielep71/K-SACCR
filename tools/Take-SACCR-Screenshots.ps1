@@ -19,7 +19,7 @@ the workbook's own silent entry points:
    BankTrades for the TradeReconciliation check, and a run;
 5. tradefilter: TradeReconciliation filtered to the Notional measure, whose
    tiles then show the measure and its sums (#819, #821);
-6. large: every notional and MtM on Trades times 25 and a run, so that the
+6. large: every notional and MtM on Trades times 70 and a run, so that the
    EAD is about a billion, for the Dashboard cards (#810).
 The pictures of 5 and 6 are named check-*, not SACCR_*: they are release
 checks, which tools\screenshots.py leaves out of docs\assets.
@@ -240,7 +240,7 @@ function Set-ScreenshotState {
             $ok = $true
         }
         "large" {
-            # The demonstration portfolio with every notional and MtM on Trades times 25, so that the EAD is
+            # The demonstration portfolio with every notional and MtM on Trades times 70, so that the EAD is
             # about a billion, for the Dashboard cards (#810).
             $trades = $Workbook.Worksheets.Item("Trades")
             $header = Get-NamedRow $Workbook "Trades_Header"
@@ -253,12 +253,12 @@ function Set-ScreenshotState {
                 foreach ($column in @(13, 15)) {
                     $value = $trades.Cells.Item($r, $column).Value2
                     if ($value -is [double]) {
-                        $trades.Cells.Item($r, $column).Value2 = [double]$value * 25.0
+                        $trades.Cells.Item($r, $column).Value2 = [double]$value * 70.0
                     }
                 }
                 $scaled++
             }
-            $lines.Add(("large: notional and MtM of {0} legs times 25" -f $scaled))
+            $lines.Add(("large: notional and MtM of {0} legs times 70" -f $scaled))
             Write-ScreenshotTrace "large: RunSACCR_Silent"
             $outcome = [string]$Excel.Run($qualified + "M_Main.RunSACCR_Silent")
             $lines.Add("large: RunSACCR_Silent: " + $outcome)
