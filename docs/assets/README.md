@@ -12,46 +12,67 @@ them.
 
 The images below show sheets of the workbook built from
 `src/workbook/SACCR_Template.xlsx`, with the demonstration portfolio. They were
-taken in Excel for Windows on 2026-10-16, except `SACCR_Basel_vs_CRR.png`,
-retaken on 2026-10-17 to show the colours of #296 and on 2026-10-20 after the
-revision of its rows (#389).
+taken in Excel for Windows on 2026-11-27 by
+`tools/Take-SACCR-Screenshots.ps1` (#616), which the
+[Excel quick check](../EXCEL_EVIDENCE.md#automatic-quick-check) runs in its mode
+`screenshots` on the self-hosted runner, except `SACCR_Ribbon.png`, taken by hand
+the same day, and `SACCR_Evidence_CSV.png`, taken on 2026-10-16. They were taken
+from commit `07b68e3` (run 46035197674); `SACCR_Reconciliation.png` was retaken
+from `bb24522` (run 46039677982), merged as `21fe642`, after the tiles were
+corrected (#819, #821).
 
 | Image | Shows |
 | --- | --- |
+| `SACCR_Ribbon.png` | The K-SACCR Ribbon tab: its groups and the status of the results and of both staging sheets |
+| `SACCR_Home.png` | The start page the workbook opens on |
 | `SACCR_NettingSets.png`, `SACCR_Trades.png` | The input sheets |
 | `SACCR_Params.png`, `SACCR_Params_Supervisory.png` | Run parameters, and the supervisory table |
+| `SACCR_Import_NettingSets.png`, `SACCR_Import_Trades.png` | The staging sheets after Import CSV of the example files of the import specification, before Validate staging |
 | `SACCR_README_sheet.png` | The in-workbook guide |
+| `SACCR_Dashboard.png`, `SACCR_Dashboard_Charts.png` | The Dashboard after a run: the cards, the run, the key figures and the first table with its chart, then the tables and charts below |
 | `SACCR_Results_AddOns.png`, `SACCR_Results_EAD.png` | Results after a run: RC and add-ons, then PFE, EAD, cap and status |
 | `SACCR_TradeCalc_Inputs.png`, `SACCR_TradeCalc_AddOns.png` | Every trade-level quantity of that run: dates, duration, adjusted notional and delta, then maturity factors, effective notionals and add-on |
 | `SACCR_HedgingSets.png`, `SACCR_Buckets.png` | The hedging-set and bucket detail of that run |
 | `SACCR_Checks.png` | The errors of that run: excluded trades and withheld netting sets |
-| `SACCR_BankNettingSets.png`, `SACCR_Reconciliation.png` | A reconciliation: the bank's EAD for BCBS-EX1, copied from Results (MATCH), 5,400 for BCBS-EX3 (DIFFERENCE), a netting set the calculator does not have (MISSING IN CALCULATOR), and the netting sets not in the bank file |
-| `SACCR_TestCatalogue.png`, `SACCR_FormulaTest.png` | The reference-test catalogue and the worksheet-function unit tests, all passing |
-| `SACCR_Basel_vs_CRR.png` | The first 11 rows of the regime comparison |
-| `SACCR_Evidence_CSV.png` | The start of the evidence CSV of that run, opened in Notepad: the RUN and PARAMS sections and the start of SF_TABLE |
+| `SACCR_BankNettingSets.png`, `SACCR_Reconciliation.png`, `SACCR_ReconSummary.png` | A reconciliation: the bank's EAD for BCBS-EX1, copied from Results (MATCH), 5,300 for BCBS-EX3 (DIFFERENCE), a netting set the calculator does not have (MISSING IN CALCULATOR), and the netting sets not in the bank file; then its summary per measure |
+| `SACCR_TestCatalogue.png`, `SACCR_FormulaTest.png` | The reference-test catalogue and the worksheet-function unit tests |
+| `SACCR_Basel_vs_CRR.png` | The first rows of the regime comparison |
+| `SACCR_Evidence_CSV.png` | The start of the evidence CSV of a run, opened in Notepad: the RUN and PARAMS sections and the start of SF_TABLE |
 
 The input sheets show the template's own content, except BankNettingSets,
-which is empty in the template: its rows were entered for the reconciliation
-screenshot. The output sheets show a run of that portfolio on that day.
+which is empty in the template: the script enters its rows for the
+reconciliation screenshot. The output sheets show a run of that portfolio on
+that day.
 
-- **Processing:** cropped to the sheet area (no window title, sheet tabs or
-  status bar; for the CSV, no menu bar or scroll bar) and reduced to a
-  256-colour PNG palette without dithering. They are not otherwise edited.
+- **Method:** the script prepares four states through the workbook's silent
+  entry points: the template (`ClearOutputs_Silent`), the staged example files
+  (`ImportCsv_Silent`), a run (`RunSACCR_Silent`), and the bank figures with a
+  second run. It pictures each sheet from row 1 to the rows and columns its
+  plan names, hiding the middle columns of the two split sheets (Results,
+  TradeCalc), so that no window, tab, scroll bar or status bar is in the
+  picture. `tools/screenshots.py ARTIFACT/screenshots --write` then writes
+  them here. The Ribbon was taken by hand; the tabs of other add-ins were removed
+  from its tab row, so that only Excel's own tabs and K-SACCR show.
+- **Processing:** reduced to a 256-colour PNG palette without dithering. They
+  are not otherwise edited.
 - **Number format:** the sheet values follow the regional settings of the
   machine that took them (decimal comma, thousands point); the workbook itself
   reads and writes locale-independent values, as the CSV shows.
-- **Use:** the root README shows Results and Checks, and in collapsible
-  sections the calculation detail, the reconciliation, the evidence file, the
-  input sheets (NettingSets, Trades, Params, the supervisory table and the
-  README sheet), the regime comparison and the two test sheets.
+- **Use:** the root README shows the Ribbon, Home, the Dashboard, Results and
+  Checks, and in collapsible sections the calculation detail, the
+  reconciliation, the CSV staging, the evidence file, the input sheets
+  (NettingSets, Trades, Params, the supervisory table and the README sheet),
+  the regime comparison and the two test sheets.
 - **CRE99 Example 3:** the demonstration workbook shows an EAD of 5,405
   (thousands), the published figure 5,406. The demo enters the WTI trade with
   actual dates over 365 days a year (TradeCalc shows M = 0.7507); the
   regression fixture enters 270 days over 360, exactly 0.75 years as printed,
   and matches 5,406.
 
-Retake a screenshot when the layout or content of its sheet changes, and keep
-the same processing.
+Retake the screenshots when the layout or content of a sheet changes: run the
+Excel quick check by hand in mode `screenshots` and process its artifact as
+above. The rows and columns of each picture are in `Get-ScreenshotPlan` of the
+script.
 
 <a id="run-pictures"></a>
 
@@ -285,7 +306,7 @@ It is a promotional image.
   -4 to +1.
 - **Name:** the title is the project name, K-SACCR; the method, SA-CCR, is
   named in the label beside the status.
-- **Status:** the image names the current release, "Release 1.2.0"; update
+- **Status:** the image names the current release, "Release 1.3.0"; update
   it with each release.
 
 Regenerate by opening the HTML in a Chromium browser with a 1280 x 640 viewport

@@ -105,7 +105,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 48   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 50   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -248,6 +248,8 @@ Public Sub RunMainStateTests()
         CaseRecalculationError
         CaseOutputHeaderNames
         CaseSilentFlagPreserved
+        CaseProgressText
+        CaseProgressWrite
         CaseProtectionApplied
         CaseProtectionRelock
         CaseFaultProtectionKept
@@ -3687,6 +3689,104 @@ Unexpected:
         M_Main.gTestFault = ""
         M_Main.gSilent = True
         TEST_Kit.Fail "silent.flag-preserved", "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseProgressText()
+'
+'==============================================================================
+'                              CaseProgressText
+'------------------------------------------------------------------------------
+' PURPOSE
+'   CORE_Util.ProgressText, the text of the progress indicator in the
+'   status bar (#807): a bar of 20 blocks, one full block per 5% done,
+'   the percentage rounded down, a step outside 0..Total held within, and
+'   no bar for an operation whose steps are unknown.
+'
+' UPDATED
+'   2026-11-27
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Full    As String    'A full block
+    Dim Light   As String    'A light block
+    Dim Head    As String    'The operation, as the text begins
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "progress.text"
+        Full = ChrW$(&H2588)
+        Light = ChrW$(&H2591)
+        Head = "K-SACCR - Report  "
+        TEST_Kit.Check CORE_Util.ProgressText("Report", 0, 10, "Run") = _
+                       Head & String$(20, Light) & "  0%  Run", "0 of 10 steps"
+        TEST_Kit.Check CORE_Util.ProgressText("Report", 5, 10, "") = _
+                       Head & String$(10, Full) & String$(10, Light) & "  50%", "5 of 10 steps, no detail"
+        TEST_Kit.Check CORE_Util.ProgressText("Report", 1, 3, "Totals") = _
+                       Head & String$(6, Full) & String$(14, Light) & "  33%  Totals", "1 of 3 steps rounds down"
+        TEST_Kit.Check CORE_Util.ProgressText("Report", 10, 10, "saving") = _
+                       Head & String$(20, Full) & "  100%  saving", "10 of 10 steps"
+        TEST_Kit.Check CORE_Util.ProgressText("Report", 12, 10, "") = _
+                       Head & String$(20, Full) & "  100%", "a step above the total is held at 100%"
+        TEST_Kit.Check CORE_Util.ProgressText("Report", -3, 10, "") = _
+                       Head & String$(20, Light) & "  0%", "a step below zero is held at 0%"
+        TEST_Kit.Check CORE_Util.ProgressText("Report", 3, 0, "reading") = _
+                       "K-SACCR - Report  reading", "no total, no bar"
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        TEST_Kit.Fail "progress.text", "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseProgressWrite()
+'
+'==============================================================================
+'                              CaseProgressWrite
+'------------------------------------------------------------------------------
+' PURPOSE
+'   CORE_Util.ProgressWriteDue, the rule M_Main.WriteProgress applies
+'   (#807): the status bar is written when the shown percentage changes,
+'   never for the same text, and for a new detail alone at most once per
+'   0.25 seconds, at once when forced or after midnight.
+'
+' UPDATED
+'   2026-11-27
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "progress.write"
+        TEST_Kit.Check CORE_Util.ProgressWriteDue("a", "", 0, -1, 0!, 0.25!, False), "the first write"
+        TEST_Kit.Check Not CORE_Util.ProgressWriteDue("a", "a", 5, 4, 1!, 0.25!, True), "never the same text"
+        TEST_Kit.Check CORE_Util.ProgressWriteDue("b", "a", 5, 4, 0!, 0.25!, False), "a new percentage at once"
+        TEST_Kit.Check Not CORE_Util.ProgressWriteDue("b", "a", 5, 5, 0.1!, 0.25!, False), _
+                       "a new detail alone waits within 0.25 s"
+        TEST_Kit.Check CORE_Util.ProgressWriteDue("b", "a", 5, 5, 0.3!, 0.25!, False), _
+                       "a new detail alone after 0.25 s"
+        TEST_Kit.Check CORE_Util.ProgressWriteDue("b", "a", 5, 5, 0.1!, 0.25!, True), "a forced write at once"
+        TEST_Kit.Check CORE_Util.ProgressWriteDue("b", "a", 5, 5, -86000!, 0.25!, False), _
+                       "after midnight, when Timer restarts"
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        TEST_Kit.Fail "progress.write", "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 

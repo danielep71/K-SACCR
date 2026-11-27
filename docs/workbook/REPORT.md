@@ -50,8 +50,9 @@ the same number of columns, and the run lines are lines of the evidence CSV.
 - **Values only.** The XLSX holds values and formats, with no formula, no macro,
   no name that refers to another workbook and no link to the source workbook.
 - **Units.** Amounts of Results, the totals and the Checks are in the reporting
-  currency, unscaled, and each table says so. The Dashboard's amounts are on
-  the scale of `Dashboard_Scale`, named in the title of each table. The bank
+  currency, unscaled, and each table says so. The Dashboard's amounts are in
+  units of the reporting currency too (#810), as `Dashboard_Scale` names in the
+  title of each table. The bank
   figures of a reconciliation are in units of the reporting currency, as the
   header says; ratios and times are not scaled.
 
@@ -181,7 +182,9 @@ the Immediate window in silent mode, and never raise. A failure leaves no
 partial file: the report is written beside the target and then renamed, as the
 evidence CSV is, and the temporary workbook is closed without saving whatever
 happens. On success and on failure Excel's state is put back: the active
-workbook and sheet, screen updating, alerts and calculation mode.
+workbook and sheet, screen updating, alerts and calculation mode. While the
+report is written, the status bar shows its progress, one step per section
+and the save ([progress](RIBBON.md#progress), #807).
 
 ## ✅ Verification
 

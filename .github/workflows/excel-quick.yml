@@ -18,6 +18,7 @@ on:
       - "docs/workbook/**"
       - "tools/Verify-SACCR-Branch.ps1"
       - "tools/Review-SACCR-Sheets.ps1"
+      - "tools/Take-SACCR-Screenshots.ps1"
       - "tools/Check-SACCR-Protection.ps1"
       - "tools/Sync-SACCR-VBA.ps1"
       - "tools/Run-SACCR-QuickCheck.ps1"
@@ -31,13 +32,14 @@ on:
         required: true
         type: string
       mode:
-        description: full (every suite, the sheet review and the protection checks) or smoke (the build, the compile and the calculation suites, as on a pull request; #801)
+        description: full (every suite, the sheet review and the protection checks), smoke (the build, the compile and the calculation suites, as on a pull request; #801) or screenshots (the smoke check, then the documentation screenshots; #616)
         required: true
         default: full
         type: choice
         options:
           - full
           - smoke
+          - screenshots
       benchmark_sizes:
         description: Also run TEST_Benchmark with these legs per scenario, e.g. 1000,10000, in a full check only (empty for none; #771)
         required: false

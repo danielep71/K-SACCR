@@ -23,10 +23,11 @@ The step of .github\workflows\excel-quick.yml that needs Excel. In order:
    request: one comment per commit, updated by a re-run.
 The exit code is that of the quick check: 0 only when it passed. A failure of
 the reporting itself is a warning and does not change it. The report never
-replaces the owner's verification and is not release evidence.
+replaces the maintainer's verification and is not release evidence.
 The environment supplies the event (EVENT_NAME, HEAD_REPO, REPOSITORY, PR_NUMBER,
 RUN_URL, ARTIFACT_NAME) and GITHUB_TOKEN; nothing from the event is put into a
-command line. A run started by hand supplies CHECK_MODE, full or smoke (#801),
+command line. A run started by hand supplies CHECK_MODE, full or smoke (#801)
+or screenshots (#616: the smoke check, then the documentation screenshots),
 and may supply BENCHMARK_SIZES: a full quick check then runs the benchmark too
 (-BenchmarkSizes of Verify-SACCR-Branch.ps1, #771), which checks the sizes; a
 pull request never does.
@@ -97,6 +98,9 @@ $mutex = New-Object System.Threading.Mutex($false, $MutexName)
 $held = $false
 $code = 1
 $output = @()
+# A pull request gets the smoke check; the full quick check runs only by hand (#801). The mode is known
+# before anything runs, so that a report without a summary still carries the marker of its mode (#828).
+$checkMode = Get-QuickCheckMode -EventName (Get-EnvText "EVENT_NAME") -Mode (Get-EnvText "CHECK_MODE")
 try {
     try {
         $held = $mutex.WaitOne([TimeSpan]::FromMinutes($WaitMinutes))
@@ -112,11 +116,13 @@ try {
     $verify = Join-Path $repoRoot "tools\Verify-SACCR-Branch.ps1"
     # Windows PowerShell 5.1 turns a child's stderr line into an error record under "Stop".
     $ErrorActionPreference = "Continue"
-    # A pull request gets the smoke check; the full quick check runs only by hand (#801).
-    $checkMode = Get-QuickCheckMode -EventName (Get-EnvText "EVENT_NAME") -Mode (Get-EnvText "CHECK_MODE")
     $modeSwitch = "-Quick"
     if ($checkMode -eq "smoke") {
         $modeSwitch = "-Smoke"
+    }
+    elseif ($checkMode -eq "screenshots") {
+        # The smoke check, then the documentation screenshots (#616).
+        $modeSwitch = "-Screenshots"
     }
     Write-Host "Check: $checkMode"
     $verifyArguments = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $verify, "-Branch", $Branch, $modeSwitch,
@@ -174,7 +180,7 @@ try {
     $clean = Hide-QuickPaths -Text $summary -Replacements $replacements
 
     $report = New-QuickReport -Summary $clean -Sha $sha -Passed ($code -eq 0) -RunUrl (Get-EnvText "RUN_URL") `
-        -ArtifactName (Get-EnvText "ARTIFACT_NAME")
+        -ArtifactName (Get-EnvText "ARTIFACT_NAME") -Mode $checkMode
     if ($bundle -and (Test-Path -LiteralPath $bundle)) {
         $copied = Copy-QuickArtifacts -Bundle $bundle -Destination $ArtifactDir -Replacements $replacements
         Write-Host "$copied file(s) copied to the artifact folder."

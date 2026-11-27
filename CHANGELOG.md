@@ -95,8 +95,41 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-28
+
 ### Added
 
+- Take two release checks with the documentation screenshots (#616), named `check-*.png` so that
+  they never reach `docs/assets`: TradeReconciliation with bank figures per leg loaded through
+  `ImportBankCsv_Silent`, unfiltered and filtered to the Notional measure (#819, #821), and the
+  Dashboard cards with every notional and MtM on Trades times 70, an EAD near a billion (#810).
+
+- Test when the progress indicator writes the status bar, and the refusal of Clear bank figures
+  while an operation runs, as the maintenance audit of 2026-11-27 found missing (#807, #815). The
+  rule of `M_Main.WriteProgress` is now the pure function `CORE_Util.ProgressWriteDue`, which
+  `TEST_MainState` checks (`progress.write`, 50 cases, 738 checks); `TEST_Reconcile` checks the
+  refusal through the test seam `gTestFault = "running"` (`bank.clear`, 24 cases, 249 checks).
+  The README describes the indicator. 558 cases and 2566 checks in all.
+
+- Add **Clear bank figures** to BankNettingSets and BankTrades, and ship both sheets empty, as the
+  owner asked (#815): the bank figures of the demonstration portfolio stayed after a real one was
+  committed and spoiled its reconciliation, with no clear way to remove them. A rounded button
+  beside Import CSV on each bank sheet, and Clear BankNettingSets... and Clear BankTrades... in
+  the Import CSV menu of the Ribbon (`ksClearBankNettingSets`, `ksClearBankTrades`), clear every
+  figure and comment after a confirmation, No being the default; the amount scale and the
+  tolerances stay. `ClearBank_Silent(kind)` is the automation entry point; `TEST_Reconcile` checks
+  it (`bank.clear`, 24 cases, 247 checks); a sheet of comments alone is cleared too (Codex on #817).
+- Show the progress of the long commands in Excel's status bar (#807), as the owner asked: the
+  command, a bar of 20 blocks, the percentage and the step. **Run** and Validate inputs follow
+  the engine's phases and its trades; **Import CSV**, for the four files, and the Check macros
+  follow the file record by record; **Validate staging** follows the rows of each staging sheet
+  and its later checks; **Export report** counts one step per section and the save, and names the
+  chart being pictured. The bar reaches 100% when the command is done and is given back to Excel
+  when its message is closed, and on a failure. Excel paints it while the command runs and takes
+  no keyboard or mouse input meanwhile. The CSV reader and the engine report their progress to a
+  late-bound object they are given (`ThisWorkbook`), so the core layer gains no call to Excel; the
+  silent entry points and the tests give none and show nothing. The text is a pure function,
+  `CORE_Util.ProgressText`; `TEST_MainState` checks it (`progress.text`, 49 cases, 731 checks).
 - Give the K-SACCR Ribbon tab icons of its own, as the owner asked and approved (#803): a navy
   rounded tile, the header fill `1F3864` of the workbook's tables, with a white glyph, for Run,
   Validate inputs, Clear outputs, Import CSV, Validate staging, Commit import, Templates, Export
@@ -701,6 +734,17 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Stop Export evidence from flickering, and show the progress of Commit import, as the owner
+  reported (#814): Export evidence checks the run and writes the CSV with screen updating off, and
+  says its two steps in the status bar; Commit import shows the staged rows read, each input sheet
+  written and formatted, column by column, and the rows read back (#807, #811).
+- Show the Dashboard's amounts in units of the reporting currency, as on the input and output
+  sheets, with a thousands separator and no decimals (#810), as the owner asked. Each family of
+  amounts used to take a scale of thousands, millions or billions from its largest amount; on a
+  real portfolio a gross positive value above a billion put an EAD of about 500 million at `0.5`.
+  `Dashboard_Scale` now gives the factor 1 and the currency (`EUR`), which the cards and titles
+  name; the charts' axes and labels show whole units. `docs/workbook/dashboard.json`, its Python
+  reference, `CORE_Dashboard`, `TEST_Dashboard` and the report's Dashboard section follow.
 - Run a smoke check of every pull request in Excel instead of the quick check, as the owner asked
   (#801): the build, the compile and the calculation suites (`TEST_Suite.Smoke`: the harness,
   `TEST_Formulas`, `TEST_Cases`, `TEST_Aggregation` and `TEST_Invariants`), a few minutes instead
@@ -883,6 +927,39 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Show a reconciliation as out of date at once after **Clear bank figures**, also in manual
+  calculation (Codex on #841). The command cleared the bank table with calculation off and put the
+  user's mode back without recalculating the status cells, so in manual calculation
+  Reconciliation still read "Reconciliation current" beside the old comparison. It now
+  recalculates them, as Run SA-CCR does; `TEST_Reconcile` checks it (252 checks).
+- Keep one quick-check comment per commit and mode (#828). The report of the smoke check of a pull
+  request replaced the report of the full quick check run by hand on the same commit (#824), as
+  both carried the marker `excel-quick-check:SHA`. The marker now names the mode (`full`, `smoke`,
+  `screenshots`), and a re-run of the same mode still updates its own comment. The comment and the
+  documentation of the quick check speak of the self-hosted runner and the maintainer.
+
+- Sum only the rows compared in the tiles of Reconciliation and TradeReconciliation, as ReconSummary
+  does (#821), as the owner asked: Sum of bank figures, Sum of calc. figures and Sum of abs. diff.
+  counted every row shown of the measure, also those with a figure on one side only, so that the
+  two sums covered different rows (5,969.47 for the bank against 89,480,300.66 for the calculator
+  in the documentation example, which holds 15 netting sets the bank file does not have). They now
+  count MATCH and DIFFERENCE only: 5,869.47 and 5,974.09, 104.62 apart.
+
+- Show the measure and its figures in the tiles of Reconciliation and TradeReconciliation (#819).
+  Measure shown, Sum of bank figures, Sum of calc. figures, Sum of abs. diff. and Largest abs. diff.
+  read `#N/A` after every reconciliation: the hidden cell X1, which finds the first visible row,
+  gave the SUBTOTAL of the visible rows alone as the lookup array of MATCH, and Excel did not
+  evaluate it row by row. It is now multiplied by the condition that the row holds a result, as in
+  the formulas of ReconSummary, and the documentation picture of Reconciliation is retaken.
+
+- Keep the column headers of NettingSets and Trades in view, and format every committed row, as the
+  owner reported with a real portfolio of 920 netting sets (#811). The header is now on row 4, the
+  last of the frozen rows, and the data starts on row 5: the empty row 4 is gone, the frozen rows
+  and their heights and the navigation bar are as they were (#798). Commit import gives every row
+  it writes the format of the first data row (`FormatInputRows`): the template formats 200
+  netting sets and 5,000 trade legs, the contract allows 10,000 and 100,000. The data validation
+  and the duplicate-ID highlight of both sheets now cover the contract's limit. `TEST_Import`
+  checks the format of 233 committed netting sets (`commit.format`, 40 cases, 242 checks).
 - Refuse a formatted report whose Dashboard was changed after the run, and hold the operation guard
   while a report is written (#259, Codex on #805): the run now records the fingerprint of the
   Dashboard's data table (`SACCR_RunDashboard`), which the report checks besides the rules of
@@ -1007,6 +1084,49 @@ Use only the categories needed by a release.
   the `validate.context` case of `TEST_Import` stages such a trade.
 
 ### Documentation
+
+- Bring two stale statements of the workbook up to date (#827). The Home sheet says what the
+  evidence of each regime is: the published CRE99 examples for Basel; an independent implementation
+  and a bank's production reconciliation for CRR where they cover a rule, illustrative values
+  elsewhere. Its row is taller for the longer text. The import specification page names the
+  Templates menu of the K-SACCR tab for the blank templates, instead of the Export CSV template
+  buttons that 1.2.0 removed from NettingSets and Trades.
+
+- Add the user manual for 1.3.0, `docs/user-manual/v1.3.0/` (#686), written from the 1.2.0
+  manual, which stays as released. It describes every change of 1.3.0 that a user sees: the
+  navigation bar of every sheet, with `Home` at its top and the rest scrolling with the rows, and
+  its two toggles (#615, #620, #777, #798); the Ribbon's icons, **Clear outputs** and **Export
+  report**, the opening view and the progress in the status bar (#719, #726, #803, #807, #814);
+  the 21 sheets and the protection matrix; the day count, the FX rates quoted the market way, the
+  rebase and **Download prices** (#721, #725, #745); each regime's credit scale (#659); the short
+  input headers, the header on row 4 and the formatted committed rows (#756, #811); the
+  counterparty sector and NettingSets CSV version 2 (#674); the FX notional rule (#678); the Code
+  and Field columns of Checks (#81); the Dashboard and its amounts in units (#675, #810); the
+  formatted run report (#259); the bank files, **Clear bank figures** and the empty bank sheets,
+  the default tolerances, the reconciliation tiles and ReconSummary, whose sums count only the rows
+  compared (#718, #720, #815, #819, #821); the independent implementation and the production
+  reconciliation as validation evidence (#100, #667, #668); and *Moving inputs from 1.2.0*. It
+  uses copies of the screenshots of #616. The README lists its source and the website links it;
+  the website's download buttons move to 1.3.0 when the release is published, as for every
+  release. No workbook, code or test changes.
+
+- Record the maintenance audit of 2026-11-27 for v1.3.0 in `docs/release-audits/`, a new folder for
+  the dated report of the audit that opens every release. `RELEASING.md` says where the report goes
+  and that an actionable issue is assigned to the maintainer. `docs/assets/README.md` names the
+  commits the documentation images were taken from (#616). The README roadmap describes the two
+  parallel tracks of v1.7.0: a Python desktop application, first on the Excel/VBA engine and then
+  on the Python engine (#694–#700), and the standalone Python engine (#450–#459).
+
+- Retake the documentation screenshots with a script on the owner's runner (#616), as the owner
+  chose: the Excel quick check has a mode `screenshots`, run by hand, that runs the smoke check
+  and then `tools/Take-SACCR-Screenshots.ps1`, which prepares the template, the staged example
+  files, a run of the demonstration portfolio and the bank figures of the reconciliation through
+  the workbook's silent entry points and pictures each sheet to the rows and columns of its plan;
+  `tools/screenshots.py` reduces the artifact's pictures to the palette of `docs/assets`. All the
+  sheet images are retaken on 2026-11-27, and the README now also shows the Ribbon (without the
+  tabs of other add-ins), Home, the Dashboard, the two staging sheets and ReconSummary; BCBS-EX3
+  is entered at 5,300, beyond the relative tolerance of 1% (#726), so that it still shows a
+  DIFFERENCE.
 
 - State in the methodology where the business-day convention of the day count comes from (#721).
   The owner checked Articles 279a to 279c of the CRR consolidated text in force on 2026-11-26
@@ -2619,7 +2739,8 @@ For a workbook built from `release/1.0.0` or `main` before the release:
 
 ---
 
-[Unreleased]: https://github.com/danielep71/K-SACCR/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/danielep71/K-SACCR/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/danielep71/K-SACCR/releases/tag/v1.3.0
 [1.2.0]: https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0
 [1.1.0]: https://github.com/danielep71/K-SACCR/releases/tag/v1.1.0
 [1.0.2]: https://github.com/danielep71/K-SACCR/releases/tag/v1.0.2

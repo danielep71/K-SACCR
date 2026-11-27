@@ -111,6 +111,8 @@ Attribute VB_Name = "CORE_Dashboard"
 '------------------------------------------------------------------------------
 ' SCALES
 '------------------------------------------------------------------------------
+    'The divisors of the two families of amounts, 1 since the Dashboard
+    'shows its amounts in units of the reporting currency (#810).
         Private mExposureFactor As Double      'Divisor of the exposure amounts
         Private mNotionalFactor As Double      'Divisor of the notional amounts
 
@@ -740,128 +742,51 @@ End Function
 
 Private Sub SetScales()
 '
-'==============================================================================
-'                                  SetScales
+'------------------------------------------------------------------------------
+'                    SET THE DIVISOR OF EACH FAMILY OF AMOUNTS
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Choose the divisor of each family of amounts from its largest absolute
-'   amount over both regimes: 1, 1,000, 1,000,000 or 1,000,000,000, the
-'   largest not above it (1 when every amount is 0).
+'   Sets the divisor of the exposure and of the notional amounts to 1: the
+'   Dashboard shows its amounts in units of the reporting currency (#810)
+'
+' WHY THIS EXISTS
+'   The Dashboard showed its amounts in thousands, millions or billions,
+'   chosen from the largest amount of each family; on a real portfolio a
+'   gross positive value above a billion put an EAD of about 500 million at
+'   "0,5" (#810). The owner asked for the measure of the input and output
+'   sheets. The divisors stay, at 1, so that Dashboard_Scale and the
+'   blocks keep their shape
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - mExposureFactor and mNotionalFactor are 1 for every run
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   tools/dashboard.py writes the same factor (docs/workbook/dashboard.json)
 '
 ' UPDATED
-'   2026-11-23
-'==============================================================================
-'
-    Dim Regime     As Long      'Regime position
-    Dim Exposure   As Double    'Largest exposure amount
-    Dim Notional   As Double    'Largest notional amount
-    Dim Key        As Variant   'A row key
-        For Regime = 1 To 2
-            Exposure = Max2(Exposure, Abs(ValidSum(Regime, "EAD")))
-            Exposure = Max2(Exposure, Abs(ValidSum(Regime, "RC")))
-            Exposure = Max2(Exposure, Abs(ValidSum(Regime, "PFE")))
-            Exposure = Max2(Exposure, Abs(ValidSum(Regime, "VPOS")))
-            Exposure = Max2(Exposure, Abs(LegSum(Regime, "MTMPOS")))
-            For Each Key In Split(AC_LIST, "|")
-                Exposure = Max2(Exposure, Abs(ValidSum(Regime, CStr(Key))))
-                Notional = Max2(Notional, Abs(LegSum(Regime, "NOTIONAL", "", CStr(Key))))
-            Next Key
-            For Each Key In Split(SECTOR_LIST, "|")
-                Exposure = Max2(Exposure, Abs(ValidSum(Regime, "EAD", "SECTOR", CStr(Key))))
-            Next Key
-            For Each Key In Split(ROLE_LIST, "|")
-                Exposure = Max2(Exposure, Abs(ValidSum(Regime, "EAD", "ROLE", CStr(Key))))
-            Next Key
-            Exposure = Max2(Exposure, Abs(ValidSum(Regime, "EAD", "MARGINED", "Y")))
-            Exposure = Max2(Exposure, Abs(ValidSum(Regime, "EAD", "MARGINED", "N")))
-            Exposure = Max2(Exposure, LargestEAD(Regime))
-            Notional = Max2(Notional, Abs(LegSum(Regime, "NOTIONAL")))
-            For Each Key In Array("under_1y", "1y_5y", "over_5y")
-                Notional = Max2(Notional, Abs(LegSum(Regime, "NOTIONAL", CStr(Key))))
-            Next Key
-        Next Regime
-        mExposureFactor = ScaleFactor(Exposure)
-        mNotionalFactor = ScaleFactor(Notional)
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' SET
+'------------------------------------------------------------------------------
+    'Amounts in units of the reporting currency
+        mExposureFactor = 1#
+        mNotionalFactor = 1#
 
 End Sub
-
-
-Private Function LargestEAD( _
-    ByVal Regime As Long) _
-    As Double
-'
-'==============================================================================
-'                                  LargestEAD
-'------------------------------------------------------------------------------
-' PURPOSE
-'   The largest absolute EAD of a valid netting set of a regime.
-'
-' UPDATED
-'   2026-11-23
-'==============================================================================
-'
-    Dim NsIndex   As Long    'Netting set
-        For NsIndex = 1 To mNsCount
-            If IsValid(NsIndex, Regime) Then LargestEAD = Max2(LargestEAD, Abs(mNsEAD(NsIndex)))
-        Next NsIndex
-
-End Function
-
-
-Private Function ScaleFactor( _
-    ByVal Largest As Double) _
-    As Double
-'
-'==============================================================================
-'                                 ScaleFactor
-'------------------------------------------------------------------------------
-' PURPOSE
-'   1, 1E3, 1E6 or 1E9: the largest not above Largest, and 1 below 1,000.
-'
-' UPDATED
-'   2026-11-23
-'==============================================================================
-'
-        If Largest >= 1000000000# Then
-            ScaleFactor = 1000000000#
-        ElseIf Largest >= 1000000# Then
-            ScaleFactor = 1000000#
-        ElseIf Largest >= 1000# Then
-            ScaleFactor = 1000#
-        Else
-            ScaleFactor = 1#
-        End If
-
-End Function
-
-
-Private Function UnitText( _
-    ByVal Factor As Double, _
-    ByVal CcyCode As String) _
-    As String
-'
-'==============================================================================
-'                                   UnitText
-'------------------------------------------------------------------------------
-' PURPOSE
-'   The unit of a scale: the currency, then thousand, million or billion.
-'
-' UPDATED
-'   2026-11-23
-'==============================================================================
-'
-        Select Case Factor
-            Case 1000#
-                UnitText = CcyCode & " thousand"
-            Case 1000000#
-                UnitText = CcyCode & " million"
-            Case 1000000000#
-                UnitText = CcyCode & " billion"
-            Case Else
-                UnitText = CcyCode
-        End Select
-
-End Function
 
 
 Private Function ShareOf( _
@@ -1046,23 +971,53 @@ End Function
 
 Private Function ScaleBlock() As Variant
 '
-'==============================================================================
-'                                  ScaleBlock
+'------------------------------------------------------------------------------
+'                  THE UNIT OF THE EXPOSURE AND NOTIONAL AMOUNTS
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Factor and unit of the exposure and of the notional amounts.
+'   Returns the Units block: the factor and the unit of the exposure and of
+'   the notional amounts, 1 and the reporting currency (#810)
+'
+' WHY THIS EXISTS
+'   The titles of the cards and the tables name their unit from this block
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   A 2 x 2 array: the factor and the unit, exposure then notional
+'
+' BEHAVIOR
+'   - The unit is the reporting currency of the run, for example "EUR"
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   SafeStr (CORE_Util), mRunInfo, mExposureFactor, mNotionalFactor
+'
+' NOTES
+'   None
 '
 ' UPDATED
-'   2026-11-23
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
     Dim Values(1 To 2, 1 To 2)   As Variant    'The block
     Dim CcyCode                 As String     'Reporting currency
-        CcyCode = Trim$(SafeStr(mRunInfo(2)))
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'The factor and the currency of each family
+        CcyCode = VBA.Trim$(SafeStr(mRunInfo(2)))
         Values(1, 1) = mExposureFactor
-        Values(1, 2) = UnitText(mExposureFactor, CcyCode)
+        Values(1, 2) = CcyCode
         Values(2, 1) = mNotionalFactor
-        Values(2, 2) = UnitText(mNotionalFactor, CcyCode)
+        Values(2, 2) = CcyCode
         ScaleBlock = Values
 
 End Function

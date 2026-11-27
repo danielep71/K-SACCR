@@ -37,6 +37,12 @@ For the branch of a pull request, with one command on the Windows host:
    and no evidence record is written, so the folder is not an evidence
    bundle and tools\check_excel_evidence.py cannot validate it: a quick run
    is a pull-request check, never a release certification;
+   With -Screenshots (#616), the smoke check followed by the documentation
+   screenshots of tools\Take-SACCR-Screenshots.ps1, in the same Excel
+   session, into the bundle's screenshots folder and screenshots.txt; the
+   result is PASS only when the smoke check passed and every picture was
+   taken. It is started by hand from the Excel quick check workflow, mode
+   screenshots;
    With -Smoke, the smoke check of a pull request (#801), in the folder
    saccr-smoke-SHORTSHA: the quick check cut to the build, the Auto_Open,
    the compile and one pass of the harness and the calculation suites
@@ -86,6 +92,8 @@ param(
     [Parameter(Mandatory = $false)]
     [switch]$Smoke,
     [Parameter(Mandatory = $false)]
+    [switch]$Screenshots,
+    [Parameter(Mandatory = $false)]
     [string]$Python = "python",
     [Parameter(Mandatory = $false)]
     [string]$Operator,
@@ -104,6 +112,10 @@ $ErrorActionPreference = "Stop"
 
 # The smoke check of a pull request (#801) is the quick check cut to the build, the compile and the
 # calculation suites: -Smoke runs the quick check's steps up to its suites, through TEST_Suite.Smoke.
+# The documentation screenshots (#616) follow the smoke check in its Excel session.
+if ($Screenshots) {
+    $Smoke = [switch]$true
+}
 if ($Smoke) {
     $Quick = [switch]$true
 }
@@ -135,6 +147,7 @@ $msoAutomationSecurityLow = 1
 $xlAutoOpen = 1
 $compileControlId = 578
 $compileSeconds = 60
+$screenshotSeconds = 300   # the watchdog of the documentation screenshots (#616)
 
 function Invoke-GitRaw {
     # Run git in the checkout; returns its exit code and its output, stdout
@@ -217,6 +230,41 @@ function Stop-CompileWatchdog {
     return $outcome
 }
 
+function Start-ScreenshotWatchdog {
+    # A job that, when the marker file has not appeared after the given
+    # seconds, describes the windows of this run's Excel into Report, pictures
+    # its dialogs into Folder and closes it: the documentation screenshots
+    # (#616) would otherwise wait on a busy or blocked Excel until the
+    # workflow's timeout. Returns the job, or $null without the process.
+    param([uint32]$ProcessId, [int]$Seconds, [string]$Marker, [string]$Report, [string]$Helper, [string]$Folder)
+    if ($ProcessId -eq 0) {
+        return $null
+    }
+    return Start-Job -ArgumentList $ProcessId, $Seconds, $Marker, $Report, $Helper, $Folder -ScriptBlock {
+        param([uint32]$ProcessId, [int]$Seconds, [string]$Marker, [string]$Report, [string]$Helper, [string]$Folder)
+        $deadline = (Get-Date).AddSeconds($Seconds)
+        while ((Get-Date) -lt $deadline) {
+            if (Test-Path -LiteralPath $Marker) {
+                return "released"
+            }
+            Start-Sleep -Milliseconds 500
+        }
+        $lines = @()
+        try {
+            . $Helper
+            $lines += (Get-ExcelWindowsSummary $ProcessId)
+            [void](Enable-ExcelDialogPictures)
+            $lines += (Save-ExcelDialogPictures $ProcessId $Folder)
+        }
+        catch {
+            $lines += ("Excel windows: not read (" + $_.Exception.Message + ")")
+        }
+        [System.IO.File]::WriteAllText($Report, (($lines -join [Environment]::NewLine) + [Environment]::NewLine))
+        Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+        return "closed"
+    }
+}
+
 function Invoke-QuickRun {
     # The quick check of a pull request, unattended; returns 0 when the
     # project compiled, Test_RunAll passed, the sheet review passed and the
@@ -230,6 +278,7 @@ function Invoke-QuickRun {
     $script:compileLine = "Compile: NOT RUN"
     $script:reviewLine = "Sheet review: NOT RUN"
     $script:benchmarkLine = "Benchmark: NOT RUN"
+    $script:screenshotLine = "Screenshots: NOT RUN"
     if ($Smoke) {
         $script:reviewLine = "Sheet review: not run (smoke check)"
         Write-Log "K-SACCR smoke verification of ${Sha}: a pull-request check, not a release certification"
@@ -368,6 +417,40 @@ function Invoke-QuickRun {
             throw "The suites did not run: $verifyResult"
         }
 
+        # The documentation screenshots (#616), when asked for, in the same Excel session.
+        if ($Screenshots) {
+            $screenshotScript = Join-Path $RepoRoot "tools\Take-SACCR-Screenshots.ps1"
+            if (Test-Path -LiteralPath $screenshotScript) {
+                . $screenshotScript
+                Write-Log "Taking the documentation screenshots and the release checks, into screenshots and screenshots.txt"
+                $watchMarker = Join-Path $Bundle "screenshots.marker"
+                $watchReport = Join-Path $Bundle "screenshots-watchdog.txt"
+                $watchJob = Start-ScreenshotWatchdog -ProcessId $script:excelProcess -Seconds $screenshotSeconds `
+                    -Marker $watchMarker -Report $watchReport -Helper (Join-Path $RepoRoot "tools\Excel-BusyRetry.ps1") `
+                    -Folder (Join-Path $Bundle "screenshots")
+                try {
+                    $script:screenshotLine = "Screenshots: " + (Invoke-DocumentationScreenshots -Excel $excel `
+                        -Workbook $workbook -Bundle $Bundle -RepoRoot $RepoRoot)
+                }
+                catch {
+                    $script:screenshotLine = "Screenshots: RESULT=FAIL; stopped: " + $_.Exception.Message
+                }
+                $watchOutcome = Stop-CompileWatchdog -Job $watchJob -Marker $watchMarker
+                Write-Log (Get-ExcelBusyRetrySummary)
+                if ($watchOutcome -eq "closed") {
+                    $script:screenshotLine = ("Screenshots: RESULT=FAIL; Excel closed by the watchdog after {0} s; " +
+                        "the last step is the end of screenshots.txt") -f $screenshotSeconds
+                    if (Test-Path -LiteralPath $watchReport) {
+                        Write-Log ((Get-Content -LiteralPath $watchReport) -join " | ")
+                    }
+                }
+            }
+            else {
+                $script:screenshotLine = "Screenshots: RESULT=FAIL; this branch has no tools\Take-SACCR-Screenshots.ps1"
+            }
+            Write-Log $script:screenshotLine
+        }
+
         # The sheet review (#706), in the same Excel session: Clear outputs,
         # pictures, a run of the demonstration portfolio, pictures, checks.
         # A smoke check does without it.
@@ -471,7 +554,8 @@ function Invoke-QuickRun {
     Write-Log "Finished at $((Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz'))"
     $reviewPassed = $script:reviewLine.StartsWith("Sheet review: RESULT=PASS;")
     if ($Smoke) {
-        if ($suitesRan -and $summaryPassed) {
+        $screenshotsPassed = (-not $Screenshots) -or $script:screenshotLine.StartsWith("Screenshots: RESULT=PASS;")
+        if ($suitesRan -and $summaryPassed -and $screenshotsPassed) {
             return 0
         }
         return 1
@@ -563,6 +647,9 @@ if ($Quick) {
     if ($Smoke) {
         $mode = "smoke: a pull-request check of the build, the compile and the calculation suites"
     }
+    if ($Screenshots) {
+        $mode = "smoke: the build, the compile and the calculation suites, then the documentation screenshots (#616)"
+    }
     $quickResult = @(Invoke-QuickRun -Bundle $bundle -Sha $sha)
     $code = [int]$quickResult[-1]
 }
@@ -594,6 +681,9 @@ $resultLine = "Result: " + $verdict + " (Certify-SACCR exit code " + $code + ")"
 if ($Smoke) {
     $title = "K-SACCR branch verification (smoke): a pull-request check, not a release certification"
     $resultLine = "Result: " + $verdict + " (smoke run; compile and the calculation suites)"
+    if ($Screenshots) {
+        $resultLine = "Result: " + $verdict + " (smoke run and the documentation screenshots)"
+    }
 }
 elseif ($Quick) {
     $title = "K-SACCR branch verification (quick): a pull-request check, not a release certification"
@@ -609,7 +699,15 @@ $lines = @(
     $resultLine
 )
 if ($Smoke) {
-    $lines += @($script:compileLine, "", "Suites (summary.log):", (Get-FileText (Join-Path $bundle "summary.log")))
+    $lines += @($script:compileLine)
+    if ($Screenshots) {
+        $lines += @($script:screenshotLine)
+    }
+    $lines += @("", "Suites (summary.log):", (Get-FileText (Join-Path $bundle "summary.log")))
+    if ($Screenshots) {
+        $lines += @("", "Screenshots (screenshots.txt; pictures in the folder screenshots):",
+                    (Get-FileText (Join-Path $bundle "screenshots.txt")))
+    }
 }
 else {
     if ($Quick) {

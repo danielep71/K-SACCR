@@ -4,7 +4,7 @@
 
 ### Set up, build, validate and upgrade K-SACCR in Excel
 
-[![Release](https://img.shields.io/badge/Release-1.2.0-2ea44f?style=flat-square)](#current-status)
+[![Release](https://img.shields.io/badge/Release-1.3.0-2ea44f?style=flat-square)](#current-status)
 [![Checks](https://img.shields.io/badge/Checks-python_tools%2Fcheck.py-0969da?style=flat-square)](#run-the-checks)
 [![Security](https://img.shields.io/badge/Security-Private_policy-d73a49?style=flat-square)](SECURITY.md)
 
@@ -30,8 +30,8 @@ removal**. Contribution workflow is owned by
 
 ## 🧭 Current status
 
-The current release is **1.2.0**, tagged `v1.2.0`; its
-[GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0)
+The current release is **1.3.0**, tagged `v1.3.0`; its
+[GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.3.0)
 carries a built production workbook ([released workbook](#released-workbook)).
 Development continues on the
 [active release branch](docs/GOVERNANCE.md#branches). The workbook is built
@@ -45,7 +45,7 @@ from the macro-free template `src/workbook/SACCR_Template.xlsx` and the VBA in
 | Import/export conventions and host support | Defined below and in [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) |
 | Test suites | `tests/modules/`: the harness `TEST_Harness`, twelve suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`, `TEST_CsvReader`, `TEST_Import`, `TEST_FormulaRandom`, `TEST_Dashboard`, `TEST_Report`), the shared suite lifecycle `TEST_Kit`, the shared case runner `TEST_CaseRunner`, `TEST_Suite`, which runs the harness and every suite, and the benchmark `TEST_Benchmark`, which is not a suite; see [running the harness](#running-the-harness) |
 | Excel evidence | Record and validator defined in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
-| Released versions | 1.2.0 (2026-11-07), tag `v1.2.0`; 1.1.0 (2026-11-05), tag `v1.1.0`; 1.0.2 (2026-10-23), tag `v1.0.2`; 1.0.1 (2026-10-18), tag `v1.0.1`; 1.0.0 (2026-10-17), tag `v1.0.0` |
+| Released versions | 1.3.0 (2026-11-28), tag `v1.3.0`; 1.2.0 (2026-11-07), tag `v1.2.0`; 1.1.0 (2026-11-05), tag `v1.1.0`; 1.0.2 (2026-10-23), tag `v1.0.2`; 1.0.1 (2026-10-18), tag `v1.0.1`; 1.0.0 (2026-10-17), tag `v1.0.0` |
 
 ## 🧰 Prerequisites
 
@@ -128,19 +128,19 @@ set was `VALID` at each size.
 
 ## 📦 Released workbook
 
-The [1.2.0 release](https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0)
-carries `K-SACCR_1.2.0.xlsm`, a **production** workbook: the template and the
-engine and sheet macros of `src/` at `v1.2.0`, without the test modules. It
+The [1.3.0 release](https://github.com/danielep71/K-SACCR/releases/tag/v1.3.0)
+carries `K-SACCR_1.3.0.xlsm`, a **production** workbook: the template and the
+engine and sheet macros of `src/` at `v1.3.0`, without the test modules. It
 holds the demonstration portfolio of the template.
 
-1. Download `K-SACCR_1.2.0.xlsm` and `SHA256SUMS.txt` from the release.
+1. Download `K-SACCR_1.3.0.xlsm` and `SHA256SUMS.txt` from the release.
 2. Check the workbook's SHA-256 in PowerShell, in the download folder:
 
    ```powershell
-   Get-FileHash .\K-SACCR_1.2.0.xlsm -Algorithm SHA256
+   Get-FileHash .\K-SACCR_1.3.0.xlsm -Algorithm SHA256
    ```
 
-   The hash must equal the line for `K-SACCR_1.2.0.xlsm` in `SHA256SUMS.txt`
+   The hash must equal the line for `K-SACCR_1.3.0.xlsm` in `SHA256SUMS.txt`
    (letter case aside). If it differs, delete the file.
 
    The hash shows the file is the one the release lists; the signature also
@@ -148,10 +148,10 @@ holds the demonstration portfolio of the template.
    has a Sigstore signature, `<file>.sigstore.json`, made by the workflow
    **Sign release assets** with no long-lived key. To check it, install
    [cosign](https://docs.sigstore.dev/cosign/system_config/installation/),
-   download `K-SACCR_1.2.0.xlsm.sigstore.json` and run, in PowerShell:
+   download `K-SACCR_1.3.0.xlsm.sigstore.json` and run, in PowerShell:
 
    ```powershell
-   cosign verify-blob .\K-SACCR_1.2.0.xlsm --bundle .\K-SACCR_1.2.0.xlsm.sigstore.json `
+   cosign verify-blob .\K-SACCR_1.3.0.xlsm --bundle .\K-SACCR_1.3.0.xlsm.sigstore.json `
      --certificate-oidc-issuer https://token.actions.githubusercontent.com `
      --certificate-identity-regexp '^https://github\.com/danielep71/K-SACCR/\.github/workflows/release-signing\.yml@refs/(heads/main|tags/v[0-9]+\.[0-9]+\.[0-9]+)$'
    ```
@@ -161,7 +161,7 @@ holds the demonstration portfolio of the template.
 3. Windows marks a downloaded file as coming from the internet, and Office
    then blocks its macros. If your organization's macro policy allows it,
    right-click the file → **Properties** → tick **Unblock** → **OK**, or run
-   `Unblock-File .\K-SACCR_1.2.0.xlsm`. Do this only after the hash check.
+   `Unblock-File .\K-SACCR_1.3.0.xlsm`. Do this only after the hash check.
 4. Open the workbook and enable macros as your policy allows.
 
 To run the test suites, build a **development** workbook from source instead,
@@ -182,7 +182,7 @@ git switch release/1.3.0
 The branch to switch to is the
 [active release branch](docs/GOVERNANCE.md#branches); `main` receives it only
 on the owner's request. For the released source, run
-`git switch --detach v1.2.0` instead.
+`git switch --detach v1.3.0` instead.
 
 Do not use **Code → Download ZIP**. `.gitattributes` excludes repository
 plumbing such as `.gitattributes`, `.gitignore` and `.editorconfig` from GitHub
@@ -292,7 +292,7 @@ The layout and file conventions are defined in
    | 9 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 10 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
    | 11 | `src/workbook/M_FormulaTest.bas` | `M_FormulaTest` | The macros of the Randomize inputs and Restore defaults buttons of the FormulaTest sheet and the generator behind them: reproducible random inputs within the sheet's range table, and the shipped inputs back (#165) |
-   | 12 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `DownloadClosingPrices`, `RestoreRegulatoryParameters` and `ExportReport` (#259, the formatted run report, Export report on the Ribbon); `Auto_Open`, which protects the workbook again when a user opens it and gives every visible sheet a zoom of 100% (`ApplyOpeningView`, #726), and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportReport_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `DownloadClosingPrices_Silent`, `RebaseFxTable_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
+   | 12 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `DownloadClosingPrices`, `RestoreRegulatoryParameters` and `ExportReport` (#259, the formatted run report, Export report on the Ribbon), and `ClearBankNettingSets` and `ClearBankTrades` (#815); `Auto_Open`, which protects the workbook again when a user opens it and gives every visible sheet a zoom of 100% (`ApplyOpeningView`, #726), and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportReport_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ClearBank_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `DownloadClosingPrices_Silent`, `RebaseFxTable_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
    | 13 | `src/workbook/M_Ribbon.bas` | `M_Ribbon` | The callbacks of the K-SACCR Ribbon tab ([contract](docs/workbook/RIBBON.md)): `RibbonOnLoad` keeps the Ribbon object and selects the K-SACCR tab, once more 3 seconds later for an add-in that took it (`ActivateRibbonTab`, #726), `RibbonAction` runs the `M_Main` macro of a command, `RibbonGoTo` opens a sheet, `RibbonToggle` answers the Navigation bar toggle, `RibbonGetEnabled`, `RibbonGetLabel` and `RibbonGetPressed` give the state of the controls; keeps the Ribbon's pointer in a hidden name and recovers it after a VBA state reset with `RtlMoveMemory` of `kernel32` (#216) |
    | 14 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 15 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
@@ -754,10 +754,11 @@ Ribbon or the staging buttons, such as a script or a test. None of them shows a 
 `RunSACCR_Silent` runs **Run SA-CCR**, writes its messages to the Immediate
 window and raises any failure to the caller. It returns a result line; for the
 demonstration portfolio with the bank figures of the reconciliation
-screenshot:
+screenshot, entered on the bank sheets, which the template ships empty
+(#815):
 
 ```text
-RESULT=OK; operation=run; errors=6; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=48595558.4974488; total_ead_bcbs=40784020.3398879; inputs=73055FCB; run_class=REGULATORY; reconciliation=DONE; trade_reconciliation=NONE; year_convention=365; calendar=TABLE; holiday_table=empty; fx_source=Manual; codes=TR-SHIFTED-PRICE,TR-OTHER-REGIME,TR-FACTOR-REGIME,TR-MATURED,NS-TRADE-INCOMPLETE; cleanup=PASS
+RESULT=OK; operation=run; errors=6; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=48696280.320911; total_ead_bcbs=40784020.3398879; inputs=4FE7BF7E; run_class=REGULATORY; reconciliation=DONE; trade_reconciliation=NONE; year_convention=365; calendar=TABLE; holiday_table=empty; fx_source=Manual; codes=TR-SHIFTED-PRICE,TR-OTHER-REGIME,TR-FACTOR-REGIME,TR-MATURED,NS-TRADE-INCOMPLETE; cleanup=PASS
 ```
 
 `RESULT=STOPPED` means the inputs could not be loaded; see Checks. `errors`
@@ -931,6 +932,17 @@ holds raise `ERR_STAGING_WRITE` before the sheet changes; while an operation
 is running it raises `ERR_RUN_ACTIVE`. The buttons **Import CSV** on the two
 bank sheets do the same for a file chosen in a dialog, list the findings and
 ask before they replace figures.
+
+### ClearBank_Silent
+
+`ClearBank_Silent(kind)` clears every bank figure and comment of the sheet of
+`kind`, `BankNettingSets` or `BankTrades`, without a dialog (#815), and
+returns `RESULT=CLEARED; sheet=...; rows=N`, N being the rows that held an
+entry. The amount scale and the tolerances are not changed. An unknown kind
+raises `ERR_CSV_READ`, a missing bank header `ERR_STAGING_WRITE`, and while an
+operation is running it raises `ERR_RUN_ACTIVE`. The **Clear bank figures**
+buttons on the two bank sheets and the Clear entries of the Import CSV menu
+do the same after a confirmation, No being the default.
 
 ### ValidateStaging_Silent
 

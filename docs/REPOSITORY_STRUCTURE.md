@@ -48,11 +48,12 @@ docs/               contracts, architecture, governance, evidence record
   assets/           images and diagrams of the documentation, with their sources
     screenshots/    pictures of a quick Excel run, named after its commit
   excel-runs/       dated records of quick Excel runs (pull-request checks)
+  release-audits/   dated reports of the maintenance audit before a release
   csv/              CSV input contract, its specification and blank templates
   workbook/         Ribbon contract and protection matrix of the workbook template
   methodology/      regulatory basis, support matrix, traceability, test-case format
     sources/        regulatory source documents
-  user-manual/      user manual source, one folder per version (v1.0.0/, v1.0.1/, v1.0.2/, v1.1.0/, v1.2.0/)
+  user-manual/      user manual source, one folder per version (v1.0.0/, v1.0.1/, v1.0.2/, v1.1.0/, v1.2.0/, v1.3.0/)
 src/                production VBA source: the only input to the workbook
   core/             calculation engine (internal)
   modules/          public worksheet functions
@@ -86,7 +87,7 @@ is created with its first file.
 | `tools/` | Deterministic checks, build and evidence scripts | Calculation logic |
 
 `src/`, `tests/` and `tools/` each have a `README.md`, as do `docs/assets/`,
-`docs/excel-runs/`, `docs/methodology/`, `docs/methodology/sources/` and each version folder of
+`docs/excel-runs/`, `docs/release-audits/`, `docs/methodology/`, `docs/methodology/sources/` and each version folder of
 `docs/user-manual/`.
 Subdirectories are created with their first real file, never empty.
 
@@ -224,6 +225,7 @@ enforced by `tools/check_source.py`; the others by review.
 - [`user-manual/v1.0.2/README.md`](user-manual/v1.0.2/README.md)
 - [`user-manual/v1.1.0/README.md`](user-manual/v1.1.0/README.md)
 - [`user-manual/v1.2.0/README.md`](user-manual/v1.2.0/README.md)
+- [`user-manual/v1.3.0/README.md`](user-manual/v1.3.0/README.md)
 - [`../tools/README.md`](../tools/README.md)
 
 ---

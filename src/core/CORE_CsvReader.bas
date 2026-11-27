@@ -17,6 +17,8 @@ Attribute VB_Name = "CORE_CsvReader"
 '   leg's netting set and the legs of each economic trade, and
 '   CheckContext the rules that depend on Params: the reporting date, the
 '   FX table, the supervisory-factor table and the regime.
+'   A caller can pass an object told how far the reading and the checks
+'   are (#807), so that the workbook shows it in the status bar.
 '
 ' PUBLIC SURFACE
 '   None outside this VBA project. ReadCsvFile reads a file;
@@ -38,7 +40,9 @@ Attribute VB_Name = "CORE_CsvReader"
 '   findings (TEST_CsvReader).
 '
 ' STATE OWNERSHIP
-'   None. Nothing is written to a sheet, a file or module state.
+'   None. Nothing is written to a sheet, a file or module state; the
+'   progress goes to the caller's object, late bound, so that this module
+'   depends on no other layer.
 '
 ' ERROR POLICY
 '   A file that does not conform to the contract is not an error: it gives
@@ -88,6 +92,10 @@ Attribute VB_Name = "CORE_CsvReader"
         Private Const SMALLEST_DIGITS    As String = "222507385850720"
         Private Const SMALLEST_EXPONENT  As Long = -308
         Private Const LARGEST_EXPONENT   As Long = 308
+
+    'How often the reader tells its caller how far it is (#807): every so
+    'many records, so that the progress costs nothing on a small file.
+        Private Const PROGRESS_EVERY     As Long = 250
 
 '------------------------------------------------------------------------------
 ' TYPES
@@ -167,37 +175,63 @@ Public Sub ReadCsvFile( _
     ByRef Lines() As Long, _
     ByRef Findings() As CsvFinding, _
     Optional ByVal MaxBytes As Long = 0, _
-    Optional ByVal KeepRecords As Boolean = False)
+    Optional ByVal KeepRecords As Boolean = False, _
+    Optional ByVal Progress As Object = Nothing)
 '
-'==============================================================================
-'                                 ReadCsvFile
+'------------------------------------------------------------------------------
+'                     READ A CSV FILE UNDER ITS CONTRACT
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Read the CSV file FilePath as a file of Kind. A file larger than the
+'   Reads the CSV file FilePath as a file of Kind. A file larger than the
 '   contract allows is rejected from its size alone, before any of it is
-'   read.
+'   read
+'
+' WHY THIS EXISTS
+'   The file is read as bytes, so that Excel converts nothing (#207); the
+'   bytes are then read as ReadCsvBytes reads them
 '
 ' INPUTS
-'   FilePath: an existing local file. Kind: "Trades" or "NettingSets".
-'   MaxBytes replaces the contract's size limit when above 0, for tests.
-'   KeepRecords: keep the records of a readable file, as ReadCsvBytes.
+'   FilePath
+'     An existing local file
+'   Kind
+'     "Trades", "NettingSets" or another kind of the contract
+'   MaxBytes
+'     Replaces the contract's size limit when above 0, for tests
+'   KeepRecords
+'     Keep the records of a readable file, as ReadCsvBytes
+'   Progress
+'     An object told how far the reading is (#807), as ReadCsvBytes;
+'     Nothing for none
 '
 ' RETURNS
-'   Result, with Values, Lines and Findings: see CsvReadResult.
+'   Result, with Values, Lines and Findings: see CsvReadResult
+'
+' BEHAVIOR
+'   - Refuses an unknown kind and an empty path
+'   - A file above the size limit gives one finding, CSV_TOO_LARGE
+'   - Otherwise reads the whole file and reads its bytes (ReadCsvBytes)
 '
 ' ERROR POLICY
 '   Raises ERR_CSV_READ for an unknown kind and for a file that does not
 '   exist or cannot be read whole, a malformed path included; the file
-'   number is closed first.
+'   number is closed first
+'
+' DEPENDENCIES
+'   CsvSpecOf (CORE_CsvSchema), StartResult, AddFinding, ReadCsvBytes
+'
+' NOTES
+'   Dir$ itself raises for a malformed or inaccessible path, so the
+'   handler is in place before it (#446)
 '
 ' UPDATED
-'   2026-10-26
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
+    Const PROC_NAME     As String = "CORE_CsvReader.ReadCsvFile"
+
     Dim Spec            As CsvSpec      'The file's contract
     Dim Columns()       As CsvColumn    'Its columns
     Dim Rules()         As CsvRule      'Its rules
@@ -208,23 +242,34 @@ Public Sub ReadCsvFile( _
     Dim ErrorText       As String       'Its description
 
 '------------------------------------------------------------------------------
-' CHECK THE KIND AND THE SIZE
+' VALIDATE INPUTS
 '------------------------------------------------------------------------------
+    'A known kind and a path
         If Not CsvSpecOf(Kind, Spec, Columns, Rules) Then
-            Err.Raise ERR_CSV_READ, "CORE_CsvReader.ReadCsvFile", "unknown CSV kind '" & Kind & "'"
+            Err.Raise ERR_CSV_READ, PROC_NAME, "unknown CSV kind '" & Kind & "'"
         End If
         If Len(FilePath) = 0 Then
-            Err.Raise ERR_CSV_READ, "CORE_CsvReader.ReadCsvFile", "no file given"
+            Err.Raise ERR_CSV_READ, PROC_NAME, "no file given"
         End If
+    'The contract's size limit unless a test gives another
         If MaxBytes <= 0 Then
             MaxBytes = CSV_MAX_BYTES
         End If
-    'Dir$ itself raises for a malformed or inaccessible path, so the handler
-    'is in place before it (#446).
-        On Error GoTo Failed
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'Dir$ itself raises for a malformed or inaccessible path (#446)
+        On Error GoTo ErrorHandler
+
+'------------------------------------------------------------------------------
+' READ THE FILE
+'------------------------------------------------------------------------------
+    'The file must exist
         If Len(Dir$(FilePath, vbHidden Or vbSystem Or vbReadOnly)) = 0 Then
-            Err.Raise ERR_CSV_READ, "CORE_CsvReader.ReadCsvFile", "the file does not exist: " & FilePath
+            Err.Raise ERR_CSV_READ, PROC_NAME, "the file does not exist: " & FilePath
         End If
+    'A file too large is rejected from its size alone
         ByteCount = FileLen(FilePath)
         If ByteCount < 0 Or ByteCount > MaxBytes Then
             On Error GoTo 0
@@ -232,39 +277,47 @@ Public Sub ReadCsvFile( _
             AddFinding Result, Findings, CSV_TOO_LARGE, 0, 0, "", "the file has more than " & MaxBytes & " bytes"
             Exit Sub
         End If
-
-'------------------------------------------------------------------------------
-' READ THE FILE WHOLE
-'------------------------------------------------------------------------------
+    'Read it whole, as bytes
         If ByteCount > 0 Then
             ReDim Bytes(0 To ByteCount - 1)
             FileNumber = FreeFile
             Open FilePath For Binary Access Read Shared As #FileNumber
             If LOF(FileNumber) <> ByteCount Then
-                Err.Raise ERR_CSV_READ, "CORE_CsvReader.ReadCsvFile", "the file changed while it was read"
+                Err.Raise ERR_CSV_READ, PROC_NAME, "the file changed while it was read"
             End If
             Get #FileNumber, 1, Bytes
             Close #FileNumber
             FileNumber = 0
         End If
         On Error GoTo 0
-        ReadCsvBytes Bytes, ByteCount, Kind, Result, Values, Lines, Findings, 0, MaxBytes, KeepRecords
+
+'------------------------------------------------------------------------------
+' READ THE BYTES
+'------------------------------------------------------------------------------
+    'Decode, split and check them
+        ReadCsvBytes Bytes, ByteCount, Kind, Result, Values, Lines, Findings, 0, MaxBytes, KeepRecords, Progress
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
         Exit Sub
 
 '------------------------------------------------------------------------------
-' HANDLE ERROR
+' ERROR HANDLER
 '------------------------------------------------------------------------------
-Failed:
+ErrorHandler:
+    'Capture the error, then close the file
         ErrorNumber = Err.Number
         ErrorText = Err.Description
         If FileNumber <> 0 Then
             Close #FileNumber
         End If
         On Error GoTo 0
+    'Raise it as a read error, with the path when Excel raised it
         If ErrorNumber = ERR_CSV_READ Then
-            Err.Raise ERR_CSV_READ, "CORE_CsvReader.ReadCsvFile", ErrorText
+            Err.Raise ERR_CSV_READ, PROC_NAME, ErrorText
         End If
-        Err.Raise ERR_CSV_READ, "CORE_CsvReader.ReadCsvFile", _
+        Err.Raise ERR_CSV_READ, PROC_NAME, _
                   "Could not read " & FilePath & ": " & ErrorText & " (error " & ErrorNumber & ")"
 
 End Sub
@@ -280,39 +333,72 @@ Public Sub ReadCsvBytes( _
     ByRef Findings() As CsvFinding, _
     Optional ByVal MaxRecords As Long = 0, _
     Optional ByVal MaxBytes As Long = 0, _
-    Optional ByVal KeepRecords As Boolean = False)
+    Optional ByVal KeepRecords As Boolean = False, _
+    Optional ByVal Progress As Object = Nothing)
 '
-'==============================================================================
-'                                ReadCsvBytes
+'------------------------------------------------------------------------------
+'                     READ CSV BYTES UNDER THEIR CONTRACT
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Read the first ByteCount bytes of Bytes as a CSV file of Kind, as
+'   Reads the first ByteCount bytes of Bytes as a CSV file of Kind, as
 '   tools/csv_contract.py validates it: size, encoding, records, header,
-'   record count, fields, rules between fields and keys, in that order.
-'   A header error, a record limit exceeded, a file too large or not valid
-'   UTF-8 stops reading; every other finding is reported.
+'   record count, fields, rules between fields and keys, in that order
+'
+' WHY THIS EXISTS
+'   One reader for a file and for bytes already in memory, so that the
+'   tests read the fixtures of tests/csv as a file would be read
 '
 ' INPUTS
-'   Bytes: the file's content, from index 0; unallocated when ByteCount
-'   is 0. ByteCount >= 0. Kind: "Trades" or "NettingSets". MaxRecords and
-'   MaxBytes replace the contract's limits when above 0, for tests.
-'   KeepRecords: keep the records of a file that is readable but not
-'   accepted, for staging (#208); a file that is not readable keeps none.
+'   Bytes
+'     The file's content, from index 0; unallocated when ByteCount is 0
+'   ByteCount
+'     Bytes to read, 0 or more
+'   Kind
+'     "Trades", "NettingSets" or another kind of the contract
+'   MaxRecords, MaxBytes
+'     Replace the contract's limits when above 0, for tests
+'   KeepRecords
+'     Keep the records of a file that is readable but not accepted, for
+'     staging (#208); a file that is not readable keeps none
+'   Progress
+'     An object told how far the reading is (#807): its method
+'     ReportProgress(Fraction As Double, Detail As String) is called as
+'     the records are split and checked, Fraction from 0 to 1; Nothing
+'     for none
 '
 ' RETURNS
-'   Result, with Values, Lines and Findings: see CsvReadResult.
+'   Result, with Values, Lines and Findings: see CsvReadResult
+'
+' BEHAVIOR
+'   - A header error, a record limit exceeded, a file too large or not
+'     valid UTF-8 stops reading; every other finding is reported
+'   - Splitting the records counts for the first 30% of Progress, checking
+'     them for the rest
 '
 ' ERROR POLICY
-'   Raises ERR_CSV_READ for an unknown kind.
+'   Raises ERR_CSV_READ for an unknown kind; an error of Progress
+'   propagates
+'
+' DEPENDENCIES
+'   CsvSpecOf (CORE_CsvSchema), StartResult, AddFinding, DecodeUtf8,
+'   CountLineFeeds, ParseRecords, HeaderAccepted, CheckBody,
+'   SortFindings, HasStructuralFinding
+'
+' NOTES
+'   Progress is late bound, so that this module depends on no other
+'   layer: the workbook passes ThisWorkbook, whose ReportProgress writes
+'   the status bar (M_Main)
 '
 ' UPDATED
-'   2026-10-26
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
+    Const PROC_NAME     As String = "CORE_CsvReader.ReadCsvBytes"
+    Const PARSE_SHARE   As Double = 0.3   'Share of Progress for splitting the records
+
     Dim Spec            As CsvSpec      'The file's contract
     Dim Columns()       As CsvColumn    'Its columns
     Dim Rules()         As CsvRule      'Its rules
@@ -326,12 +412,18 @@ Public Sub ReadCsvBytes( _
     Dim Limit           As Long         'Records allowed after the header
 
 '------------------------------------------------------------------------------
-' SIZE AND ENCODING
+' VALIDATE INPUTS
 '------------------------------------------------------------------------------
+    'A known kind
         If Not CsvSpecOf(Kind, Spec, Columns, Rules) Then
-            Err.Raise ERR_CSV_READ, "CORE_CsvReader.ReadCsvBytes", "unknown CSV kind '" & Kind & "'"
+            Err.Raise ERR_CSV_READ, PROC_NAME, "unknown CSV kind '" & Kind & "'"
         End If
         StartResult Result, Spec, Values, Lines, Findings
+
+'------------------------------------------------------------------------------
+' SIZE AND ENCODING
+'------------------------------------------------------------------------------
+    'At most the size limit
         If MaxBytes <= 0 Then
             MaxBytes = CSV_MAX_BYTES
         End If
@@ -339,6 +431,7 @@ Public Sub ReadCsvBytes( _
             AddFinding Result, Findings, CSV_TOO_LARGE, 0, 0, "", ByteCount & " bytes, at most " & MaxBytes
             Exit Sub
         End If
+    'Valid UTF-8, without a NUL character
         If Not DecodeUtf8(Bytes, ByteCount, Text) Then
             AddFinding Result, Findings, CSV_ENCODING, 0, 0, "", "not valid UTF-8"
             Exit Sub
@@ -353,10 +446,13 @@ Public Sub ReadCsvBytes( _
 '------------------------------------------------------------------------------
 ' RECORDS AND HEADER
 '------------------------------------------------------------------------------
-    'The header and one record past the limit are all a rejected file needs:
-    'the parser counts the others without keeping them.
+    'Split the records; the header and one record past the limit are all a
+    'rejected file needs, so the parser counts the others without keeping
+    'them
         Limit = IIf(MaxRecords > 0, MaxRecords, Spec.MaxRecords)
-        ParseRecords Text, Limit + 2, RecordFields, RecordLines, RecordTotal, SyntaxLine, SyntaxMessage
+        ParseRecords Text, Limit + 2, RecordFields, RecordLines, RecordTotal, SyntaxLine, SyntaxMessage, _
+                     Progress, 0#, PARSE_SHARE
+    'A file without a header record
         If RecordTotal = 0 Then
             If SyntaxLine > 0 Then
                 AddFinding Result, Findings, CSV_SYNTAX, SyntaxLine, 0, "", SyntaxMessage
@@ -365,12 +461,15 @@ Public Sub ReadCsvBytes( _
             End If
             Exit Sub
         End If
+    'The header must be accepted before any record is read
         If Not HeaderAccepted(RecordFields(1), RecordLines(1), Spec, Columns, Result, Findings) Then
             Exit Sub
         End If
+    'A syntax error is reported with the records read before it
         If SyntaxLine > 0 Then
             AddFinding Result, Findings, CSV_SYNTAX, SyntaxLine, RecordTotal, "", SyntaxMessage
         End If
+    'Too many records stops reading
         If RecordTotal - 1 > Limit Then
             AddFinding Result, Findings, CSV_TOO_MANY_RECORDS, RecordLines(Limit + 2), Limit + 1, "", _
                        (RecordTotal - 1) & " records, at most " & Limit
@@ -379,10 +478,18 @@ Public Sub ReadCsvBytes( _
         End If
 
 '------------------------------------------------------------------------------
-' FIELDS, RULES AND KEYS
+' CHECK THE RECORDS
 '------------------------------------------------------------------------------
-        CheckBody RecordFields, RecordLines, RecordTotal, Spec, Columns, Rules, Result, Values, Lines, Findings
+    'Every field, the rules between fields and the keys
+        CheckBody RecordFields, RecordLines, RecordTotal, Spec, Columns, Rules, Result, Values, Lines, Findings, _
+                  Progress, PARSE_SHARE, 1# - PARSE_SHARE
         SortFindings Result, Findings
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'Accepted without findings; the records of a file that is not accepted
+    'are kept only when asked and the file is readable
         Result.Accepted = (Result.FindingCount = 0)
         Result.Readable = Not HasStructuralFinding(Result, Findings)
         If Not Result.Accepted And Not (KeepRecords And Result.Readable) Then
@@ -428,41 +535,70 @@ Public Sub CheckStagedRecords( _
     ByVal RowCount As Long, _
     ByRef Result As CsvReadResult, _
     ByRef Findings() As CsvFinding, _
-    Optional ByVal MaxRecords As Long = 0)
+    Optional ByVal MaxRecords As Long = 0, _
+    Optional ByVal Progress As Object = Nothing)
 '
-'==============================================================================
-'                              CheckStagedRecords
+'------------------------------------------------------------------------------
+'                   CHECK THE ROWS OF A STAGING SHEET AS RECORDS
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Check the rows of a staging sheet (#209) as the records of a file are
+'   Checks the rows of a staging sheet (#209) as the records of a file are
 '   checked, and as tools/csv_contract.check_staged checks them: each
-'   field, the rules between fields and the keys. A row whose fields are
-'   all blank is one finding. More rows than the contract allows is one
-'   finding, and nothing else is checked.
+'   field, the rules between fields and the keys
+'
+' WHY THIS EXISTS
+'   Rows corrected on a staging sheet are judged by the same rules as the
+'   file they came from
 '
 ' INPUTS
-'   Kind: "Trades" or "NettingSets". Values(1 To RowCount, 1 To column
-'   count): the rows in contract column order, as text. Lines(1 To
-'   RowCount): the CSV line of each row, 0 for a row added by hand.
-'   RowCount >= 0. MaxRecords replaces the contract's limit when above 0,
-'   for tests.
+'   Kind
+'     "Trades" or "NettingSets"
+'   Values
+'     Values(1 To RowCount, 1 To column count): the rows in contract
+'     column order, as text
+'   Lines
+'     Lines(1 To RowCount): the CSV line of each row, 0 for a row added by
+'     hand
+'   RowCount
+'     Rows, 0 or more
+'   MaxRecords
+'     Replaces the contract's limit when above 0, for tests
+'   Progress
+'     An object told how far the checks are (#807), as ReadCsvBytes;
+'     Nothing for none
 '
 ' RETURNS
 '   Result (RowCount records, Readable, Accepted when there is no finding)
 '   and Findings sorted by record, line, column and code. A finding's
-'   record is the row's position in Values, its line the row's CSV line.
+'   record is the row's position in Values, its line the row's CSV line
+'
+' BEHAVIOR
+'   - A row whose fields are all blank is one finding
+'   - More rows than the contract allows is one finding, and nothing else
+'     is checked
+'   - Tells Progress the share of the rows checked, every PROGRESS_EVERY
+'     rows
 '
 ' ERROR POLICY
-'   Raises ERR_CSV_READ for an unknown kind.
+'   Raises ERR_CSV_READ for an unknown kind; an error of Progress
+'   propagates
+'
+' DEPENDENCIES
+'   CsvSpecOf (CORE_CsvSchema), AddFinding, CheckRecord, CheckKeys,
+'   SortFindings, ReportProgress
+'
+' NOTES
+'   None
 '
 ' UPDATED
-'   2026-10-28
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
+    Const PROC_NAME     As String = "CORE_CsvReader.CheckStagedRecords"
+
     Dim Spec            As CsvSpec      'The file's contract
     Dim Columns()       As CsvColumn    'Its columns
     Dim Rules()         As CsvRule      'Its rules
@@ -478,8 +614,9 @@ Public Sub CheckStagedRecords( _
 '------------------------------------------------------------------------------
 ' PREPARE
 '------------------------------------------------------------------------------
+    'A known kind and an empty result
         If Not CsvSpecOf(Kind, Spec, Columns, Rules) Then
-            Err.Raise ERR_CSV_READ, "CORE_CsvReader.CheckStagedRecords", "unknown CSV kind '" & Kind & "'"
+            Err.Raise ERR_CSV_READ, PROC_NAME, "unknown CSV kind '" & Kind & "'"
         End If
         Result.Kind = Spec.Kind
         Result.Accepted = False
@@ -488,25 +625,32 @@ Public Sub CheckStagedRecords( _
         Result.ColumnCount = Spec.ColumnCount
         Result.FindingCount = 0
         ReDim Findings(1 To 16)
+    'Too many rows is one finding and nothing else is checked
         Limit = IIf(MaxRecords > 0, MaxRecords, Spec.MaxRecords)
         If RowCount > Limit Then
             AddFinding Result, Findings, CSV_TOO_MANY_RECORDS, Lines(Limit + 1), Limit + 1, "", _
                        RowCount & " rows, at most " & Limit
             Exit Sub
         End If
+    'No row is accepted as it is
         If RowCount = 0 Then
             Result.Accepted = True
             Exit Sub
         End If
 
 '------------------------------------------------------------------------------
-' CHECK EACH ROW, THEN THE KEYS
+' CHECK EACH ROW
 '------------------------------------------------------------------------------
         ReDim Row(1 To Spec.ColumnCount)
         ReDim Kept(1 To RowCount, 1 To Spec.ColumnCount)
         ReDim KeptLines(1 To RowCount)
         ReDim KeptRecord(1 To RowCount)
         For r = 1 To RowCount
+        'Say how far the checks are
+            If (r - 1) Mod PROGRESS_EVERY = 0 Then
+                ReportProgress Progress, (r - 1) / RowCount, "checking row " & r & " of " & RowCount
+            End If
+        'Check the row and keep it for the keys unless it is blank
             For c = 1 To Spec.ColumnCount
                 Row(c) = Values(r, c)
             Next c
@@ -519,7 +663,13 @@ Public Sub CheckStagedRecords( _
                 KeptRecord(KeptCount) = r
             End If
         Next r
+
+'------------------------------------------------------------------------------
+' CHECK THE KEYS
+'------------------------------------------------------------------------------
+    'The keys across the rows kept, then the findings in order
         If KeptCount > 0 Then
+            ReportProgress Progress, 1#, "checking the keys"
             CheckKeys Spec, Columns, KeptCount, KeptRecord, Result, Kept, KeptLines, Findings
         End If
         SortFindings Result, Findings
@@ -1542,39 +1692,63 @@ Private Sub ParseRecords( _
     ByRef RecordLines() As Long, _
     ByRef RecordTotal As Long, _
     ByRef SyntaxLine As Long, _
-    ByRef SyntaxMessage As String)
+    ByRef SyntaxMessage As String, _
+    ByVal Progress As Object, _
+    ByVal ProgressFrom As Double, _
+    ByVal ProgressSpan As Double)
 '
-'==============================================================================
-'                                ParseRecords
+'------------------------------------------------------------------------------
+'                     SPLIT THE TEXT INTO RECORDS OF FIELDS
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Split Text into records of fields: ";" between fields, CRLF or LF
+'   Splits Text into records of fields: ";" between fields, CRLF or LF
 '   between records, double quotes around a whole field, two of them for
-'   one inside it. Parsing stops at the first syntax error: a quote inside
-'   an unquoted field, text after a closing quote, a carriage return that
-'   does not end a line, or a quoted field still open at the end.
+'   one inside it
+'
+' WHY THIS EXISTS
+'   The contract's syntax (docs/csv/CSV_CONTRACT.md), read without Excel;
+'   parsing stops at the first syntax error, as tools/csv_contract.py does
 '
 ' INPUTS
-'   MaxKept: the records kept, the header included; later records are
-'   parsed and counted but not kept, so that a file of many short records
-'   cannot exhaust memory before its record limit is reported.
+'   Text
+'     The decoded file
+'   MaxKept
+'     The records kept, the header included; later records are parsed
+'     and counted but not kept, so that a file of many short records
+'     cannot exhaust memory before its record limit is reported
+'   Progress, ProgressFrom, ProgressSpan
+'     The object told how far the reading is (ReadCsvBytes), and the part
+'     of its fraction the splitting covers; Progress Nothing for none
 '
 ' RETURNS
 '   RecordTotal, the records parsed; RecordFields(1 To the smaller of
 '   RecordTotal and MaxKept), each a String array from 0, and the physical
 '   line each kept record starts on; SyntaxLine and SyntaxMessage for a
-'   syntax error, SyntaxLine 0 when there is none.
+'   syntax error, SyntaxLine 0 when there is none
 '
-' METHOD
+' BEHAVIOR
+'   - A syntax error is a quote inside an unquoted field, text after a
+'     closing quote, a carriage return that does not end a line, or a
+'     quoted field still open at the end
+'   - Tells Progress the share of the text read, every PROGRESS_EVERY
+'     records
+'
+' ERROR POLICY
+'   None of its own; an error of Progress propagates
+'
+' DEPENDENCIES
+'   NextOf, LineFeedsBetween, Earliest, LineEndLength, AddRecord,
+'   ReportProgress
+'
+' NOTES
 '   Each delimiter's next position is found with InStr and kept until the
 '   parser passes it, so the text is scanned once per delimiter however
 '   far apart they are. A quoted field is taken whole once its closing
-'   quote is found, its doubled quotes replaced in one pass.
+'   quote is found, its doubled quotes replaced in one pass
 '
 ' UPDATED
-'   2026-10-23
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
@@ -1598,8 +1772,9 @@ Private Sub ParseRecords( _
     Dim Ending          As Long         'Length of the line end at Position
 
 '------------------------------------------------------------------------------
-' READ RECORD BY RECORD
+' INITIALIZE
 '------------------------------------------------------------------------------
+    'Nothing read yet
         TextLength = Len(Text)
         Position = 1
         CurrentLine = 1
@@ -1607,12 +1782,22 @@ Private Sub ParseRecords( _
         ReDim RecordFields(1 To 16)
         ReDim RecordLines(1 To 16)
         ReDim Fields(0 To 31)
+
+'------------------------------------------------------------------------------
+' READ RECORD BY RECORD
+'------------------------------------------------------------------------------
         Do While Position <= TextLength
+        'Say how far the reading is
+            If RecordTotal Mod PROGRESS_EVERY = 0 Then
+                ReportProgress Progress, ProgressFrom + ProgressSpan * (Position - 1) / TextLength, _
+                               "splitting line " & CurrentLine
+            End If
+        'Read the fields of one record
             StartLine = CurrentLine
             FieldCount = 0
             Do
                 If Mid$(Text, Position, 1) = """" Then
-                    'A quoted field, up to the quote that is not doubled.
+                'A quoted field, up to the quote that is not doubled
                     QuoteLine = CurrentLine
                     Position = Position + 1
                     FieldStart = Position
@@ -1639,7 +1824,7 @@ Private Sub ParseRecords( _
                         Exit Sub
                     End If
                 Else
-                    'An unquoted field, up to the first delimiter, line end or quote.
+                'An unquoted field, up to the first delimiter, line end or quote
                     StopAt = TextLength + 1
                     StopAt = Earliest(StopAt, NextOf(Text, CSV_DELIMITER, Position, NextSemicolon))
                     StopAt = Earliest(StopAt, NextOf(Text, vbLf, Position, NextLineFeed))
@@ -1660,6 +1845,7 @@ Private Sub ParseRecords( _
                     Value = Mid$(Text, Position, StopAt - Position)
                     Position = StopAt
                 End If
+            'Keep the field; a delimiter means another follows
                 If FieldCount > UBound(Fields) Then
                     ReDim Preserve Fields(0 To 2 * FieldCount - 1)
                 End If
@@ -1671,6 +1857,7 @@ Private Sub ParseRecords( _
                     Exit Do
                 End If
             Loop
+        'Pass the line end and keep the record
             Ending = LineEndLength(Text, Position)
             Position = Position + Ending
             If Ending > 0 Then
@@ -1997,39 +2184,73 @@ Private Sub CheckBody( _
     ByRef Result As CsvReadResult, _
     ByRef Values() As String, _
     ByRef Lines() As Long, _
-    ByRef Findings() As CsvFinding)
+    ByRef Findings() As CsvFinding, _
+    ByVal Progress As Object, _
+    ByVal ProgressFrom As Double, _
+    ByVal ProgressSpan As Double)
 '
-'==============================================================================
-'                                  CheckBody
+'------------------------------------------------------------------------------
+'                    CHECK EVERY RECORD AFTER THE HEADER
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Check every record after the header: an empty line, the field count,
+'   Checks every record after the header: an empty line, the field count,
 '   then each field and the rules between fields (CheckRecord); then the
-'   keys across the records. Keeps each record with the header's field
-'   count in Values and Lines, in contract column order, except a record
-'   whose fields are all blank (#467). A column the header of an earlier
-'   version lacks is blank in every record (#674).
+'   keys across the records
+'
+' WHY THIS EXISTS
+'   A file is accepted or rejected whole, with every finding about its
+'   records reported at once
+'
+' INPUTS
+'   RecordFields, RecordLines, RecordTotal
+'     The records ParseRecords split, the header first
+'   Spec, Columns, Rules
+'     The file's contract
+'   Progress, ProgressFrom, ProgressSpan
+'     The object told how far the reading is (ReadCsvBytes), and the part
+'     of its fraction the checks cover; Progress Nothing for none
+'
+' RETURNS
+'   Values and Lines: each record with the header's field count, in
+'   contract column order, except a record whose fields are all blank
+'   (#467); Result.RecordCount, and the findings added to Result and
+'   Findings
+'
+' BEHAVIOR
+'   - A column the header of an earlier version lacks is blank in every
+'     record (#674)
+'   - Tells Progress the share of the records checked, every
+'     PROGRESS_EVERY records
+'
+' ERROR POLICY
+'   None of its own; an error of Progress propagates
+'
+' DEPENDENCIES
+'   AddFinding, CheckRecord, CheckKeys, ReportProgress
+'
+' NOTES
+'   None
 '
 ' UPDATED
-'   2026-11-11
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim Header      As Variant    'Header fields
-    Dim Position()  As Long       'Header position of each contract column; -1 when absent
-    Dim Fields      As Variant    'Fields of a record
-    Dim Row()       As String     'One record in contract order
-    Dim RowCount    As Long       'Records kept
-    Dim RowRecord() As Long       'Record number of each kept record
-    Dim r           As Long       'Record counter, the header being 1
-    Dim c           As Long       'Contract column counter
+    Dim Header          As Variant    'Header fields
+    Dim Position()      As Long       'Header position of each contract column; -1 when absent
+    Dim Fields          As Variant    'Fields of a record
+    Dim Row()           As String     'One record in contract order
+    Dim RowCount        As Long       'Records kept
+    Dim RowRecord()     As Long       'Record number of each kept record
+    Dim r               As Long       'Record counter, the header being 1
+    Dim c               As Long       'Contract column counter
 
 '------------------------------------------------------------------------------
 ' MAP THE HEADER
 '------------------------------------------------------------------------------
+    'Find each contract column in the header; -1 when it is absent
         Header = RecordFields(1)
         ReDim Position(1 To Spec.ColumnCount)
         For c = 1 To Spec.ColumnCount
@@ -2041,6 +2262,7 @@ Private Sub CheckBody( _
                 End If
             Next r
         Next c
+    'Room for every record
         If RecordTotal > 1 Then
             ReDim Values(1 To RecordTotal - 1, 1 To Spec.ColumnCount)
             ReDim Lines(1 To RecordTotal - 1)
@@ -2052,6 +2274,12 @@ Private Sub CheckBody( _
 ' CHECK EACH RECORD
 '------------------------------------------------------------------------------
         For r = 2 To RecordTotal
+        'Say how far the checks are
+            If (r - 2) Mod PROGRESS_EVERY = 0 Then
+                ReportProgress Progress, ProgressFrom + ProgressSpan * (r - 2) / (RecordTotal - 1), _
+                               "checking record " & (r - 1) & " of " & (RecordTotal - 1)
+            End If
+        'An empty line, a wrong field count, or a record to check and keep
             Fields = RecordFields(r)
             If UBound(Fields) = 0 And Len(Fields(0)) = 0 Then
                 AddFinding Result, Findings, CSV_BLANK_RECORD, RecordLines(r), r - 1, "", "empty line"
@@ -2076,10 +2304,70 @@ Private Sub CheckBody( _
                 End If
             End If
         Next r
+
+'------------------------------------------------------------------------------
+' CHECK THE KEYS
+'------------------------------------------------------------------------------
+    'The keys across the records kept
         Result.RecordCount = RowCount
         If RowCount > 0 Then
+            ReportProgress Progress, ProgressFrom + ProgressSpan, "checking the keys"
             CheckKeys Spec, Columns, RowCount, RowRecord, Result, Values, Lines, Findings
         End If
+
+End Sub
+
+
+Private Sub ReportProgress( _
+    ByVal Progress As Object, _
+    ByVal Fraction As Double, _
+    ByVal Detail As String)
+'
+'------------------------------------------------------------------------------
+'                      SAY HOW FAR THE READING IS
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Tells Progress, when there is one, the fraction of the reading done
+'   and what is being done (#807)
+'
+' WHY THIS EXISTS
+'   The reader runs inside Excel but writes nothing to it: the caller
+'   decides what to do with the progress (ReadCsvBytes)
+'
+' INPUTS
+'   Progress
+'     An object with a method ReportProgress(Fraction, Detail); Nothing
+'     for none
+'   Fraction
+'     The fraction done, from 0 to 1
+'   Detail
+'     What is being done
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Does nothing when Progress is Nothing
+'
+' ERROR POLICY
+'   An error of Progress propagates
+'
+' DEPENDENCIES
+'   Progress.ReportProgress, late bound
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' REPORT
+'------------------------------------------------------------------------------
+    'Only to a caller that asked
+        If Progress Is Nothing Then Exit Sub
+        Progress.ReportProgress Fraction, Detail
 
 End Sub
 

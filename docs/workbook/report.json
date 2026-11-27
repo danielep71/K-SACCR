@@ -89,7 +89,7 @@
       "title": "Dashboard",
       "layout": "blocks",
       "blocks_from": "docs/workbook/dashboard.json",
-      "note": "Every block of the Dashboard's data table, as a small table with its row labels and column headers; amounts are on the scale of Dashboard_Scale, named in the table's title",
+      "note": "Every block of the Dashboard's data table, as a small table with its row labels and column headers; amounts are in units of the reporting currency (#810), as Dashboard_Scale names in the table's title",
       "charts_sheet": "Charts",
       "charts_in": ["pdf"]
     },

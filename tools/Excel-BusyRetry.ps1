@@ -198,7 +198,7 @@ namespace KSaccr
 # off unless a caller asks for it with Enable-ExcelDialogPictures: capturing
 # the image of another program's window is the kind of behaviour an
 # antivirus's behavioural protection flags, and Norton blocked
-# Verify-SACCR-Branch.ps1 as IDP.Generic on the owner's runner while this type
+# Verify-SACCR-Branch.ps1 as IDP.Generic on the self-hosted runner while this type
 # was compiled on every run (2026-11-26). It needs System.Drawing, which
 # Windows PowerShell has: elsewhere it is not compiled and
 # Save-ExcelDialogPictures saves nothing.

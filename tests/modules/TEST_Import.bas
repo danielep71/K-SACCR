@@ -124,8 +124,8 @@ Attribute VB_Name = "TEST_Import"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 39                           'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 236                          'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 40                           'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 242                          'Checks in a complete run
         Private Const TEST_FILE         As String = "K-SACCR_import_test.csv"  'Test file in TEMP
         Private Const MISSING_FILE      As String = "K-SACCR_import_missing.csv"    'A file never written
         Private Const SPEC_FILE         As String = "K-SACCR_import_spec_test.html"   'Specification in TEMP
@@ -277,6 +277,7 @@ Public Sub RunImportTests()
         CaseCommitTradesOnly
         CaseCommitTrailingFormula
         CaseCommitNettingSetsOnly
+        CaseCommitFormat
         CaseCommitSector
         CaseSpecExport
         CaseSpecExamples
@@ -2090,6 +2091,76 @@ Private Sub CaseCommitNettingSetsOnly()
         Value = TableCell(NsSheet, TableFirstRow(SH_NS) + 2, NS_CPTY).Value2
         TEST_Kit.Check SameText(Value, "Example CCP Ltd"), "the changed counterparty: " & CStr(Value)
         CheckText "Import_NettingSets status", Meta(KIND_NS, 4), STAGING_COMMITTED
+        PutBackLive
+        TEST_Kit.Check LiveInputsText() = Before, "the suite could not put the input sheets back"
+        Exit Sub
+
+Unexpected:
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        PutBackLive
+
+End Sub
+
+
+Private Sub CaseCommitFormat()
+'
+'==============================================================================
+' PURPOSE
+'   A NettingSets file of more rows than the template formats, the page's
+'   example netting sets and 230 more, with the example Trades file:
+'   validated and committed (#811), the last committed row has the fill,
+'   the number format and the bottom border of the first data row. The
+'   suite then puts the input sheets back.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const EXTRA       As Long = 230   'Netting sets added to the example's three
+
+    Dim ResultLine    As String       'What a call returned
+    Dim Before        As String       'Input sheets and run names before
+    Dim NsExample     As String       'The NettingSets example
+    Dim Records()     As String       'Its lines
+    Dim Rest          As String       'The first record after its ID
+    Dim Csv           As String       'The file written
+    Dim NsSheet       As Worksheet    'NettingSets
+    Dim FirstCell     As Range        'A cell of the first data row
+    Dim LastCell      As Range        'The same column on the last committed row
+    Dim n             As Long         'Netting set added
+
+'------------------------------------------------------------------------------
+' COMMIT MORE ROWS THAN THE TEMPLATE FORMATS
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "commit.format"
+        Before = LiveInputsText()
+        Set NsSheet = GetSheet(SH_NS)
+        NsExample = CORE_ImportSpec.ImportSpecExample("NettingSets")
+        If Right$(NsExample, 1) <> vbLf Then NsExample = NsExample & vbLf
+        Records = Split(NsExample, vbLf)
+        Rest = Mid$(Records(1), InStr(1, Records(1), ";", vbBinaryCompare))
+        Csv = NsExample
+        For n = 1 To EXTRA
+            Csv = Csv & "NS-FORMAT-" & Format$(n, "000") & Rest & vbLf
+        Next n
+        WriteCsv Csv
+        M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
+        WriteCsv CORE_ImportSpec.ImportSpecExample("Trades")
+        M_Main.ImportCsv_Silent "Trades", mTestFile, True
+        ResultLine = M_Main.ValidateStaging_Silent()
+        CheckText "validation", ResultLine, "RESULT=VALID; errors=0; nettingsets=" & (3 + EXTRA) & "; trades=5"
+        ResultLine = M_Main.CommitStaging_Silent()
+        CheckText "commit", ResultLine, "RESULT=COMMITTED; nettingsets=" & (3 + EXTRA) & "; trades=5"
+        Set FirstCell = TableCell(NsSheet, TableFirstRow(SH_NS), NS_CPTY)
+        Set LastCell = TableCell(NsSheet, TableFirstRow(SH_NS) + 2 + EXTRA, NS_CPTY)
+        TEST_Kit.Check LastCell.Interior.Color = FirstCell.Interior.Color, _
+                       "fill of " & LastCell.Address(False, False) & ": " & LastCell.Interior.Color
+        TEST_Kit.Check LastCell.NumberFormat = FirstCell.NumberFormat, _
+                       "number format of " & LastCell.Address(False, False) & ": " & LastCell.NumberFormat
+        TEST_Kit.Check LastCell.Borders(xlEdgeBottom).LineStyle = FirstCell.Borders(xlEdgeBottom).LineStyle, _
+                       "bottom border of " & LastCell.Address(False, False)
         PutBackLive
         TEST_Kit.Check LiveInputsText() = Before, "the suite could not put the input sheets back"
         Exit Sub

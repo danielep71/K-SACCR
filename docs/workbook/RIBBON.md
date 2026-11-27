@@ -86,6 +86,8 @@ Each command calls `RibbonAction`, which runs the macro named here.
 | `ksImportTrades` | Trades file... | I, T | `ImportTradesCsv` |
 | `ksImportBankNettingSets` | BankNettingSets file... | I, B | `ImportBankNettingSetsCsv` |
 | `ksImportBankTrades` | BankTrades file... | I, L | `ImportBankTradesCsv` |
+| `ksClearBankNettingSets` | Clear BankNettingSets... | I, C | `ClearBankNettingSets` |
+| `ksClearBankTrades` | Clear BankTrades... | I, R | `ClearBankTrades` |
 | `ksValidateStaging` | Validate staging | V | `ValidateStaging` |
 | `ksCommitImport` | Commit import | M | `CommitImport` |
 | `ksTemplateNettingSets` | NettingSets template... | P, N | `ExportNettingSetsCsvTemplate` |
@@ -248,6 +250,45 @@ another state callback runs, shows `Status unavailable`.
 `EDITED` results are not shown: detecting them means recomputing the output
 fingerprint, which a Ribbon callback must not do. The evidence export still
 refuses edited results on its own.
+
+## ⏳ Progress
+
+<a id="progress"></a>
+
+**Progress in the status bar (#807).** The long commands say what they are
+doing in Excel's status bar, at the bottom of the window, while they run:
+the command, a bar of 20 blocks, one per 5% done, the percentage and the
+step, for example `K-SACCR - Import Trades  ███████░░░░░░░░░░░░░  36%  Trades.csv: checking record 14000 of 40000`.
+
+| Command | Steps |
+| --- | --- |
+| **Run** (and Validate inputs) | Withdrawing the previous outputs; the engine, 80% of the bar: loading the inputs, each trade, the hedging sets, the netting sets, Buckets and HedgingSets, Checks; then the reconciliations and the Dashboard |
+| **Import CSV** (all four files) | Reading and checking the file, 90% of the bar, record by record; then writing its records to the sheet |
+| **Commit import** | Reading the staged rows; writing each input sheet; formatting its rows, column by column (#811); reading them back (#814) |
+| **Export evidence** | Checking the run, then writing the evidence, with screen updating off so that the sheets do not flicker (#814) |
+| **Validate staging** | The rows of Import_NettingSets, then of Import_Trades, row by row; the legs against their netting sets; Params; writing Checks and marking the cells |
+| **Export report** | One step per section of the report (Run, Dashboard, Charts for a PDF, Totals, Results, Checks, each reconciliation made) and the save; the Charts step names the chart being pictured |
+| The Check macros (`CheckTradesCsv`, ...) | Reading and checking the file, record by record |
+
+- The bar reaches 100% when the command is done. It stays while the final
+  message is shown, and the status bar is given back to Excel when the
+  message is closed; a failure gives it back too.
+- Excel paints the status bar while the command runs (`DoEvents`). It then
+  takes no keyboard or mouse input, so that no cell can be edited while a
+  sheet is being written; the input is given back before every message and
+  question. A command started meanwhile is refused, as the operation holds
+  the guard of M_Main.
+- The CSV reader and the engine stay in the core layer, which calls
+  nothing outside it: they report how far they are to an object they are
+  given, late bound, and M_Main gives them `ThisWorkbook`, whose
+  `ReportProgress` writes the status bar. The silent entry points
+  (`RunSACCR_Silent`, `ImportCsv_Silent`, `ExportReport_Silent`, ...) and
+  the tests give them nothing and show nothing.
+- The text is `CORE_Util.ProgressText`, which `TEST_MainState` checks
+  (`progress.text`). The status bar is written when the percentage changes,
+  and for a new step alone at most every quarter of a second, so that a
+  long loop is not slowed down; that rule is `CORE_Util.ProgressWriteDue`,
+  checked by `progress.write`.
 
 ## ✅ Enabled states
 

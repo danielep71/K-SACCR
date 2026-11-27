@@ -17,9 +17,9 @@ in [`CONTRIBUTING.md`](CONTRIBUTING.md); version and changelog format are in
 
 | Property | State |
 | --- | --- |
-| Released versions | 1.2.0 (2026-11-07), tag `v1.2.0`; 1.1.0 (2026-11-05), tag `v1.1.0`; 1.0.2 (2026-10-23), tag `v1.0.2`; 1.0.1 (2026-10-18), tag `v1.0.1`; 1.0.0 (2026-10-17), tag `v1.0.0` |
+| Released versions | 1.3.0 (2026-11-28), tag `v1.3.0`; 1.2.0 (2026-11-07), tag `v1.2.0`; 1.1.0 (2026-11-05), tag `v1.1.0`; 1.0.2 (2026-10-23), tag `v1.0.2`; 1.0.1 (2026-10-18), tag `v1.0.1`; 1.0.0 (2026-10-17), tag `v1.0.0` |
 | Active branch | See [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md#branches) |
-| Version file | `VERSION`, holding `1.2.0` ([versioning](#versioning)) |
+| Version file | `VERSION`, holding `1.3.0` ([versioning](#versioning)) |
 | Release evidence tooling | Static checks (`tools/check.py`) and the Excel evidence validator (`tools/check_excel_evidence.py`) |
 | Excel certification | The harness and the nine suites listed in `.github/excel-evidence-policy.json`, recorded and validated as described in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 
@@ -92,7 +92,8 @@ every acceptance criterion is met.
    and text. Reopen an issue closed too early and say exactly what remains.
    Tell completed work apart from duplicates, rejected proposals and work
    deferred or abandoned on purpose, and close each with the matching reason.
-   Never tick a criterion that has not been verified.
+   Never tick a criterion that has not been verified. An actionable issue is
+   assigned to the maintainer, the GitHub account of the connected session.
 2. **Open issues.** Check that each one is still outstanding work, with the
    same fields. Bring stale descriptions and progress up to date and fix
    broken or obsolete links. Keep `blocked` only while a named prerequisite is
@@ -142,7 +143,9 @@ End with a report:
 
 Keep verified facts apart from assumptions. If pagination, permissions or
 missing evidence left something unexamined, the report says so and does not
-claim a complete audit. A finding that needs code is fixed through a task PR
+claim a complete audit. The report is recorded in
+[`docs/release-audits/`](docs/release-audits/README.md), one dated file per
+audit, through a documentation PR into the release branch. A finding that needs code is fixed through a task PR
 before step 2; an issue reopened for this release stays in its scope or is
 moved out of the milestone by decision, never left behind silently.
 

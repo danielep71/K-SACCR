@@ -864,10 +864,11 @@ Private Function ExpectedBlock( _
                 Values(6, 1) = CORE_Engine.RunInputs
             Case "Dashboard_Scale"
                 ReDim Values(1 To 2, 1 To 2)
-                Values(1, 1) = ScaleOf(LargestExposure())
-                Values(1, 2) = UnitOf(ScaleOf(LargestExposure()))
-                Values(2, 1) = ScaleOf(LargestNotional())
-                Values(2, 2) = UnitOf(ScaleOf(LargestNotional()))
+                'Amounts in units of the reporting currency (#810)
+                Values(1, 1) = 1#
+                Values(1, 2) = UnitOf(1#)
+                Values(2, 1) = 1#
+                Values(2, 2) = UnitOf(1#)
             Case "Dashboard_KeyFigures"
                 ReDim Values(1 To 12, 1 To 2)
                 For G = 1 To 2
@@ -1071,30 +1072,6 @@ Private Function DistinctCounterparties( _
 End Function
 
 
-Private Function ScaleOf( _
-    ByVal Largest As Double) _
-    As Double
-'
-'==============================================================================
-'                                   ScaleOf
-'------------------------------------------------------------------------------
-' PURPOSE
-'   The divisor of an amount: 1000 to the power of the largest k of 0 to 3
-'   with 1000^k not above it.
-'
-' UPDATED
-'   2026-11-23
-'==============================================================================
-'
-    Dim K   As Long    'Power
-        ScaleOf = 1#
-        For K = 1 To 3
-            If Largest >= 1000# ^ K Then ScaleOf = 1000# ^ K
-        Next K
-
-End Function
-
-
 Private Function UnitOf( _
     ByVal Factor As Double) _
     As String
@@ -1113,87 +1090,6 @@ Private Function UnitOf( _
         CcyCode = Trim$(SafeStr(GetParam(PRM_REPCCY)))
         UnitOf = CcyCode & Choose(Application.WorksheetFunction.Max(1, Round(Log(Factor) / Log(1000#)) + 1), _
                                    "", " thousand", " million", " billion")
-
-End Function
-
-
-Private Function LargestExposure() As Double
-'
-'==============================================================================
-'                               LargestExposure
-'------------------------------------------------------------------------------
-' PURPOSE
-'   The largest absolute exposure amount any block holds, over both
-'   regimes, in units.
-'
-' UPDATED
-'   2026-11-23
-'==============================================================================
-'
-    Dim G        As Long        'Regime position
-    Dim K        As Long        'Key
-    Dim R        As Long        'Results row
-    Dim Keys     As Variant     'Sector and role keys
-    Dim Values   As Variant     'Candidate amounts
-    Dim Item     As Variant     'One amount
-        For G = 1 To 2
-            Values = Array(TotalEAD(G), SetSum(G, RS_RC), SetSum(G, RS_PFE), SetSum(G, 0), LegTotal(G, True), _
-                           SetSum(G, RS_EAD, "MARGINED", "Y"), SetSum(G, RS_EAD, "MARGINED", "N"))
-            For Each Item In Values
-                If Abs(Item) > LargestExposure Then LargestExposure = Abs(Item)
-            Next Item
-            For K = 0 To 5
-                If Abs(SetSum(G, RS_ADDON_IR + K)) > LargestExposure Then LargestExposure = Abs(SetSum(G, RS_ADDON_IR + K))
-            Next K
-            Keys = Array("CB", "GG", "CI", "OFC", "NFC", "HH", "NC")
-            For K = 0 To UBound(Keys)
-                Item = SetSum(G, RS_EAD, "SECTOR", CStr(Keys(K)))
-                If Abs(Item) > LargestExposure Then LargestExposure = Abs(Item)
-            Next K
-            Keys = Array("N", "CM", "CLIENT", "CCP_Q", "CCP_NQ")
-            For K = 0 To UBound(Keys)
-                Item = SetSum(G, RS_EAD, "ROLE", CStr(Keys(K)))
-                If Abs(Item) > LargestExposure Then LargestExposure = Abs(Item)
-            Next K
-            For R = 1 To Size(mResults)
-                If ValidIn(R, G) Then
-                    If Abs(ToDbl(mResults(R, RS_EAD), 0#)) > LargestExposure Then LargestExposure = Abs(ToDbl(mResults(R, RS_EAD), 0#))
-                End If
-            Next R
-        Next G
-
-End Function
-
-
-Private Function LargestNotional() As Double
-'
-'==============================================================================
-'                               LargestNotional
-'------------------------------------------------------------------------------
-' PURPOSE
-'   The largest absolute notional amount any block holds, over both regimes.
-'
-' UPDATED
-'   2026-11-23
-'==============================================================================
-'
-    Dim G       As Long       'Regime position
-    Dim K       As Long       'Band or class
-    Dim Keys    As Variant    'Asset classes
-    Dim Item    As Double     'One amount
-        Keys = Array("IR", "FX", "CR", "EQ", "CO", "OT")
-        For G = 1 To 2
-            Item = LegTotal(G, False)
-            If Abs(Item) > LargestNotional Then LargestNotional = Abs(Item)
-            For K = 1 To 3
-                Item = LegTotal(G, False, K)
-                If Abs(Item) > LargestNotional Then LargestNotional = Abs(Item)
-            Next K
-            For K = 0 To 5
-                Item = LegTotal(G, False, 0, CStr(Keys(K)))
-                If Abs(Item) > LargestNotional Then LargestNotional = Abs(Item)
-            Next K
-        Next G
 
 End Function
 

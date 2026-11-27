@@ -11,9 +11,9 @@
 [![Excel VBA](https://img.shields.io/badge/Excel_VBA-64--bit-217346?style=for-the-badge&logo=microsoft-excel&logoColor=white)](#requirements)
 [![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#requirements)
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
-[![Release](https://img.shields.io/badge/Release-1.2.0-2ea44f?style=for-the-badge)](#status)
+[![Release](https://img.shields.io/badge/Release-1.3.0-2ea44f?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-13%2F13_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-554_cases_%C2%B7_2536_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Regression](https://img.shields.io/badge/Regression-558_cases_%C2%B7_2569_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16605/badge)](https://www.bestpractices.dev/projects/16605)
 
@@ -66,17 +66,17 @@ Part of a broader framework, [K-Risk Engines](https://danielep71.github.io/K-Ris
 </div>
 
 > [!IMPORTANT]
-> **Version 1.2.0** is the current release: the
-> [1.2.0 GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0)
+> **Version 1.3.0** is the current release: the
+> [1.3.0 GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.3.0)
 > carries the workbook and the user manual. The engine
-> implements EU CRR and Basel CRE52, but only Basel rules are **validated** in
-> v1.2.0, by the published CRE99 examples. CRR rules are implemented and tested
-> against illustrative values, not validated ([methodology](docs/methodology/README.md#assumptions-and-scope)).
-> Since then, on the active release branch, the CRR calculation has been
-> validated against a bank's production SA-CCR engine on a real portfolio
-> ([#667](https://github.com/danielep71/K-SACCR/issues/667)) and by an
+> implements EU CRR and Basel CRE52. Basel rules are **validated** by the
+> published CRE99 examples. The CRR rules that two sources exercise are
+> validated: a bank's production SA-CCR engine on a real portfolio
+> ([#667](https://github.com/danielep71/K-SACCR/issues/667)) and an
 > independent implementation, the R package `SACCR`
-> ([#100](https://github.com/danielep71/K-SACCR/issues/100)): see [Validation](#validation).
+> ([#100](https://github.com/danielep71/K-SACCR/issues/100)). The other CRR
+> rules are tested against illustrative values, not validated: see
+> [Validation](#validation) and the [methodology](docs/methodology/README.md#assumptions-and-scope).
 
 > [!NOTE]
 > The workbook is **not stored in the repository as a macro-enabled file**. It
@@ -176,7 +176,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Eleven `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Thirteen Excel suites (554 cases, 2536 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Thirteen Excel suites (558 cases, 2569 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -189,8 +189,8 @@ supported, what the user must enter in a given form, and what is out of scope.
 # ⚡ Quick start
 
 To use the released workbook without building it, download
-`K-SACCR_1.2.0.xlsm` from the
-[1.2.0 release](https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0)
+`K-SACCR_1.3.0.xlsm` from the
+[1.3.0 release](https://github.com/danielep71/K-SACCR/releases/tag/v1.3.0)
 and check it as in [INSTALLATION.md › Released workbook](INSTALLATION.md#released-workbook),
 then go to [section 3](#3-run). The steps below build the workbook from source.
 
@@ -199,11 +199,11 @@ then go to [section 3](#3-run). The steps below build the workbook from source.
 ```sh
 git clone https://github.com/danielep71/K-SACCR.git
 cd K-SACCR
-git switch --detach v1.2.0
+git switch --detach v1.3.0
 python tools/check.py
 ```
 
-`v1.2.0` is the released source; for current development, switch to the
+`v1.3.0` is the released source; for current development, switch to the
 [active release branch](docs/GOVERNANCE.md#branches) instead.
 
 Use a clone, not **Download ZIP** or GitHub's **Raw** view: a clone checks the
@@ -243,7 +243,14 @@ The manual import order, references and troubleshooting are in
 ## 3. Run
 
 The template ships with a demonstration portfolio: the five CRE99 examples and
-further illustrative netting sets.
+further illustrative netting sets. The workbook opens on `Home`, which gives
+the steps of a run and a link to every sheet:
+
+<p align="center">
+  <img width="100%"
+       alt="Home sheet: what the workbook does, the steps of a run, and a link to every sheet grouped as inputs, staging, outputs, reconciliation, reference and tests"
+       src="docs/assets/SACCR_Home.png">
+</p>
 
 Every command is on the workbook's **K-SACCR** Ribbon tab, which also shows
 the status of the results and of both staging sheets and reaches every sheet
@@ -253,7 +260,17 @@ The workbook opens on this tab, selected again a moment later when an add-in
 such as think-cell takes it, with every sheet at a zoom of 100% (#726).
 The header of every output sheet, Results, HedgingSets, Buckets, TradeCalc and
 Checks, carries the filter buttons, which work on the protected sheet and are
-kept by a run (#754).
+kept by a run (#754). Long commands, Run, Validate inputs, Import CSV, Validate
+staging, Commit import, Export evidence and Export report, show their progress
+in Excel's status bar: the command, a bar of 20 blocks, the percentage and the
+step. Keyboard and mouse wait until they end, and the status bar is given back
+afterwards ([progress](docs/workbook/RIBBON.md#progress), #807).
+
+<p align="center">
+  <img width="100%"
+       alt="The K-SACCR Ribbon tab, selected among Excel's tabs: the Calculation, CSV import, Evidence, Parameters, Status and Navigate groups; the status reads no results and both staging sheets empty"
+       src="docs/assets/SACCR_Ribbon.png">
+</p>
 
 | Command | Macro | Does |
 | --- | --- | --- |
@@ -268,6 +285,7 @@ kept by a run (#754).
 | **NettingSets template**, **Trades template**, **BankNettingSets template**, **BankTrades template** (CSV import, Templates menu; the two bank ones also on their sheets) | `ExportNettingSetsCsvTemplate`, `ExportTradesCsvTemplate`, `ExportBankNettingSetsCsvTemplate`, `ExportBankTradesCsvTemplate` | Writes the blank CSV template of the [input contract](docs/csv/CSV_CONTRACT.md): its header line only |
 | **Import CSV** (on Import_Trades and Import_NettingSets) | `ImportTradesCsv`, `ImportNettingSetsCsv` | Loads a CSV file into the staging sheet as text, each record with its CSV line, for checking and correction; the input sheets are not changed |
 | **BankNettingSets file...**, **BankTrades file...** (Import CSV menu) and **Import CSV** (on BankNettingSets and BankTrades) | `ImportBankNettingSetsCsv`, `ImportBankTradesCsv` | Replaces the bank figures of the sheet with the records of a CSV file that follows the [contract](docs/csv/CSV_CONTRACT.md#-the-bank-files); a file with a finding, with more records than the sheet holds (10,000 netting sets, 50,000 legs) or with none changes nothing and the findings are listed; a sheet that holds figures asks first. There is no staging sheet |
+| **Clear BankNettingSets...**, **Clear BankTrades...** (Import CSV menu) and **Clear bank figures** (on BankNettingSets and BankTrades) | `ClearBankNettingSets`, `ClearBankTrades` | Clears every bank figure and comment of the sheet after a confirmation, No being the default; the amount scale and the tolerances stay. The template ships both bank sheets empty (#815) |
 | **Validate staging** (on Import_Trades and Import_NettingSets) | `ValidateStaging` | Checks the staged rows against the input contract and each other, and the legs against the netting sets they refer to, staged or live; lists the findings on Checks with the origin `IMPORT`, each linked to its cell, and marks the cells; the input sheets are not changed |
 | **Commit import** (on Import_Trades and Import_NettingSets) | `CommitImport` | After a confirmation that gives each input sheet's rows now and the staged rows that replace it, replaces NettingSets and Trades with the staged rows of a `VALID` validation that still holds; an input sheet whose staging sheet holds no rows is left as it is. On a failure the input sheets are put back and checked. Results reads `OUT OF DATE` until the next run |
 | **Export import specifications** (on Import_Trades and Import_NettingSets) | `ExportImportSpecification` | Saves the [CSV import specification](docs/csv/K-SACCR_Import_Specification.html): one HTML page, readable offline and printable, that describes every column and rule of both files and gives an example of each to copy. A file that exists is replaced only after a confirmation; the page can then be opened. The workbook is not changed |
@@ -304,6 +322,25 @@ A change to the staged rows, the input sheets or Params after the validation
 makes it no longer current: the staging sheet reads `OUT OF DATE`, and the
 commit refuses until the next validation.
 
+<details>
+<summary><b>CSV staging</b>: the example files of the import specification on Import_NettingSets and Import_Trades</summary>
+
+<br>
+
+<p align="center">
+  <img width="100%"
+       alt="Import_NettingSets sheet after Import CSV of the example file: the buttons, the source file, the time it was loaded, three records, the status LOADED, the CSV field-name row and the three staged netting sets as text, each with its CSV line"
+       src="docs/assets/SACCR_Import_NettingSets.png">
+</p>
+
+<p align="center">
+  <img width="100%"
+       alt="Import_Trades sheet after Import CSV of the example file: the buttons, the source file, the status LOADED, the CSV field-name row and the staged trade legs as text, each with its CSV line"
+       src="docs/assets/SACCR_Import_Trades.png">
+</p>
+
+</details>
+
 To compare the results with your bank's own figures, enter them on
 `BankNettingSets`, one row per netting set with its regime, in the amount scale
 set at the top of the sheet. **Run SA-CCR** then writes the comparison to
@@ -332,7 +369,8 @@ one tile for the other results. The tiles are rounded shapes linked to cells, so
 their counts follow the filter and need no macro to refresh. A fourth row gives the sums of the bank
 and calculator figures and of the absolute differences, and the largest absolute
 difference, of the measure the filter shows: filter the `Measure` column to one measure
-to read them.
+to read them. Like ReconSummary, they count only the rows compared, `MATCH` and
+`DIFFERENCE`, so that both sums cover the same rows (#821).
 
 **Export evidence** then writes the run to one CSV file, separated by `;`
 with a `.` decimal point and UTF-8, whatever Excel's regional settings: the
@@ -375,14 +413,14 @@ run of `feat/165-randomized-formula-tests` at 009a92d on 2026-11-19, and for
 SACCR TEST SUMMARY 2026-11-19 09:36:50
   PASS  TEST_Harness          completeness=COMPLETE; cases=4; assertions=6; failures=0; cleanup=PASS  (0,0 s)
   PASS  TEST_Formulas         cases=12; checks=135; failures=0; restore=PASS  (0,1 s)
-  PASS  TEST_MainState        cases=48; checks=724; failures=0; restore=PASS  (27,8 s)
+  PASS  TEST_MainState        cases=50; checks=738; failures=0; restore=PASS  (27,8 s)
   PASS  TEST_Cases            cases=41; checks=261; failures=0; restore=PASS  (7,4 s)
   PASS  TEST_InputValidation  cases=197; checks=345; failures=0; restore=PASS  (28,4 s)
   PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,3 s)
   PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,6 s)
-  PASS  TEST_Reconcile        cases=23; checks=239; failures=0; restore=PASS  (10,7 s)
+  PASS  TEST_Reconcile        cases=24; checks=252; failures=0; restore=PASS  (10,7 s)
   PASS  TEST_CsvReader        cases=144; checks=385; failures=0; restore=PASS  (0,3 s)
-  PASS  TEST_Import           cases=39; checks=236; failures=0; restore=PASS  (37,2 s)
+  PASS  TEST_Import           cases=40; checks=242; failures=0; restore=PASS  (37,2 s)
   PASS  TEST_FormulaRandom    cases=19; checks=47; failures=0; restore=PASS  (3,1 s)
   PASS  TEST_Dashboard        cases=6; checks=65; failures=0; restore=PASS  (6,5 s)
   PASS  TEST_Report           cases=5; checks=55; failures=0; restore=PASS  (19,8 s)
@@ -468,6 +506,27 @@ the exposure value (select it to open it full size):
 | `Basel_vs_CRR` | The two regimes side by side |
 | `README` | In-workbook guide: conventions, methodology summary, worksheet functions and the reference card; the last tab |
 
+The Dashboard gives the last run in one page, each regime apart:
+
+<p align="center">
+  <img width="90%"
+       alt="Dashboard after a run of the demonstration portfolio: cards for EAD, RC and PFE per regime and the share of the ten largest netting sets, the run and its fingerprint, the key figures per regime, the counts, the units, and EAD by counterparty sector with its chart"
+       src="docs/assets/SACCR_Dashboard.png">
+</p>
+
+<details>
+<summary><b>Dashboard</b>: the tables and charts below the first page</summary>
+
+<br>
+
+<p align="center">
+  <img width="90%"
+       alt="Dashboard after the same run, lower part: the further tables per regime with their bar charts"
+       src="docs/assets/SACCR_Dashboard_Charts.png">
+</p>
+
+</details>
+
 Results after a run of the demonstration portfolio: the run summary and
 stale-result indicator, RC and the add-ons per asset class, then the
 multiplier, PFE, EAD, the cap for margined netting sets and the status, with a
@@ -496,7 +555,7 @@ netting set whose EAD is withheld as a result:
 
 <p align="center">
   <img width="100%"
-       alt="Checks sheet after the demonstration run: five ERROR lines, three trades excluded with their Trades row and reason, and two netting sets whose EAD is withheld"
+       alt="Checks sheet after the demonstration run: six ERROR lines, four for the three trades excluded, with their Trades row and reason, and two for the netting sets whose EAD is withheld"
        src="docs/assets/SACCR_Checks.png">
 </p>
 
@@ -532,20 +591,26 @@ netting set whose EAD is withheld as a result:
 </details>
 
 <details>
-<summary><b>Reconciliation</b>: bank figures on BankNettingSets, compared on Reconciliation</summary>
+<summary><b>Reconciliation</b>: bank figures on BankNettingSets, compared on Reconciliation and summed on ReconSummary</summary>
 
 <br>
 
 <p align="center">
   <img width="100%"
-       alt="BankNettingSets sheet: amount scale, absolute and relative tolerance, and the bank's EAD for BCBS-EX1 and BCBS-EX3 and a row for an unknown netting set"
+       alt="BankNettingSets sheet: the buttons Import CSV, Export CSV template and Clear bank figures, the amount scale, absolute and relative tolerance, and the bank's EAD for BCBS-EX1 and BCBS-EX3 and a row for an unknown netting set, each with its comment"
        src="docs/assets/SACCR_BankNettingSets.png">
 </p>
 
 <p align="center">
   <img width="100%"
-       alt="Reconciliation sheet: the bank's EAD for BCBS-EX1 is a MATCH, for BCBS-EX3 a DIFFERENCE of 4.62 (0.0855%), an unknown bank netting set is MISSING IN CALCULATOR, and every other netting set is NOT IN BANK FILE, each with its note"
+       alt="Reconciliation sheet: tiles with the counts of each result, the measure shown (EAD) and the sums of the two rows compared, 5,869.47 for the bank and 5,974.09 for the calculator; the bank's EAD for BCBS-EX1 is a MATCH, for BCBS-EX3 a DIFFERENCE of 104.62 (1.9740%, beyond the relative tolerance of 1%), an unknown bank netting set is MISSING IN CALCULATOR, and every other netting set is NOT IN BANK FILE, each with its note"
        src="docs/assets/SACCR_Reconciliation.png">
+</p>
+
+<p align="center">
+  <img width="100%"
+       alt="ReconSummary sheet: one row per measure of the two reconciliations, with the rows shown, the count of each result and, over the rows compared, the sums of the bank's and the calculator's amounts and the sum and the largest of the absolute differences"
+       src="docs/assets/SACCR_ReconSummary.png">
 </p>
 
 </details>
@@ -703,18 +768,18 @@ reproducible cross-check with the registered R package `SACCR` (#100)
 | --- | --- | ---: | ---: |
 | `TEST_Harness` | Worksheet-function regression with a completeness and cleanup verdict | 4 | 6 |
 | `TEST_Formulas` | Domain and Excel-error contract of every worksheet function, and the engine's calendar against `SACCR_BusinessDays` | 12 | 135 |
-| `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros, the output-table names, the workbook protection, Restore regulatory parameters, the Ribbon's states, the navigation bar toggle, the refusal of a dirty workbook and Download prices from both sources and the rebase of the FX table and the filter buttons of the output sheets, and the text hash that every fingerprint uses, and the lambda format of the commodity rows of TradeCalc | 48 | 724 |
+| `TEST_MainState` | Excel state, stale-result detection, failure paths of the workbook macros, the output-table names, the workbook protection, Restore regulatory parameters, the Ribbon's states, the navigation bar toggle, the refusal of a dirty workbook and Download prices from both sources and the rebase of the FX table and the filter buttons of the output sheets, and the text hash that every fingerprint uses, and the lambda format of the commodity rows of TradeCalc, and the text of the progress indicator and when it is written | 50 | 738 |
 | `TEST_Cases` | The numerical cases, generated from `tests/fixtures/` and `tests/expected/` | 41 | 261 |
 | `TEST_InputValidation` | Rejection of malformed inputs and the input conventions, FX conversion in several currencies included | 197 | 345 |
 | `TEST_Aggregation` | Row-order independence, offsets and a mixed clearing population | 12 | 15 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
-| `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates | 23 | 239 |
+| `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates, and Clear bank figures | 24 | 252 |
 | `TEST_CsvReader` | The VBA CSV reader against every fixture, case, portfolio case, staged case and context case the reference implementation pins | 144 | 385 |
-| `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone; validating them: findings on Checks with links and marks, corrections and repeated validation, the evidence export refused, error values, the rules against Params, whether a validation is still current and the OUT OF DATE status; committing them: refusals, failures put back and verified, typed values, a sheet left alone and the button in silent mode; the CSV line locked and the staged values unlocked, the committed input sheets protected; formula inputs recalculated in manual calculation; a formula below the data inside the commit; committed rows run as the same rows typed by hand; what a commit leaves of the Excel settings and of the results, also when its cleanup fails; the import specification saved byte for byte, an existing file refused or replaced, failed writes leaving it as it was, and its example files validating together; the Excel settings after a load and a validation, live Trades and FX changes after a validation, a 15-digit notional, netting sets committed alone with a header-only Trades file, the counterparty sector committed from a version 2 file and left blank by a version 1 file, and the output tables of committed rows against the same rows typed by hand | 39 | 236 |
+| `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone; validating them: findings on Checks with links and marks, corrections and repeated validation, the evidence export refused, error values, the rules against Params, whether a validation is still current and the OUT OF DATE status; committing them: refusals, failures put back and verified, typed values, a sheet left alone and the button in silent mode; the CSV line locked and the staged values unlocked, the committed input sheets protected; formula inputs recalculated in manual calculation; a formula below the data inside the commit; committed rows run as the same rows typed by hand; what a commit leaves of the Excel settings and of the results, also when its cleanup fails; the import specification saved byte for byte, an existing file refused or replaced, failed writes leaving it as it was, and its example files validating together; the Excel settings after a load and a validation, live Trades and FX changes after a validation, a 15-digit notional, netting sets committed alone with a header-only Trades file, the counterparty sector committed from a version 2 file and left blank by a version 1 file, and the output tables of committed rows against the same rows typed by hand, and the format of committed rows below the template's formatted ones | 40 | 242 |
 | `TEST_FormulaRandom` | The FormulaTest sheet at scale: 1,000 reproducible random draws of each range set and draws at and around its branch points, each judged by the sheet's own comparison; the shipped inputs restored, a seed replayed, an unusable range table refused, no volatile function, a perturbed Expected caught and the sheet put back | 19 | 47 |
 | `TEST_Dashboard` | The Dashboard after a run: every block against the figures computed from Results, TradeCalc, Checks, NettingSets and the reconciliation sheets, on the demonstration portfolio, on both regimes with netting sets in and out of the money, holding collateral and invalid, and on a netting set with no trade; the reading of the path from notional to EAD; Clear outputs, a failed run and an edited input | 6 | 65 |
 | `TEST_Report` | The formatted run report: the text a PDF writes for amounts, ratios, counts and dates, the examples of `docs/workbook/report.json`, whatever the regional settings; a reconciled figure in the format of its measure; a value in the format of its cell; Checks by code; the refusals of Export evidence and a Dashboard changed after the run; an XLSX read back from its file with its sheets in order, values only, no link and no macro, and the figures of the run; a PDF with the Dashboard's charts; a failure before the save, during the replacement and on a read-only file, each leaving the older report as it was; the results still current afterwards | 5 | 55 |
-| **Total** | | **554** | **2536** |
+| **Total** | | **558** | **2569** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (133).
@@ -801,7 +866,7 @@ and the VBA references are listed in `INSTALLATION.md`.
 
 - **Released versions only are stable.** Behaviour on the
   [active release branch](docs/GOVERNANCE.md#branches) can change until the
-  next release; use the `v1.2.0` tag or its workbook for stable results.
+  next release; use the `v1.3.0` tag or its workbook for stable results.
 - **CRR validation covers what two sources exercise.** The only published
   reference values are Basel examples. The CRR calculation is validated by a
   production reconciliation on a real bank portfolio (#667) and by an
@@ -862,13 +927,13 @@ produces it.
 The plan below shows each released version on its release date and each
 planned one up to its
 [milestone](https://github.com/danielep71/K-SACCR/milestones)'s due date as
-of 2026-10-28; a planned bar starts the day after the previous version's
+of 2026-11-27; a planned bar starts the day after the previous version's
 release or due date. The due dates are planning targets, not release
 commitments.
 
 ```mermaid
 gantt
-    title K-SACCR release plan (release dates; planned due dates as of 2026-11-11)
+    title K-SACCR release plan (release dates; planned due dates as of 2026-11-27)
     dateFormat YYYY-MM-DD
     axisFormat %b %Y
     todayMarker on
@@ -878,13 +943,14 @@ gantt
     v1.0.2 Clearing coverage and CCPs        :done, 2026-10-23, 1d
     v1.1.0 CSV import, staging, protection   :done, v11, 2026-11-05, 1d
     v1.2.0 Excel Ribbon interface            :done, v12, 2026-11-07, 1d
+    v1.3.0 Diagnostics, independent validation :done, v13, 2026-11-28, 1d
     section Planned
-    v1.3.0 Diagnostics, independent validation :v13, after v12, 2027-03-07
-    v1.3.5 COREP C 34 templates              :v135, after v13, 2027-03-21
-    v1.4.0 Advanced products, FX provenance  :v14, after v135, 2027-04-18
-    v1.5.0 Simplified SA-CCR                 :v15, after v14, 2027-05-23
-    v1.6.0 Original exposure method          :v16, after v15, 2027-06-20
-    v1.7.0 Standalone Python engine          :v17, after v16, 2027-09-12
+    v1.3.5 COREP C 34 templates              :v135, 2027-03-08, 2027-03-21
+    v1.3.6 Limits and report views           :v136, after v135, 2027-04-18
+    v1.4.0 Advanced products, FX provenance  :v14, after v136, 2027-05-16
+    v1.5.0 Simplified SA-CCR                 :v15, after v14, 2027-06-20
+    v1.6.0 Original exposure method          :v16, after v15, 2027-07-18
+    v1.7.0 Python desktop app and engine     :v17, 2027-06-21, 2027-09-12
 ```
 
 | Milestone | Scope |
@@ -896,10 +962,11 @@ gantt
 | v1.2.0 | Excel Ribbon interface (#213–#218), Home landing page (#330), sheet navigation from the Ribbon (#329) and a Restore regulatory parameters command (#357) |
 | v1.3.0 | Diagnostics and independent validation: stable Checks codes (#81), independent cross-check (#100, #352), production reconciliation evidence (#667, #668), randomised FormulaTest inputs (#165), counterparty sector (#674), a Dashboard sheet (#675), formatted run report next to the CSV evidence (#259), one shared harness for the suites (#536), accuracy contracts for derived expected values (#537), each regime's credit scale (#659), the FX notional rule in the CSV checks (#678), a navigation bar on every sheet (#615, #620, #664), new screenshots (#616) and the user manual (#686) |
 | v1.3.5 | COREP C 34 templates fed by the SA-CCR results (#666) |
+| v1.3.6 | Limits and report views: a counterparty input with identifier, category, intragroup flag and internal EAD limit (#831), a history of recorded run totals (#832), and a Reports sheet with five views behind a button bar: Summary, Counterparty type, Top 10, Limits and Netting set (#833–#839) |
 | v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157), engine separated from Excel I/O (#220), TARGET holiday calendar (#328) |
 | v1.5.0 | Simplified SA-CCR (#107) |
 | v1.6.0 | Original exposure method (#111) |
-| v1.7.0 | Standalone Python engine: the full SA-CCR without Excel, with its own reference tests, and a reconciliation of its intermediates and EAD with the workbook's (#450–#459) |
+| v1.7.0 | Two parallel tracks. A Python desktop application that replaces the Excel interface, first on the Excel/VBA engine run in a hidden workbook (#694–#699), then on the Python engine (#700). The standalone Python engine: the full SA-CCR without Excel, with its own reference tests, and a reconciliation of its intermediates and EAD with the workbook's (#450–#459) |
 
 The [milestones](https://github.com/danielep71/K-SACCR/milestones)
 hold the current scope of each release. Securities financing transactions,
@@ -908,8 +975,7 @@ risk are outside K-SACCR and on no milestone of its roadmap.
 
 ### v1.3.0 — Diagnostics and independent validation
 
-In development on `release/1.3.0`; nothing of it is released. Delivered so
-far: a stable code and field on every Checks line, reported by the silent
+Released on 2026-11-28. Delivered: a stable code and field on every Checks line, reported by the silent
 entry points (#81); a navigation bar on every sheet that works without
 macros (#615), with a Ribbon toggle that hides it for the session (#620)
 and its description on the README sheet (#664); a quick, unattended branch
@@ -922,12 +988,13 @@ scale (#659); the FX notional rule in the CSV checks (#678); and repository
 checks of VBA identifiers, dependency direction and ASCII source (#538),
 issue planning dates (#539), labels and pull-request milestones (#540,
 #541, #591), workflow pins and runtimes (#542), local and external
-documentation links (#592, #649) and the traffic workflow (#593). Still
-open: the counterparty sector (#674), randomised FormulaTest inputs (#165),
+documentation links (#592, #649) and the traffic workflow (#593). Delivered
+since: the counterparty sector (#674), randomised FormulaTest inputs (#165),
 the measured differences of the accuracy contracts (#537), a Dashboard sheet
-(#675), a formatted run report (#259), the rest of the independent
-cross-check (#100), new screenshots (#616) and the user manual (#686). The
-engine separation (#220) moved to v1.4.0. One calculation rule changed:
+(#675), a formatted run report (#259) and the rest of the independent
+cross-check (#100); then new screenshots (#616), whose wiki page follows
+the integration into `main`, and the user manual (#686). The engine
+separation (#220) moved to v1.4.0. One calculation rule changed:
 since #659, a single-name credit trade on the other regime's scale is
 rejected.
 
@@ -944,7 +1011,7 @@ rejected.
 | [`tests/README.md`](tests/README.md) | Test catalogue and suites |
 | [`INSTALLATION.md`](INSTALLATION.md) | Developer setup, checks, Excel import, test suites, automation entry points, upgrade and removal |
 | [`docs/workbook/`](docs/workbook/RIBBON.md) | The [Ribbon contract](docs/workbook/RIBBON.md), the K-SACCR tab's controls, states and callbacks, and the [workbook protection](docs/workbook/WORKBOOK_PROTECTION.md) |
-| [`docs/user-manual/v1.2.0/`](docs/user-manual/v1.2.0/README.md) | Source of the user manual for 1.2.0; its PDF is attached to the [1.2.0 release](https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0). The 1.0.0, 1.0.1, 1.0.2 and 1.1.0 manuals stay in [`docs/user-manual/v1.0.0/`](docs/user-manual/v1.0.0/README.md), [`docs/user-manual/v1.0.1/`](docs/user-manual/v1.0.1/README.md), [`docs/user-manual/v1.0.2/`](docs/user-manual/v1.0.2/README.md) and [`docs/user-manual/v1.1.0/`](docs/user-manual/v1.1.0/README.md) |
+| [`docs/user-manual/v1.3.0/`](docs/user-manual/v1.3.0/README.md) | Source of the user manual for 1.3.0; its PDF is attached to the [1.3.0 release](https://github.com/danielep71/K-SACCR/releases/tag/v1.3.0): the [manual](docs/user-manual/v1.3.0/K-SACCR_v1.3.0_User_Manual.md) of the navigation bar, the Dashboard, the run report, the diagnostic codes, the day count, the FX rates, the bank files and the reconciliation sheets (#686). The 1.0.0, 1.0.1, 1.0.2, 1.1.0 and 1.2.0 manuals stay in [`docs/user-manual/v1.0.0/`](docs/user-manual/v1.0.0/README.md), [`docs/user-manual/v1.0.1/`](docs/user-manual/v1.0.1/README.md), [`docs/user-manual/v1.0.2/`](docs/user-manual/v1.0.2/README.md), [`docs/user-manual/v1.1.0/`](docs/user-manual/v1.1.0/README.md) and [`docs/user-manual/v1.2.0/`](docs/user-manual/v1.2.0/README.md) |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, commit messages, evidence and pull requests; the review checklist is in the [pull-request template](.github/PULL_REQUEST_TEMPLATE.md) |
 | [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) | Profile decision, source layout, public API boundary |
 | [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) | VBA naming, contracts, errors, Excel-state cleanup, export rules |
@@ -963,11 +1030,11 @@ rejected.
 
 ## 📌 Status
 
-**Version 1.2.0**, released on 2026-11-07 and tagged `v1.2.0`, after 1.1.0
-on 2026-11-05, 1.0.2 on 2026-10-23, 1.0.1 on 2026-10-18 and 1.0.0 on
-2026-10-17. Its
-[GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0)
-carries the production workbook `K-SACCR_1.2.0.xlsm`, the user manual PDF,
+**Version 1.3.0**, released on 2026-11-28 and tagged `v1.3.0`, after 1.2.0
+on 2026-11-07, 1.1.0 on 2026-11-05, 1.0.2 on 2026-10-23, 1.0.1 on 2026-10-18
+and 1.0.0 on 2026-10-17. Its
+[GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.3.0)
+carries the production workbook `K-SACCR_1.3.0.xlsm`, the user manual PDF,
 their SHA-256 sums and a Sigstore signature of each. The release notes and the tag message record the Excel
 certification of the tagged source: compile, the harness and the nine suites
 each run on its own, the evidence validator and the 14 protection checks.

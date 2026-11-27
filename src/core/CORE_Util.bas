@@ -1652,3 +1652,171 @@ Public Sub FormatColumns( _
         Next c
 
 End Sub
+
+
+Public Function ProgressText( _
+    ByVal Operation As String, _
+    ByVal Done As Long, _
+    ByVal Total As Long, _
+    ByVal Detail As String) _
+    As String
+'
+'------------------------------------------------------------------------------
+'                    WRITE THE TEXT OF A PROGRESS INDICATOR
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the text the status bar shows while a long operation runs:
+'   the operation, a bar of 20 blocks, the percentage and what is being
+'   done, for example "K-SACCR - Report  " followed by 10 full and 10 light
+'   blocks, "  50%  section 5 of 9: Results"
+'
+' WHY THIS EXISTS
+'   Excel's status bar shows text only; a bar drawn in Unicode blocks makes
+'   the progress of a CSV import or a report visible (#807). The text is a
+'   pure function, so that it can be tested
+'
+' INPUTS
+'   Operation
+'     The operation, such as "Report" or "Import Trades"
+'
+'   Done
+'     Steps done, 0 to Total; a value outside is held within
+'
+'   Total
+'     Steps in all; 0 or less for an operation whose steps are unknown,
+'     which shows no bar
+'
+'   Detail
+'     What is being done; "" for nothing
+'
+' RETURNS
+'   The text; the bar has one full block (U+2588) per 5% done and a light
+'   block (U+2591) for the rest
+'
+' BEHAVIOR
+'   - The percentage is the whole part of 100 * Done / Total
+'   - Without a total, the operation and the detail only
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   M_Main writes the text to the status bar only when it changes
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const BLOCKS        As Long = 20      'Blocks of the bar
+
+    Dim Percent         As Long           'Percentage done, 0 to 100
+    Dim Full            As Long           'Full blocks
+    Dim Text            As String         'The text so far
+
+'------------------------------------------------------------------------------
+' BUILD
+'------------------------------------------------------------------------------
+    'The operation, then the bar and the percentage when the steps are known
+        Text = "K-SACCR - " & Operation
+        If Total > 0 Then
+            If Done < 0 Then Done = 0
+            If Done > Total Then Done = Total
+            Percent = Int(100# * Done / Total)
+            Full = Percent \ (100 \ BLOCKS)
+            Text = Text & "  " & VBA.String$(Full, VBA.ChrW$(&H2588)) & VBA.String$(BLOCKS - Full, VBA.ChrW$(&H2591)) & _
+                   "  " & VBA.CStr(Percent) & "%"
+        End If
+    'What is being done
+        If VBA.Len(Detail) > 0 Then Text = Text & "  " & Detail
+        ProgressText = Text
+
+End Function
+
+
+Public Function ProgressWriteDue( _
+    ByVal Text As String, _
+    ByVal LastText As String, _
+    ByVal Percent As Long, _
+    ByVal LastPercent As Long, _
+    ByVal Elapsed As Single, _
+    ByVal MinSeconds As Single, _
+    ByVal Force As Boolean) _
+    As Boolean
+'
+'------------------------------------------------------------------------------
+'                  DECIDE WHETHER TO WRITE THE PROGRESS TEXT
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Says whether the status bar should be written with Text: when the
+'   shown percentage changes, and for a new detail alone at most once per
+'   MinSeconds (#807)
+'
+' WHY THIS EXISTS
+'   Writing the status bar, and the DoEvents that paints it, on every
+'   record would slow a long loop down; the rule is a pure function, so
+'   that it can be tested
+'
+' INPUTS
+'   Text
+'     The text to show
+'
+'   LastText
+'     The text written last; "" before the first write
+'
+'   Percent
+'     The percentage the text shows
+'
+'   LastPercent
+'     The percentage written last; -1 before the first write
+'
+'   Elapsed
+'     Seconds since the last write; negative after midnight, when Timer
+'     restarts
+'
+'   MinSeconds
+'     Shortest time between two writes of a new detail alone
+'
+'   Force
+'     True writes any new text at once
+'
+' RETURNS
+'   True to write Text; False to leave the status bar as it is
+'
+' BEHAVIOR
+'   - Never for a text equal to the last one
+'   - Always when forced or when the percentage changed
+'   - Otherwise once MinSeconds have passed, or when Elapsed is negative
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   M_Main.WriteProgress applies it
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECIDE
+'------------------------------------------------------------------------------
+    'Nothing to write for the same text
+        If Text = LastText Then Exit Function
+    'A forced write or a new percentage at once
+        If Force Or Percent <> LastPercent Then
+            ProgressWriteDue = True
+            Exit Function
+        End If
+    'A new detail alone once the shortest time has passed
+        ProgressWriteDue = (Elapsed < 0! Or Elapsed >= MinSeconds)
+
+End Function

@@ -202,8 +202,11 @@ class ReconciliationSheetTests(unittest.TestCase):
         for name in SHEETS:
             formulas = self.helper_formulas(name)
             visible = f"SUBTOTAL(103,OFFSET($M${FIRST},ROW(OFFSET($M${FIRST},0,0,$R$1,1))-ROW($M${FIRST}),0))"
-            # The first visible measure, and whether the filter leaves that measure alone.
-            self.assertIn(f"MATCH(1,{visible},0)", formulas["X1"], name)
+            # The first visible measure, and whether the filter leaves that measure alone. The SUBTOTAL is
+            # multiplied by a condition, so that Excel evaluates it row by row inside MATCH: alone as the
+            # lookup array it gave #N/A, and every tile of the measure with it (#819).
+            self.assertIn(f'MATCH(1,{visible}*(OFFSET($M${FIRST},0,0,$R$1,1)<>""),0)', formulas["X1"], name)
+            self.assertNotIn(f"MATCH(1,{visible},0)", formulas["X1"], name)
             self.assertIn(f"SUMPRODUCT({visible}*(OFFSET($H${FIRST},0,0,$R$1,1)=$X$1))=$R$2", formulas["X2"], name)
             for measure in FACTORS[name]:
                 self.assertIn(f'$X$1="{measure}"', formulas["X3"], (name, measure))
@@ -213,6 +216,11 @@ class ReconciliationSheetTests(unittest.TestCase):
                 self.assertIn("IF($X$2=0,", formulas[cell], (name, cell))
                 self.assertIn('IF($X$3=1,"Factor",FIXED(SUMPRODUCT(', formulas[cell], (name, cell))
                 self.assertIn(f"*OFFSET(${column}${FIRST},0,0,$R$1,1)),2)", formulas[cell], (name, cell))
+                # Only the rows compared, MATCH and DIFFERENCE, as ReconSummary: a row with a figure on one side
+                # only would put in one sum what the other has not (#821).
+                compared = (f'*((OFFSET($M${FIRST},0,0,$R$1,1)="MATCH")+(OFFSET($M${FIRST},0,0,$R$1,1)="DIFFERENCE"))'
+                            f"*OFFSET(${column}${FIRST},0,0,$R$1,1)")
+                self.assertIn(compared, formulas[cell], (name, cell))
             # The largest absolute difference is shown for a factor too, with six decimals instead of two.
             self.assertIn(f"SUMPRODUCT(MAX({visible}*(OFFSET($H${FIRST},0,0,$R$1,1)=$X$1)*OFFSET($K${FIRST},0,0,$R$1,1)))", formulas["Z3"], name)
             self.assertIn("IF($X$3=1,6,2)", formulas["Z3"], name)
@@ -356,31 +364,16 @@ class SampleBankFigureTests(unittest.TestCase):
         """The first data row of a sheet: the row below the header its workbook name locates."""
         return named_cell(self.package, name).row + 1
 
-    def test_the_sample_bank_rows_name_netting_sets_and_trades_of_the_sample_inputs(self) -> None:
-        first = self.first_row("NettingSets_Header")
-        sets = {name for name in self.column("NettingSets", "C", first, first + 53) if name}
-        ids = [name for name in self.column("BankNettingSets", "C", 9, 30) if name]
-        self.assertGreaterEqual(len(ids), 6)
-        self.assertEqual(len(ids), len(set(ids)))
-        self.assertEqual([name for name in ids if name not in sets], ["BANK-ONLY-1"])
-        regimes = [value for value in self.column("BankNettingSets", "D", 9, 30) if value]
-        self.assertEqual(len(regimes), len(ids))
-        self.assertTrue(set(regimes) <= {"BCBS", "CRR"})
-        first = self.first_row("Trades_Header")
-        trades = {name for name in self.column("Trades", "C", first, first + 395) if name}
-        bank = [name for name in self.column("BankTrades", "C", 9, 30) if name]
-        self.assertGreaterEqual(len(bank), 3)
-        self.assertEqual([name for name in bank if name not in trades], ["BANK-ONLY-T1"])
-
-    def test_the_sample_bank_figures_are_published_values_or_marked_as_changed(self) -> None:
-        ead = dict(zip(self.column("BankNettingSets", "C", 9, 15), self.column("BankNettingSets", "E", 9, 15)))
-        self.assertEqual(ead["BCBS-EX1"], "569")  # CRE99 example 1 prints an EAD of 569 thousand
-        self.assertEqual(ead["BCBS-EX2"], "381")
-        self.assertEqual(ead["BCBS-EX4"], "936")
-        self.assertEqual(ead["BCBS-EX5"], "1879")
-        comments = dict(zip(self.column("BankNettingSets", "C", 9, 15), self.column("BankNettingSets", "P", 9, 15)))
-        self.assertIn("on purpose", comments["BCBS-EX3"])
-
+    def test_the_bank_sheets_ship_without_figures(self) -> None:
+        # The figures of the sample portfolio spoiled the reconciliation of a real one (#815): the
+        # template ships both bank tables empty, below their header, with their settings.
+        for sheet, header, last in (("BankNettingSets", "BankNettingSets_Header", "P"),
+                                    ("BankTrades", "BankTrades_Header", "O")):
+            first = self.first_row(header)
+            for letter in "CDEFGHIJKLMNOP"[: "CDEFGHIJKLMNOP".index(last) + 1]:
+                self.assertEqual([v for v in self.column(sheet, letter, first, first + 60) if v], [],
+                                 f"{sheet} column {letter}")
+            self.assertEqual(self.column(sheet, "D", 4, 6), ["1", "1", "0.01"], sheet)
 
 if __name__ == "__main__":
     unittest.main()

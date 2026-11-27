@@ -4,7 +4,8 @@
 
 | Version | Supported |
 | --- | --- |
-| 1.2.0 (tag `v1.2.0`) | Yes |
+| 1.3.0 (tag `v1.3.0`) | Yes |
+| 1.2.0 (tag `v1.2.0`) | No: superseded by 1.3.0 |
 | 1.1.0 (tag `v1.1.0`) | No: superseded by 1.2.0 |
 | 1.0.2 (tag `v1.0.2`) | No: superseded by 1.1.0 |
 | 1.0.1 (tag `v1.0.1`) | No: superseded by 1.0.2 |

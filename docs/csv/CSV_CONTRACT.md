@@ -47,7 +47,7 @@ same `economic_trade_id` and `netting_set_id`; exactly one leg has
 `mtm_leg` `Y` and carries the whole MtM, and the others have `mtm_leg` `N` and
 an MtM of `0`. The engine rejects every leg of an economic trade that breaks
 this rule (see the
-[user manual](../user-manual/v1.2.0/K-SACCR_v1.2.0_User_Manual.md#multi-leg-economic-trades-prevent-mtm-double-counting)).
+[user manual](../user-manual/v1.3.0/K-SACCR_v1.3.0_User_Manual.md#multi-leg-economic-trades-prevent-mtm-double-counting)).
 
 ## 🧾 File format
 
@@ -145,8 +145,8 @@ negative `number` or `integer` is a value, not a formula.
 | --- | --- |
 | NettingSets | 10,000 |
 | Trades | 100,000 |
-| BankNettingSets | 200 |
-| BankTrades | 500 |
+| BankNettingSets | 10,000 |
+| BankTrades | 50,000 |
 
 A file of more than 128 MiB (134,217,728 bytes, a byte-order mark included)
 is rejected from its size alone, before any of it is read
@@ -637,8 +637,12 @@ rows of `Import_NettingSets` when it holds any, and `Trades` with those of
 input sheet as it is, so nothing is ever erased for lack of staged rows. Each
 replacement is whole, with no incremental merge or update by key: the staged
 rows are written from the first data row, and the input cells of the rows below that held a value or a formula,
-whatever the formula returns, are cleared (#512). Formats, data validation,
-names and the other sheets are not changed.
+whatever the formula returns, are cleared (#512). Every row written gets the
+format of the first data row: number format, alignment, fill, font and borders
+(#811), so that a portfolio longer than the rows the template formats looks the
+same to its last row. Data validation, names and the other sheets are not
+changed: the validation and the duplicate-ID highlight of `NettingSets` and
+`Trades` already cover the contract's limit of rows.
 
 - **A confirmation.** The button first asks, giving for each input sheet its
   rows now and the staged rows that replace them, or that it is left as it
