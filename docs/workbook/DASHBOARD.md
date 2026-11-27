@@ -41,19 +41,20 @@ contract and adds the ten charts as pictures in its PDF.
   rows of TradeCalc with Status `OK` that belong to a valid netting set of
   the regime. A row of TradeCalc is a trade leg: an economic trade entered as
   several legs counts once per leg.
-- **Units.** Amounts are in the reporting currency of Params. Each of the two
-  families of amounts has its own scale, so that a large notional does not
-  flatten the exposure figures:
+- **Units.** Amounts are in units of the reporting currency of Params, as on
+  the input and output sheets (#810), shown with a thousands separator and no
+  decimals. Two families of amounts are named apart:
   - *exposure*: EAD, RC, PFE, add-ons, gross positive value and value after
     netting;
   - *notional*: notional amounts.
 
-  The largest absolute amount of the family, over both regimes, gives
-  k = floor(log10(amount) / 3), held between 0 and 3 (0 below 1,000), found by
-  comparing the amount with 1,000, 1,000,000 and 1,000,000,000. The family's amounts are written divided by 1, 1,000, 1,000,000 or
-  1,000,000,000, and `Dashboard_Scale` gives the factor and the unit, for
-  example `EUR thousand`. Every card and chart axis names its unit from that
-  block. Counts, shares and the Herfindahl index have no scale.
+  `Dashboard_Scale` gives each family the factor 1 and the unit, the
+  currency, for example `EUR`; every card and table title names its unit from
+  that block. Counts, shares and the Herfindahl index have no unit.
+  Until #810 each family took a scale of thousands, millions or billions from
+  its largest amount: on a real portfolio, a gross positive value above a
+  billion put an EAD of about 500 million at `0.5`, and the figures did not
+  match those of the other sheets.
 - **Blank, not zero, when undefined.** A share of a total of 0, a
   concentration without EAD and the unused rows of a ranking are blank.
 
