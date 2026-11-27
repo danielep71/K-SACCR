@@ -301,6 +301,11 @@ Attribute VB_Name = "CORE_Engine"
 '------------------------------------------------------------------------------
 ' MODULE STATE
 '------------------------------------------------------------------------------
+    'The progress object of the run in progress (#807), late bound so that
+    'the engine depends on no other layer; Nothing outside Calculate.
+        Private mProgress     As Object          'Told how far the run is; Nothing for none
+        Private Const PROGRESS_EVERY As Long = 250  'Trades between two reports
+
     'Each list is an array with a count of used elements and a Collection
     'mapping keys to positions. Arrays grow by doubling.
         Private mNS()         As tNettingSet     'Netting sets
@@ -416,26 +421,46 @@ Attribute VB_Name = "CORE_Engine"
 '
 
 Public Function Calculate( _
-    ByVal WriteOutputs As Boolean) _
+    ByVal WriteOutputs As Boolean, _
+    Optional ByVal Progress As Object = Nothing) _
     As Boolean
 '
-'==============================================================================
-'                                  Calculate
+'------------------------------------------------------------------------------
+'                          RUN THE ENGINE ONCE
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Run the engine once: load the inputs, calculate every trade, hedging set
-'   and netting set, and write the outputs.
+'   Runs the engine once: loads the inputs, calculates every trade,
+'   hedging set and netting set, and writes the outputs
+'
+' WHY THIS EXISTS
+'   One entry point for Run SA-CCR and Validate inputs, so that a failed
+'   or validation-only run can never leave earlier results looking current
+'   (#36)
 '
 ' INPUTS
-'   WriteOutputs: True writes every output sheet; False validates only: it
-'   clears the output tables and writes the Checks sheet and the run
-'   summary.
+'   WriteOutputs
+'     True writes every output sheet; False validates only: it clears the
+'     output tables and writes the Checks sheet and the run summary
+'   Progress
+'     An object told how far the run is (#807): its method
+'     ReportProgress(Fraction As Double, Detail As String) is called at
+'     each phase and every PROGRESS_EVERY trades; Nothing for none
 '
 ' RETURNS
 '   True when the run completed. Individual trades may still have been
 '   excluded; the Checks sheet lists them. False when the sheet layout is
-'   not as expected, or a parameter, the factor or FX table, or the netting
-'   sets could not be loaded.
+'   not as expected, or a parameter, the factor or FX table, or the
+'   netting sets could not be loaded
+'
+' BEHAVIOR
+'   - Clears the output sheets, then loads the schema, Params, the
+'     supervisory-factor and FX tables and the netting sets; a loader
+'     that fails has logged why, and the run goes to the Checks output
+'   - Calculates the trades, the hedging sets and the netting sets, and
+'     writes Buckets and HedgingSets when WriteOutputs is True
+'   - Writes Checks and the run summary; remembers the inputs of a
+'     completed run that wrote its outputs, so that later edits show the
+'     results as out of date
 '
 ' ERROR POLICY
 '   Raises ERR_CHECKS_WRITE when the Checks sheet cannot be written, after
@@ -443,21 +468,36 @@ Public Function Calculate( _
 '   cannot be shown must not look valid, and the Checks sheet would still
 '   hold the previous run's messages (#36). Any other error during the run
 '   clears the output sheets too, so that a run stopped halfway cannot
-'   leave tables from two runs, is logged on Checks and in the run summary,
-'   and is raised with its original number, source and description, with
-'   any output-cleanup or Checks-write diagnostics appended.
+'   leave tables from two runs, is logged on Checks and in the run
+'   summary, and is raised with its original number, source and
+'   description, with any output-cleanup or Checks-write diagnostics
+'   appended
+'
+' DEPENDENCIES
+'   ResetState, ClearOutputSheets, ValidateSchema, LoadParams,
+'   LoadSFTable, LoadFXTable, LoadNettingSets, ClassifyRun,
+'   ProcessTrades, ComputeHedgingSets, ComputeNettingSets, WriteBuckets,
+'   WriteHedgingSets, WriteChecks, WithdrawOutputs, InputFingerprint,
+'   RememberRunInputs, ForgetRunInputs, WriteRunInfo, LogMsg,
+'   ReportProgress
+'
+' NOTES
+'   Progress is late bound, so that the engine depends on no other layer:
+'   M_Main passes ThisWorkbook, whose ReportProgress writes the status bar
 '
 ' STATE OWNERSHIP
-'   Resets all module state, then fills it for this run.
+'   Resets all module state, then fills it for this run; holds Progress in
+'   mProgress for the run only
 '
 ' UPDATED
-'   2026-10-21
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
+    Const PROC_NAME         As String = "CORE_Engine.Calculate"
+
     Dim StartTime           As Double    'Timer value at the start, for the run duration
     Dim ChecksFailure       As String    'Why the Checks sheet could not be written; "" if written
     Dim ErrNumber           As Long      'Unexpected error: number
@@ -467,16 +507,23 @@ Public Function Calculate( _
     Dim ErrDescription      As String    'Unexpected error: description
 
 '------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'A fresh state, and the caller's progress for this run only
+        StartTime = Timer
+        ResetState
+        Set mProgress = Progress
+        On Error GoTo ErrorHandler
+
+'------------------------------------------------------------------------------
 ' LOAD INPUTS
 '------------------------------------------------------------------------------
     'Old outputs are cleared first, for validation too, so that a failed or
     'validation-only run can never leave earlier results looking current
-    '(#36). Any loader that fails has logged why; skip to the Checks output.
-        StartTime = Timer
-        ResetState
-        On Error GoTo Failed
+    '(#36)
+        ReportProgress 0#, "loading the inputs"
         ClearOutputSheets
-
+    'Any loader that fails has logged why; skip to the Checks output
         If Not ValidateSchema() Then GoTo Finish
         If Not LoadParams() Then GoTo Finish
         If Not LoadSFTable() Then GoTo Finish
@@ -487,13 +534,18 @@ Public Function Calculate( _
 '------------------------------------------------------------------------------
 ' CALCULATE
 '------------------------------------------------------------------------------
+    'Every trade, then the hedging sets and the netting sets
         ProcessTrades WriteOutputs
+        ReportProgress 0.7, "aggregating the hedging sets"
         ComputeHedgingSets
+        ReportProgress 0.75, "calculating the netting sets"
         ComputeNettingSets WriteOutputs
+    'The bucket and hedging-set tables
         If WriteOutputs Then
+            ReportProgress 0.85, "writing Buckets and HedgingSets"
             WriteBuckets
             If gEngineFault = "outputs" Or gEngineFault = "outputs+cleanup" Then
-                Err.Raise ERR_INJECTED_FAULT, "CORE_Engine.Calculate", "Injected output failure."
+                Err.Raise ERR_INJECTED_FAULT, PROC_NAME, "Injected output failure."
             End If
             WriteHedgingSets
         End If
@@ -503,8 +555,9 @@ Public Function Calculate( _
 ' WRITE CHECKS AND RUN SUMMARY
 '------------------------------------------------------------------------------
     'Reached on success and after a failed load. If the Checks sheet cannot
-    'be written, the results are withdrawn and the failure raised.
+    'be written, the results are withdrawn and the failure raised
 Finish:
+        ReportProgress 0.95, "writing Checks"
         If Not WriteChecks(ChecksFailure) Then
             Calculate = False
             WithdrawalStatus = "results withdrawn"
@@ -515,14 +568,14 @@ Finish:
             ForgetRunInputs
             WriteRunInfo Timer - StartTime, False, WriteOutputs, "the Checks sheet could not be written (" & _
                          ChecksFailure & "); " & WithdrawalStatus & ", and Checks may show an earlier run"
+            Set mProgress = Nothing
             On Error GoTo 0
-            Err.Raise ERR_CHECKS_WRITE, "CORE_Engine.Calculate", "The Checks sheet could not be written (" & _
+            Err.Raise ERR_CHECKS_WRITE, PROC_NAME, "The Checks sheet could not be written (" & _
                       ChecksFailure & "); " & WithdrawalStatus & ". Unprotect or repair the Checks " & _
                       "sheet and run again."
         End If
-
     'Only a completed run that wrote its outputs leaves results; remember
-    'its inputs so that later edits show the results as out of date.
+    'its inputs so that later edits show the results as out of date
         If Calculate And WriteOutputs Then
             mRunInputs = InputFingerprint()
             RememberRunInputs mRunInputs
@@ -530,23 +583,30 @@ Finish:
             ForgetRunInputs
         End If
         WriteRunInfo Timer - StartTime, Calculate, WriteOutputs, ""
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+    'The progress belongs to this run only
+        Set mProgress = Nothing
         Exit Function
 
 '------------------------------------------------------------------------------
-' HANDLE UNEXPECTED ERROR
+' ERROR HANDLER
 '------------------------------------------------------------------------------
-    'Attempt withdrawal of everything written so far, and log the original
-    'error on Checks and in the run summary, both best effort. Preserve its
-    'number/source/text and append any secondary failure for M_Main to report.
-Failed:
+ErrorHandler:
+    'Capture the error
         ErrNumber = Err.Number
         ErrSource = Err.Source
         ErrDescription = Err.Description
         Calculate = False
         mRunInputs = ""
+        Set mProgress = Nothing
     'With the fingerprint forgotten the results read NONE (no valid run),
-    'although protected output cells may still hold old values.
+    'although protected output cells may still hold old values
         ForgetRunInputs
+    'Attempt withdrawal of everything written so far, and log the original
+    'error on Checks and in the run summary, both best effort
         WithdrawalStatus = "results withdrawn"
         If Not WithdrawOutputs(WithdrawalDetails) Then
             WithdrawalStatus = "output cleanup incomplete; old results may remain - unprotect or repair outputs and rerun. " & _
@@ -560,12 +620,64 @@ Failed:
         End If
         WriteRunInfo Timer - StartTime, False, WriteOutputs, "error " & ErrNumber & ": " & ErrDescription & _
                      "; " & WithdrawalStatus
+    'Preserve the number, source and text, and append any secondary failure
+    'for M_Main to report
         If Len(WithdrawalDetails) > 0 Or Len(ChecksFailure) > 0 Then
             ErrDescription = ErrDescription & " " & WithdrawalStatus & "."
         End If
         Err.Raise ErrNumber, ErrSource, ErrDescription
 
 End Function
+
+
+Private Sub ReportProgress( _
+    ByVal Fraction As Double, _
+    ByVal Detail As String)
+'
+'------------------------------------------------------------------------------
+'                          SAY HOW FAR THE RUN IS
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Tells the progress object of the run, when there is one, the fraction
+'   of the run done and what is being done (#807)
+'
+' WHY THIS EXISTS
+'   The engine shows nothing itself: the caller decides what to do with
+'   the progress (Calculate)
+'
+' INPUTS
+'   Fraction
+'     The fraction done, from 0 to 1
+'   Detail
+'     What is being done
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Does nothing when the run has no progress object (mProgress)
+'
+' ERROR POLICY
+'   An error of the progress object propagates
+'
+' DEPENDENCIES
+'   mProgress.ReportProgress, late bound
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' REPORT
+'------------------------------------------------------------------------------
+    'Only to a caller that asked
+        If mProgress Is Nothing Then Exit Sub
+        mProgress.ReportProgress Fraction, Detail
+
+End Sub
 
 
 Public Property Get ErrorCount() As Long
@@ -4907,6 +5019,7 @@ Private Sub ProcessTrades( _
 '     ReadTradeClass, ReadTradeAmounts, ReadTradeDates,
 '     ReadTradeSettlement, TradeDelta, TradeHedgingSet, UseTrade and
 '     TradeCalcRow
+'   - Says how far it is every PROGRESS_EVERY rows (ReportProgress, #807)
 '   - Counts the economic trades none of whose legs was rejected
 '   - Writes TradeCalc, formats its columns, and formats the lambda of the
 '     commodity rows as a number (FormatCommodityLambdas, #708)
@@ -4918,7 +5031,8 @@ Private Sub ProcessTrades( _
 ' DEPENDENCIES
 '   CheckEconomicTrades, ReadTradeClass, ReadTradeAmounts, ReadTradeDates,
 '   ReadTradeSettlement, TradeDelta, TradeHedgingSet, UseTrade,
-'   TradeCalcRow, WriteBlock, FormatColumns, FormatCommodityLambdas
+'   TradeCalcRow, WriteBlock, FormatColumns, FormatCommodityLambdas,
+'   ReportProgress
 '
 ' NOTES
 '   Trade starts from FreshTrade for every row, so nothing of the previous
@@ -4934,7 +5048,7 @@ Private Sub ProcessTrades( _
 '   280f for OT and the regime rules
 '
 ' UPDATED
-'   2026-11-25
+'   2026-11-27
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -4992,6 +5106,10 @@ Private Sub ProcessTrades( _
     'and so is a repeated trade ID; either makes its netting set INCOMPLETE
     '(#35)
         For RowIndex = 1 To DataRowCount
+            If (RowIndex - 1) Mod PROGRESS_EVERY = 0 Then
+                ReportProgress 0.05 + 0.65 * (RowIndex - 1) / DataRowCount, _
+                               "calculating trade " & RowIndex & " of " & DataRowCount
+            End If
             RowNumber = TopRow + RowIndex - 1
             Trade = FreshTrade
             Trade.tid = SafeStr(InputBlock(RowIndex, TR_ID))

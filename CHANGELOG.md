@@ -97,6 +97,17 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Show the progress of the long commands in Excel's status bar (#807), as the owner asked: the
+  command, a bar of 20 blocks, the percentage and the step. **Run** and Validate inputs follow
+  the engine's phases and its trades; **Import CSV**, for the four files, and the Check macros
+  follow the file record by record; **Validate staging** follows the rows of each staging sheet
+  and its later checks; **Export report** counts one step per section and the save, and names the
+  chart being pictured. The bar reaches 100% when the command is done and is given back to Excel
+  when its message is closed, and on a failure. Excel paints it while the command runs and takes
+  no keyboard or mouse input meanwhile. The CSV reader and the engine report their progress to a
+  late-bound object they are given (`ThisWorkbook`), so the core layer gains no call to Excel; the
+  silent entry points and the tests give none and show nothing. The text is a pure function,
+  `CORE_Util.ProgressText`; `TEST_MainState` checks it (`progress.text`, 49 cases, 731 checks).
 - Give the K-SACCR Ribbon tab icons of its own, as the owner asked and approved (#803): a navy
   rounded tile, the header fill `1F3864` of the workbook's tables, with a white glyph, for Run,
   Validate inputs, Clear outputs, Import CSV, Validate staging, Commit import, Templates, Export

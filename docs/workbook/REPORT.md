@@ -181,7 +181,9 @@ the Immediate window in silent mode, and never raise. A failure leaves no
 partial file: the report is written beside the target and then renamed, as the
 evidence CSV is, and the temporary workbook is closed without saving whatever
 happens. On success and on failure Excel's state is put back: the active
-workbook and sheet, screen updating, alerts and calculation mode.
+workbook and sheet, screen updating, alerts and calculation mode. While the
+report is written, the status bar shows its progress, one step per section
+and the save ([progress](RIBBON.md#progress), #807).
 
 ## ✅ Verification
 
