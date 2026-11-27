@@ -309,25 +309,45 @@ The labels of the large buttons are short; the full name is in the screentip tha
 
 ## Ribbon map
 
-| Group | Control (keytip) | Macro | What it does |
-|:----|:------|:----|:--------|
-| Calculation | **Run** (R), a split button | `RunSACCR` | Its button runs **Run SA-CCR**; the arrow opens a menu with **Run SA-CCR** (R) and **Validate inputs** (V). |
-| | **Run SA-CCR** (R) | `RunSACCR` | Validate the inputs, calculate the accepted netting sets and populate every output sheet, the Dashboard included; update the reconciliations where possible. A completed run opens `Results` (its message points to `Checks` when there are errors or warnings); a run that stops opens `Checks`. |
-| | **Validate inputs** (V) | `ValidateInputs` | Examine the inputs and write the findings to `Checks`, which it opens, **without calculating exposure**. It clears the previous run's outputs and reconciliations, so press **Run SA-CCR** again before reviewing or exporting. |
-| | **Clear outputs** (C), a button of its own | `ClearOutputs` | Clear the calculated output areas, the Dashboard and both reconciliations and invalidate the previous completed run; the inputs, `Params` and the bank figures stay, and the sheet you are on stays active. Do not assume that an error while clearing leaves no residual values. |
-| CSV import | **Import CSV** (I), a menu: **NettingSets file...** (N), **Trades file...** (T) | `ImportNettingSetsCsv`, `ImportTradesCsv` | Load a CSV file you choose onto `Import_NettingSets` or `Import_Trades` as text, for checking and correction; the input sheets are not changed. |
-| | **Import CSV** menu, *Bank figures*: **BankNettingSets file...** (B), **BankTrades file...** (L) | `ImportBankNettingSetsCsv`, `ImportBankTradesCsv` | Replace the figures of `BankNettingSets` or `BankTrades` with the records of a CSV file, or change nothing and list what is wrong with the file. There is no staging sheet. See *Load the bank figures from a CSV file*. |
-| | **Import CSV** menu: **Clear BankNettingSets...** (C), **Clear BankTrades...** (R) | `ClearBankNettingSets`, `ClearBankTrades` | After a confirmation, clear every figure and comment of that bank sheet; the amount scale and the tolerances stay. |
-| | **Validate staging** (V) | `ValidateStaging` | Check the staged rows of both staging sheets, against each other, the input sheets and Params; list the findings on Checks with the origin `IMPORT`. The input sheets are not changed. |
-| | **Commit import** (M) | `CommitImport` | After a confirmation, replace `NettingSets`, `Trades` or both with the staged rows of a validation without findings that still holds. Calculates nothing. |
-| | **Templates** (P), a menu: **NettingSets template...** (N), **Trades template...** (T), **BankNettingSets template...** (B), **BankTrades template...** (L) | `ExportNettingSetsCsvTemplate`, `ExportTradesCsvTemplate`, `ExportBankNettingSetsCsvTemplate`, `ExportBankTradesCsvTemplate` | Write the blank CSV file of that sheet, its header line alone, to a file you choose. |
-| | **Templates** menu: **Import specification...** (S) | `ExportImportSpecification` | Save the description of the four CSV files, with an example of each, as one HTML page. Changes nothing in the workbook. |
-| Evidence | **Export evidence** (E) | `ExportEvidence` | Interactive CSV export of a **current and unmodified** run; refused if a freshness or integrity requirement fails. |
-| | **Export report** (O) | `ExportReport` | A formatted report of the same run as a PDF or an XLSX workbook, refused in the same cases. See *The formatted run report*. |
-| Parameters | **Restore parameters** (A) | `RestoreRegulatoryParameters` | After a confirmation, put the reference parameters and the supervisory-factor table on `Params` back to the regulatory set; see *Restore the regulatory parameters*. |
-| Status | Three labels | None | Show the status of `Results` and of the two staging sheets; they only read cells. |
-| Navigate | **Go to** (G), a split button | None | Its button opens `Home`; the arrow lists every sheet. |
-| | **Navigation bar** (B), a toggle | `ToggleNavigationBar` | Hide or show the navigation bar on every sheet; pressed while the bar is shown. See *The navigation bar*. |
+| Group | Control (keytip) | What it does |
+|:---|:-------|:----------|
+| Calculation | **Run** (R), a split button | Its button runs **Run SA-CCR**; the arrow opens a menu with **Run SA-CCR** (R) and **Validate inputs** (V). |
+|  | **Run SA-CCR** (R) | Validate the inputs, calculate the accepted netting sets and populate every output sheet, the Dashboard included; update the reconciliations where possible. A completed run opens `Results` (its message points to `Checks` when there are errors or warnings); a run that stops opens `Checks`. |
+|  | **Validate inputs** (V) | Examine the inputs and write the findings to `Checks`, which it opens, **without calculating exposure**. It clears the previous run's outputs and reconciliations, so press **Run SA-CCR** again before reviewing or exporting. |
+|  | **Clear outputs** (C), a button of its own | Clear the calculated output areas, the Dashboard and both reconciliations and invalidate the previous completed run; the inputs, `Params` and the bank figures stay, and the sheet you are on stays active. Do not assume that an error while clearing leaves no residual values. |
+| CSV import | **Import CSV** (I), a menu: **NettingSets file...** (N), **Trades file...** (T) | Load a CSV file you choose onto `Import_NettingSets` or `Import_Trades` as text, for checking and correction; the input sheets are not changed. |
+|  | **Import CSV** menu, *Bank figures*: **BankNettingSets file...** (B), **BankTrades file...** (L) | Replace the figures of `BankNettingSets` or `BankTrades` with the records of a CSV file, or change nothing and list what is wrong with the file. There is no staging sheet. See *Load the bank figures from a CSV file*. |
+|  | **Import CSV** menu: **Clear BankNettingSets...** (C), **Clear BankTrades...** (R) | After a confirmation, clear every figure and comment of that bank sheet; the amount scale and the tolerances stay. |
+|  | **Validate staging** (V) | Check the staged rows of both staging sheets, against each other, the input sheets and Params; list the findings on Checks with the origin `IMPORT`. The input sheets are not changed. |
+|  | **Commit import** (M) | After a confirmation, replace `NettingSets`, `Trades` or both with the staged rows of a validation without findings that still holds. Calculates nothing. |
+|  | **Templates** (P), a menu: **NettingSets template...** (N), **Trades template...** (T), **BankNettingSets template...** (B), **BankTrades template...** (L) | Write the blank CSV file of that sheet, its header line alone, to a file you choose. |
+|  | **Templates** menu: **Import specification...** (S) | Save the description of the four CSV files, with an example of each, as one HTML page. Changes nothing in the workbook. |
+| Evidence | **Export evidence** (E) | Interactive CSV export of a **current and unmodified** run; refused if a freshness or integrity requirement fails. |
+|  | **Export report** (O) | A formatted report of the same run as a PDF or an XLSX workbook, refused in the same cases. See *The formatted run report*. |
+| Parameters | **Restore parameters** (A) | After a confirmation, put the reference parameters and the supervisory-factor table on `Params` back to the regulatory set; see *Restore the regulatory parameters*. |
+| Status | Three labels | Show the status of `Results` and of the two staging sheets; they only read cells. |
+| Navigate | **Go to** (G), a split button | Its button opens `Home`; the arrow lists every sheet. |
+|  | **Navigation bar** (B), a toggle | Hide or show the navigation bar on every sheet; pressed while the bar is shown. See *The navigation bar*. |
+
+The macros behind the controls, for the Macros dialog (Alt+F8) and for automation:
+
+| Control | Macro |
+|:----------|:----------|
+| **Run** (R), a split button | `RunSACCR` |
+| **Run SA-CCR** (R) | `RunSACCR` |
+| **Validate inputs** (V) | `ValidateInputs` |
+| **Clear outputs** (C), a button of its own | `ClearOutputs` |
+| **Import CSV** (I), a menu: **NettingSets file...** (N), **Trades file...** (T) | `ImportNettingSetsCsv`, `ImportTradesCsv` |
+| **Import CSV** menu, *Bank figures*: **BankNettingSets file...** (B), **BankTrades file...** (L) | `ImportBankNettingSetsCsv`, `ImportBankTradesCsv` |
+| **Import CSV** menu: **Clear BankNettingSets...** (C), **Clear BankTrades...** (R) | `ClearBankNettingSets`, `ClearBankTrades` |
+| **Validate staging** (V) | `ValidateStaging` |
+| **Commit import** (M) | `CommitImport` |
+| **Templates** (P), a menu: **NettingSets template...** (N), **Trades template...** (T), **BankNettingSets template...** (B), **BankTrades template...** (L) | `ExportNettingSetsCsvTemplate`, `ExportTradesCsvTemplate`, `ExportBankNettingSetsCsvTemplate`, `ExportBankTradesCsvTemplate` |
+| **Templates** menu: **Import specification...** (S) | `ExportImportSpecification` |
+| **Export evidence** (E) | `ExportEvidence` |
+| **Export report** (O) | `ExportReport` |
+| **Restore parameters** (A) | `RestoreRegulatoryParameters` |
+| **Navigation bar** (B), a toggle | `ToggleNavigationBar` |
 
 The **Templates** menu writes blank CSV files or the import specification, which describe input files; **Export evidence** writes the evidence CSV of a run, and **Export report** a readable report of it. They are different operations.
 
