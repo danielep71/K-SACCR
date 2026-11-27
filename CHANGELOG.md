@@ -1060,6 +1060,13 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Record the maintenance audit of 2026-11-27 for v1.3.0 in `docs/release-audits/`, a new folder for
+  the dated report of the audit that opens every release. `RELEASING.md` says where the report goes
+  and that an actionable issue is assigned to the maintainer. `docs/assets/README.md` names the
+  commits the documentation images were taken from (#616). The README roadmap describes the two
+  parallel tracks of v1.7.0: a Python desktop application, first on the Excel/VBA engine and then
+  on the Python engine (#694–#700), and the standalone Python engine (#450–#459).
+
 - Retake the documentation screenshots with a script on the owner's runner (#616), as the owner
   chose: the Excel quick check has a mode `screenshots`, run by hand, that runs the smoke check
   and then `tools/Take-SACCR-Screenshots.ps1`, which prepares the template, the staged example

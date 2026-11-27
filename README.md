@@ -945,7 +945,7 @@ gantt
     v1.4.0 Advanced products, FX provenance  :v14, after v135, 2027-04-18
     v1.5.0 Simplified SA-CCR                 :v15, after v14, 2027-05-23
     v1.6.0 Original exposure method          :v16, after v15, 2027-06-20
-    v1.7.0 Standalone Python engine          :v17, after v16, 2027-09-12
+    v1.7.0 Python desktop app and engine     :v17, after v16, 2027-09-12
 ```
 
 | Milestone | Scope |
@@ -960,7 +960,7 @@ gantt
 | v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157), engine separated from Excel I/O (#220), TARGET holiday calendar (#328) |
 | v1.5.0 | Simplified SA-CCR (#107) |
 | v1.6.0 | Original exposure method (#111) |
-| v1.7.0 | Standalone Python engine: the full SA-CCR without Excel, with its own reference tests, and a reconciliation of its intermediates and EAD with the workbook's (#450–#459) |
+| v1.7.0 | Two parallel tracks. A Python desktop application that replaces the Excel interface, first on the Excel/VBA engine run in a hidden workbook (#694–#699), then on the Python engine (#700). The standalone Python engine: the full SA-CCR without Excel, with its own reference tests, and a reconciliation of its intermediates and EAD with the workbook's (#450–#459) |
 
 The [milestones](https://github.com/danielep71/K-SACCR/milestones)
 hold the current scope of each release. Securities financing transactions,
