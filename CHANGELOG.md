@@ -1046,6 +1046,17 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Retake the documentation screenshots with a script on the owner's runner (#616), as the owner
+  chose: the Excel quick check has a mode `screenshots`, run by hand, that runs the smoke check
+  and then `tools/Take-SACCR-Screenshots.ps1`, which prepares the template, the staged example
+  files, a run of the demonstration portfolio and the bank figures of the reconciliation through
+  the workbook's silent entry points and pictures each sheet to the rows and columns of its plan;
+  `tools/screenshots.py` reduces the artifact's pictures to the palette of `docs/assets`. All the
+  sheet images are retaken on 2026-11-27, and the README now also shows the Ribbon (without the
+  tabs of other add-ins), Home, the Dashboard, the two staging sheets and ReconSummary; BCBS-EX3
+  is entered at 5,300, beyond the relative tolerance of 1% (#726), so that it still shows a
+  DIFFERENCE.
+
 - State in the methodology where the business-day convention of the day count comes from (#721).
   The owner checked Articles 279a to 279c of the CRR consolidated text in force on 2026-11-26
   (26.06.2026) word for word: T (279a(1)(a)), S and E (279b(1)(a)), M (279c(1)(a)) and

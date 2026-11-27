@@ -187,7 +187,10 @@ carries its result without anyone running the script by hand. It starts:
   repository** that changes `src/`, `tests/`, `docs/workbook/` or the scripts of
   the quick check itself, with the **smoke check** (#801);
 - by hand, from Actions, **Excel quick check**, **Run workflow**, with the branch
-  and the mode: `full`, the default, for the **full quick check**, or `smoke`.
+  and the mode: `full`, the default, for the **full quick check**, `smoke`, or
+  `screenshots`, the smoke check followed by the documentation screenshots
+  (#616), whose pictures go into the artifact
+  ([screenshots](assets/README.md#screenshots)).
 
 The two checks differ in what they run:
 

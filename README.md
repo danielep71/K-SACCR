@@ -243,7 +243,14 @@ The manual import order, references and troubleshooting are in
 ## 3. Run
 
 The template ships with a demonstration portfolio: the five CRE99 examples and
-further illustrative netting sets.
+further illustrative netting sets. The workbook opens on `Home`, which gives
+the steps of a run and a link to every sheet:
+
+<p align="center">
+  <img width="100%"
+       alt="Home sheet: what the workbook does, the steps of a run, and a link to every sheet grouped as inputs, staging, outputs, reconciliation, reference and tests"
+       src="docs/assets/SACCR_Home.png">
+</p>
 
 Every command is on the workbook's **K-SACCR** Ribbon tab, which also shows
 the status of the results and of both staging sheets and reaches every sheet
@@ -254,6 +261,12 @@ such as think-cell takes it, with every sheet at a zoom of 100% (#726).
 The header of every output sheet, Results, HedgingSets, Buckets, TradeCalc and
 Checks, carries the filter buttons, which work on the protected sheet and are
 kept by a run (#754).
+
+<p align="center">
+  <img width="100%"
+       alt="The K-SACCR Ribbon tab, selected among Excel's tabs: the Calculation, CSV import, Evidence, Parameters, Status and Navigate groups; the status reads no results and both staging sheets empty"
+       src="docs/assets/SACCR_Ribbon.png">
+</p>
 
 | Command | Macro | Does |
 | --- | --- | --- |
@@ -304,6 +317,25 @@ kept by a run (#754).
 A change to the staged rows, the input sheets or Params after the validation
 makes it no longer current: the staging sheet reads `OUT OF DATE`, and the
 commit refuses until the next validation.
+
+<details>
+<summary><b>CSV staging</b>: the example files of the import specification on Import_NettingSets and Import_Trades</summary>
+
+<br>
+
+<p align="center">
+  <img width="100%"
+       alt="Import_NettingSets sheet after Import CSV of the example file: the buttons, the source file, the time it was loaded, three records, the status LOADED, the CSV field-name row and the three staged netting sets as text, each with its CSV line"
+       src="docs/assets/SACCR_Import_NettingSets.png">
+</p>
+
+<p align="center">
+  <img width="100%"
+       alt="Import_Trades sheet after Import CSV of the example file: the buttons, the source file, the status LOADED, the CSV field-name row and the staged trade legs as text, each with its CSV line"
+       src="docs/assets/SACCR_Import_Trades.png">
+</p>
+
+</details>
 
 To compare the results with your bank's own figures, enter them on
 `BankNettingSets`, one row per netting set with its regime, in the amount scale
@@ -469,6 +501,27 @@ the exposure value (select it to open it full size):
 | `Basel_vs_CRR` | The two regimes side by side |
 | `README` | In-workbook guide: conventions, methodology summary, worksheet functions and the reference card; the last tab |
 
+The Dashboard gives the last run in one page, each regime apart:
+
+<p align="center">
+  <img width="90%"
+       alt="Dashboard after a run of the demonstration portfolio: cards for EAD, RC and PFE per regime and the share of the ten largest netting sets, the run and its fingerprint, the key figures per regime, the counts, the units, and EAD by counterparty sector with its chart"
+       src="docs/assets/SACCR_Dashboard.png">
+</p>
+
+<details>
+<summary><b>Dashboard</b>: the tables and charts below the first page</summary>
+
+<br>
+
+<p align="center">
+  <img width="90%"
+       alt="Dashboard after the same run, lower part: the further tables per regime with their bar charts"
+       src="docs/assets/SACCR_Dashboard_Charts.png">
+</p>
+
+</details>
+
 Results after a run of the demonstration portfolio: the run summary and
 stale-result indicator, RC and the add-ons per asset class, then the
 multiplier, PFE, EAD, the cap for margined netting sets and the status, with a
@@ -497,7 +550,7 @@ netting set whose EAD is withheld as a result:
 
 <p align="center">
   <img width="100%"
-       alt="Checks sheet after the demonstration run: five ERROR lines, three trades excluded with their Trades row and reason, and two netting sets whose EAD is withheld"
+       alt="Checks sheet after the demonstration run: six ERROR lines, four for the three trades excluded, with their Trades row and reason, and two for the netting sets whose EAD is withheld"
        src="docs/assets/SACCR_Checks.png">
 </p>
 
@@ -533,20 +586,26 @@ netting set whose EAD is withheld as a result:
 </details>
 
 <details>
-<summary><b>Reconciliation</b>: bank figures on BankNettingSets, compared on Reconciliation</summary>
+<summary><b>Reconciliation</b>: bank figures on BankNettingSets, compared on Reconciliation and summed on ReconSummary</summary>
 
 <br>
 
 <p align="center">
   <img width="100%"
-       alt="BankNettingSets sheet: amount scale, absolute and relative tolerance, and the bank's EAD for BCBS-EX1 and BCBS-EX3 and a row for an unknown netting set"
+       alt="BankNettingSets sheet: the buttons Import CSV, Export CSV template and Clear bank figures, the amount scale, absolute and relative tolerance, and the bank's EAD for BCBS-EX1 and BCBS-EX3 and a row for an unknown netting set, each with its comment"
        src="docs/assets/SACCR_BankNettingSets.png">
 </p>
 
 <p align="center">
   <img width="100%"
-       alt="Reconciliation sheet: the bank's EAD for BCBS-EX1 is a MATCH, for BCBS-EX3 a DIFFERENCE of 4.62 (0.0855%), an unknown bank netting set is MISSING IN CALCULATOR, and every other netting set is NOT IN BANK FILE, each with its note"
+       alt="Reconciliation sheet: the bank's EAD for BCBS-EX1 is a MATCH, for BCBS-EX3 a DIFFERENCE of 104.62 (1.9740%, beyond the relative tolerance of 1%), an unknown bank netting set is MISSING IN CALCULATOR, and every other netting set is NOT IN BANK FILE, each with its note"
        src="docs/assets/SACCR_Reconciliation.png">
+</p>
+
+<p align="center">
+  <img width="100%"
+       alt="ReconSummary sheet: one row per measure of the two reconciliations, with the rows shown, the count of each result and, over the rows compared, the sums of the bank's and the calculator's amounts and the sum and the largest of the absolute differences"
+       src="docs/assets/SACCR_ReconSummary.png">
 </p>
 
 </details>
