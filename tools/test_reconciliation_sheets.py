@@ -216,6 +216,11 @@ class ReconciliationSheetTests(unittest.TestCase):
                 self.assertIn("IF($X$2=0,", formulas[cell], (name, cell))
                 self.assertIn('IF($X$3=1,"Factor",FIXED(SUMPRODUCT(', formulas[cell], (name, cell))
                 self.assertIn(f"*OFFSET(${column}${FIRST},0,0,$R$1,1)),2)", formulas[cell], (name, cell))
+                # Only the rows compared, MATCH and DIFFERENCE, as ReconSummary: a row with a figure on one side
+                # only would put in one sum what the other has not (#821).
+                compared = (f'*((OFFSET($M${FIRST},0,0,$R$1,1)="MATCH")+(OFFSET($M${FIRST},0,0,$R$1,1)="DIFFERENCE"))'
+                            f"*OFFSET(${column}${FIRST},0,0,$R$1,1)")
+                self.assertIn(compared, formulas[cell], (name, cell))
             # The largest absolute difference is shown for a factor too, with six decimals instead of two.
             self.assertIn(f"SUMPRODUCT(MAX({visible}*(OFFSET($H${FIRST},0,0,$R$1,1)=$X$1)*OFFSET($K${FIRST},0,0,$R$1,1)))", formulas["Z3"], name)
             self.assertIn("IF($X$3=1,6,2)", formulas["Z3"], name)
