@@ -23,7 +23,7 @@ The step of .github\workflows\excel-quick.yml that needs Excel. In order:
    request: one comment per commit, updated by a re-run.
 The exit code is that of the quick check: 0 only when it passed. A failure of
 the reporting itself is a warning and does not change it. The report never
-replaces the owner's verification and is not release evidence.
+replaces the maintainer's verification and is not release evidence.
 The environment supplies the event (EVENT_NAME, HEAD_REPO, REPOSITORY, PR_NUMBER,
 RUN_URL, ARTIFACT_NAME) and GITHUB_TOKEN; nothing from the event is put into a
 command line. A run started by hand supplies CHECK_MODE, full or smoke (#801)

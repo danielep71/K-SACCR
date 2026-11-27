@@ -925,6 +925,12 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Keep one quick-check comment per commit and mode (#828). The report of the smoke check of a pull
+  request replaced the report of the full quick check run by hand on the same commit (#824), as
+  both carried the marker `excel-quick-check:SHA`. The marker now names the mode (`full`, `smoke`,
+  `screenshots`), and a re-run of the same mode still updates its own comment. The comment and the
+  documentation of the quick check speak of the self-hosted runner and the maintainer.
+
 - Sum only the rows compared in the tiles of Reconciliation and TradeReconciliation, as ReconSummary
   does (#821), as the owner asked: Sum of bank figures, Sum of calc. figures and Sum of abs. diff.
   counted every row shown of the measure, also those with a figure on one side only, so that the

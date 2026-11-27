@@ -97,7 +97,7 @@ New-QuickReport -Summary $s -Sha '0123456789abcdef0123456789abcdef01234567' -Pas
 """
         report = run(body, SUMMARY=SUMMARY)
         lines = report.splitlines()
-        self.assertEqual(lines[0], "<!-- excel-quick-check:0123456789abcdef0123456789abcdef01234567 -->")
+        self.assertEqual(lines[0], "<!-- excel-quick-check:0123456789abcdef0123456789abcdef01234567:full -->")
         self.assertEqual(lines[1], "### Excel quick check of `0123456`: PASS")
         self.assertNotIn("Bundle:", report)
         self.assertIn("Sheet review: RESULT=PASS", report)
@@ -116,6 +116,7 @@ New-QuickReport -Summary $s -Sha '0123456789abcdef0123456789abcdef01234567' -Pas
 """
         report = run(body, SUMMARY=SMOKE_SUMMARY)
         self.assertIn("the text results are in the run's artifact `a-1`", report)
+        self.assertEqual(report.splitlines()[0], "<!-- excel-quick-check:0123456789abcdef0123456789abcdef01234567:smoke -->")
         self.assertEqual(report.splitlines()[1], "### Excel smoke check of `0123456`: PASS")
         self.assertIn("the build, the compile and the calculation suites", report)
         self.assertIn("certification before a release", report)
@@ -178,6 +179,20 @@ $comments = @(
 """
         # A pull request with no comment yet: Windows PowerShell 5.1 returns "" for [], which has no body.
         self.assertEqual(run(body).splitlines(), ["13", "True", "True", "True", "True", "True"])
+
+    def test_a_report_of_one_mode_never_replaces_another_on_the_same_commit(self) -> None:
+        # #828: the smoke check of #824 replaced the report of the full quick check run by hand on acceade.
+        body = r"""
+$comments = @(
+  [pscustomobject]@{ id = 21; body = (Get-QuickMarker -Sha 'aaa' -Mode 'full') + "`nfull report" }
+)
+[string]($null -eq (Find-QuickReportComment -Comments $comments -Marker (Get-QuickMarker -Sha 'aaa' -Mode 'smoke')))
+(Find-QuickReportComment -Comments $comments -Marker (Get-QuickMarker -Sha 'aaa' -Mode 'full'))
+(Get-QuickMode "Mode: quick: a pull-request check")
+(Get-QuickMode "Mode: smoke: a pull-request check of the build")
+(Get-QuickMode "Mode: smoke: the build, the compile and the calculation suites, then the documentation screenshots (#616)")
+"""
+        self.assertEqual(run(body).splitlines(), ["True", "21", "full", "smoke", "screenshots"])
 
     def test_a_branch_with_no_open_pull_request_has_no_number(self) -> None:
         # A full check run by hand on the release branch, which has no open pull request: Windows PowerShell 5.1
@@ -316,7 +331,7 @@ class QuickCheckRunnerTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
             report = (folder / "step-summary.md").read_text(encoding="utf-8")
             self.assertIn("### Excel quick check of `" + sha[:7] + "`: PASS", report)
-            self.assertIn("<!-- excel-quick-check:" + sha + " -->", report)
+            self.assertIn("<!-- excel-quick-check:" + sha + ":full -->", report)
             self.assertNotIn("Bundle:", report)
             self.assertNotIn(str(work), report)
             artifact = work / "K-SACCR" / "quick-run-artifact"

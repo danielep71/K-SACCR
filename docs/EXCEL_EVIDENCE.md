@@ -19,7 +19,7 @@ when evidence is required is in [`CONTRIBUTING.md`](../CONTRIBUTING.md) and
 
 Execution is **manual**: an operator runs Excel interactively on the Windows
 host, with one command or step by step. The one automated Excel job is the quick
-check of a pull request on the owner's self-hosted runner
+check of a pull request on the self-hosted runner
 ([Automatic quick check](#automatic-quick-check)); it is not a certification and
 writes no record. Neither way changes macro security or Trust Center settings.
 
