@@ -285,7 +285,10 @@ step, for example `K-SACCR - Import Trades  ███████░░░░░
   (`RunSACCR_Silent`, `ImportCsv_Silent`, `ExportReport_Silent`, ...) and
   the tests give them nothing and show nothing.
 - The text is `CORE_Util.ProgressText`, which `TEST_MainState` checks
-  (`progress.text`).
+  (`progress.text`). The status bar is written when the percentage changes,
+  and for a new step alone at most every quarter of a second, so that a
+  long loop is not slowed down; that rule is `CORE_Util.ProgressWriteDue`,
+  checked by `progress.write`.
 
 ## ✅ Enabled states
 

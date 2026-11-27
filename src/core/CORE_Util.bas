@@ -1737,3 +1737,86 @@ Public Function ProgressText( _
         ProgressText = Text
 
 End Function
+
+
+Public Function ProgressWriteDue( _
+    ByVal Text As String, _
+    ByVal LastText As String, _
+    ByVal Percent As Long, _
+    ByVal LastPercent As Long, _
+    ByVal Elapsed As Single, _
+    ByVal MinSeconds As Single, _
+    ByVal Force As Boolean) _
+    As Boolean
+'
+'------------------------------------------------------------------------------
+'                  DECIDE WHETHER TO WRITE THE PROGRESS TEXT
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Says whether the status bar should be written with Text: when the
+'   shown percentage changes, and for a new detail alone at most once per
+'   MinSeconds (#807)
+'
+' WHY THIS EXISTS
+'   Writing the status bar, and the DoEvents that paints it, on every
+'   record would slow a long loop down; the rule is a pure function, so
+'   that it can be tested
+'
+' INPUTS
+'   Text
+'     The text to show
+'
+'   LastText
+'     The text written last; "" before the first write
+'
+'   Percent
+'     The percentage the text shows
+'
+'   LastPercent
+'     The percentage written last; -1 before the first write
+'
+'   Elapsed
+'     Seconds since the last write; negative after midnight, when Timer
+'     restarts
+'
+'   MinSeconds
+'     Shortest time between two writes of a new detail alone
+'
+'   Force
+'     True writes any new text at once
+'
+' RETURNS
+'   True to write Text; False to leave the status bar as it is
+'
+' BEHAVIOR
+'   - Never for a text equal to the last one
+'   - Always when forced or when the percentage changed
+'   - Otherwise once MinSeconds have passed, or when Elapsed is negative
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   M_Main.WriteProgress applies it
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECIDE
+'------------------------------------------------------------------------------
+    'Nothing to write for the same text
+        If Text = LastText Then Exit Function
+    'A forced write or a new percentage at once
+        If Force Or Percent <> LastPercent Then
+            ProgressWriteDue = True
+            Exit Function
+        End If
+    'A new detail alone once the shortest time has passed
+        ProgressWriteDue = (Elapsed < 0! Or Elapsed >= MinSeconds)
+
+End Function

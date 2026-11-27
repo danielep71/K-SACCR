@@ -84,7 +84,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 24              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 247              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 249              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -816,8 +816,9 @@ Private Sub CaseBankClear()
 '   Clear bank figures (#815): ClearBank_Silent empties the figures and
 '   comments of BankNettingSets and of BankTrades, says how many rows held
 '   an entry, leaves the amount scale and the tolerances, clears an empty
-'   table without complaint, counts a comment alone as an entry, and raises for a kind that is not a bank
-'   file. The suite then puts both tables back.
+'   table without complaint, counts a comment alone as an entry, refuses
+'   while an operation runs without changing the sheet, and raises for a
+'   kind that is not a bank file. The suite then puts both tables back.
 '
 ' UPDATED
 '   2026-11-27
@@ -877,6 +878,17 @@ Private Sub CaseBankClear()
         TEST_Kit.Check Application.WorksheetFunction.CountA(TableRange(TrSheet, TrFirst, 1, TrFirst + 49, BT_NCOLS)) = 0, _
                        "BankTrades still holds entries"
 
+    'Refused while an operation runs, before the sheet changes (#815)
+        TableCell(NsSheet, NsFirst, BN_ID).Value = "KEEP-ME"
+        M_Main.gTestFault = "running"
+        On Error Resume Next
+        ResultLine = M_Main.ClearBank_Silent("BankNettingSets")
+        ErrorNumber = Err.Number
+        On Error GoTo Unexpected
+        M_Main.gTestFault = ""
+        TEST_Kit.Check ErrorNumber = ERR_RUN_ACTIVE, "clear while an operation runs: error " & ErrorNumber
+        TEST_Kit.Check TableCell(NsSheet, NsFirst, BN_ID).Value2 = "KEEP-ME", "a refused clear changed the sheet"
+
     'A kind that is not a bank file
         On Error Resume Next
         ResultLine = M_Main.ClearBank_Silent("Trades")
@@ -893,6 +905,7 @@ Private Sub CaseBankClear()
 
 Unexpected:
         TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        M_Main.gTestFault = ""
         RestoreBankTable NsSheet, NsFirst, BN_NCOLS, NsTable, NsSettings, NM_BN_SCALE, NM_BN_ABSTOL, NM_BN_RELTOL
         RestoreBankTable TrSheet, TrFirst, BT_NCOLS, TrTable, TrSettings, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL
 
