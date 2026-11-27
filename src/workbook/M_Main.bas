@@ -333,6 +333,14 @@ Attribute VB_Name = "M_Main"
         Private mReconState      As String    'Netting-set reconciliation outcome
         Private mTradeReconState As String    'Trade reconciliation outcome
         Private mReconLine       As String    'Lines for the run message; "" for none
+    'The progress of a long operation in the status bar (#807): the
+    'operation ProgressStart named, "" when none shows its progress, the
+    'text last written, so that a step that changes nothing is not written,
+    'and the step, for ProgressDetail.
+        Private mProgressOperation As String  'Operation in progress; "" for none
+        Private mProgressText      As String  'Text of the status bar; "" for none
+        Private mProgressDone      As Long    'Steps done
+        Private mProgressTotal     As Long    'Steps in all
 
 
 '
@@ -2050,7 +2058,8 @@ Public Sub ExportReport()
 '   - Refuses, with the reason, in the cases of Export evidence and when
 '     the Dashboard was changed after the run (ReportProblem)
 '   - Asks for the file; the extension, .pdf or .xlsx, decides the format
-'   - Writes the report (WriteReport) and says where
+'   - Writes the report (WriteReport), showing its progress in the status
+'     bar (ProgressStart, #807), and says where
 '
 ' ERROR POLICY
 '   Reports a refusal or a failure in a message, or in the Immediate
@@ -2058,14 +2067,14 @@ Public Sub ExportReport()
 '
 ' DEPENDENCIES
 '   ReportProblem, ReportFileFormat, WriteReport, DefaultReportName,
-'   Notify
+'   ProgressStart, Notify
 '
 ' NOTES
 '   Runs from Export report on the K-SACCR Ribbon tab (M_Ribbon), or the
 '   Macros dialog
 '
 ' UPDATED
-'   2026-11-26
+'   2026-11-27
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -2113,7 +2122,9 @@ Public Sub ExportReport()
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-    'Write the report and say where
+    'Write the report, its progress in the status bar, and say where;
+    'the message gives the status bar back
+        ProgressStart "Report"
         Written = WriteReport(CStr(ChosenFile), FileFormat = "PDF")
         Notify "Report exported as " & FileFormat & " (" & Written & "):" & vbLf & vbLf & CStr(ChosenFile), _
                vbInformation
@@ -2127,7 +2138,8 @@ Public Sub ExportReport()
 ' ERROR HANDLER
 '------------------------------------------------------------------------------
 ErrorHandler:
-    'Say what failed; WriteReport has put everything back
+    'Say what failed; WriteReport has put everything back, and the
+    'message gives the status bar back
         Notify "Report not exported: " & Err.Description, vbCritical
 
 End Sub
@@ -2344,7 +2356,9 @@ Private Function WriteReport( _
 '   - Gives the new workbook the font and the vertical alignment of the
 '     K-SACCR sheets (docs/workbook/sheet-style.json)
 '   - Writes Run, Dashboard, Charts (PDF only), Totals, Results, Checks,
-'     and the two reconciliations when they were made
+'     and the two reconciliations when they were made, saying each in
+'     the status bar when the caller shows the progress (ProgressShow,
+'     #807)
 '   - Hides the gridlines, saves or exports beside the target, closes
 '     the new workbook and replaces the target (ReplaceReportFile)
 '
@@ -2358,14 +2372,14 @@ Private Function WriteReport( _
 '   WriteReportCharts, WriteReportTotals, WriteReportResults,
 '   WriteReportChecks, WriteReportReconciliation,
 '   ApplyReportPageSetup, HideReportGridlines, ReportSiblingPath,
-'   ReplaceReportFile
+'   ReplaceReportFile, ProgressShow
 '
 ' NOTES
 '   gTestFault "report-save" raises before the file is saved, and
 '   "report-replace" while the older file is replaced
 '
 ' UPDATED
-'   2026-11-26
+'   2026-11-27
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -2390,6 +2404,9 @@ Private Function WriteReport( _
     Dim Footer              As String       'Footer of every page of a PDF
     Dim TitleRow            As Long         'Row a sheet repeats on its pages; 0 for none
     Dim kind                As Long         'Reconciliation
+    Dim Included(RECON_NS To RECON_TR) As Boolean 'The reconciliation was made and is reported
+    Dim Steps               As Long         'Sections to write, and the save
+    Dim Step                As Long         'Steps done
     Dim ErrorNumber         As Long         'First error; 0 on success
     Dim ErrorSource         As String       'Its source
     Dim ErrorText           As String       'Its description
@@ -2438,34 +2455,53 @@ Private Function WriteReport( _
     'PDF are set up as each sheet is written
         Footer = "K-SACCR report - run " & ReportRunTime() & " - inputs " & CORE_Engine.LastRunInputs() & _
                  " - page &P of &N"
+    'The steps the status bar counts: each section and the save
+        Steps = IIf(AsPdf, 7, 6)
+        For kind = RECON_NS To RECON_TR
+            If ReconciliationSheetsPresent(kind) Then
+                Included(kind) = (VBA.Len(StoredText(InputsNameOf(kind))) > 0)
+            End If
+            If Included(kind) Then Steps = Steps + 1
+        Next kind
+        ProgressShow Step, Steps, "Run"
         Set ReportSheet = AddReportSheet(ReportBook, "Run")
         TitleRow = WriteReportRun(ReportSheet)
         If AsPdf Then SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, TitleRow)
+        Step = Step + 1
+        ProgressShow Step, Steps, "Dashboard"
         Set ReportSheet = AddReportSheet(ReportBook, "Dashboard")
         TitleRow = WriteReportDashboard(ReportSheet, AsPdf)
         If AsPdf Then SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, TitleRow)
         If AsPdf Then
+            Step = Step + 1
+            ProgressShow Step, Steps, "Charts"
             Set ReportSheet = AddReportSheet(ReportBook, "Charts")
             ChartCount = WriteReportCharts(ReportSheet, ChartZoom)
             SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, 0, ChartZoom)
         End If
+        Step = Step + 1
+        ProgressShow Step, Steps, "Totals"
         Set ReportSheet = AddReportSheet(ReportBook, "Totals")
         TitleRow = WriteReportTotals(ReportSheet, AsPdf)
         If AsPdf Then SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, TitleRow)
+        Step = Step + 1
+        ProgressShow Step, Steps, "Results"
         Set ReportSheet = AddReportSheet(ReportBook, "Results")
         TitleRow = WriteReportResults(ReportSheet, AsPdf)
         If AsPdf Then SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, TitleRow)
+        Step = Step + 1
+        ProgressShow Step, Steps, "Checks"
         Set ReportSheet = AddReportSheet(ReportBook, "Checks")
         TitleRow = WriteReportChecks(ReportSheet, AsPdf)
         If AsPdf Then SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, TitleRow)
         For kind = RECON_NS To RECON_TR
-            If ReconciliationSheetsPresent(kind) Then
-                If VBA.Len(StoredText(InputsNameOf(kind))) > 0 Then
-                    Set ReportSheet = AddReportSheet(ReportBook, _
-                                                     IIf(kind = RECON_NS, "Reconciliation", "TradeReconciliation"))
-                    TitleRow = WriteReportReconciliation(ReportSheet, kind, AsPdf)
-                    If AsPdf Then SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, TitleRow)
-                End If
+            If Included(kind) Then
+                Step = Step + 1
+                ProgressShow Step, Steps, IIf(kind = RECON_NS, "Reconciliation", "TradeReconciliation")
+                Set ReportSheet = AddReportSheet(ReportBook, _
+                                                 IIf(kind = RECON_NS, "Reconciliation", "TradeReconciliation"))
+                TitleRow = WriteReportReconciliation(ReportSheet, kind, AsPdf)
+                If AsPdf Then SetupProblems = SetupProblems & ApplyReportPageSetup(ReportSheet, Footer, TitleRow)
             End If
         Next kind
         SheetCount = ReportBook.Worksheets.Count
@@ -2477,6 +2513,8 @@ Private Function WriteReport( _
         If gTestFault = "report-save" Then
             Err.Raise ERR_INJECTED_FAULT, PROC_NAME, "Injected failure before the report was saved."
         End If
+        Step = Step + 1
+        ProgressShow Step, Steps, IIf(AsPdf, "saving the PDF", "saving the workbook")
         HideReportGridlines ReportBook
         NewPath = ReportSiblingPath(FilePath)
         If AsPdf Then
@@ -3239,9 +3277,10 @@ Private Function WriteReportCharts( _
 '   - Shows the Dashboard sheet, with screen updating on and the window
 '     zoomed to RPT_CHART_ZOOM, while its charts are pictured, so that
 '     each picture has three times the screen's resolution
-'   - For each chart: scrolls the window to it (ShowReportChart), exports
-'     it as a PNG file to the temporary folder, places the picture at the
-'     chart's size and deletes the file
+'   - For each chart: says which in the status bar (ProgressDetail),
+'     scrolls the window to it (ShowReportChart), exports it as a PNG file
+'     to the temporary folder, places the picture at the chart's size and
+'     deletes the file
 '   - Puts back the Dashboard's zoom, scroll position and screen updating,
 '     and activates the report again, on success and on failure
 '   - Lays the pictures out in rows, a new page before a row that would
@@ -3254,7 +3293,7 @@ Private Function WriteReportCharts( _
 ' DEPENDENCIES
 '   GetSheet, FileExists, ReportTempFolder, ReportSourceWindow,
 '   SetReportWindowZoom, ShowReportChart, ScrollReportWindow,
-'   LayOutReportCharts
+'   LayOutReportCharts, ProgressDetail
 '
 ' NOTES
 '   The pictures are embedded, not linked to the files. WriteReport runs
@@ -3262,7 +3301,7 @@ Private Function WriteReportCharts( _
 '   its selection is not changed
 '
 ' UPDATED
-'   2026-11-26
+'   2026-11-27
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -3315,6 +3354,7 @@ Private Function WriteReportCharts( _
     'Show, export, place, delete
         For Each ChartFrame In SourceSheet.ChartObjects
             ChartCount = ChartCount + 1
+            ProgressDetail "Charts: chart " & ChartCount & " of " & SourceSheet.ChartObjects.Count
             ShowReportChart SourceWindow, ChartFrame
             PictureFile = ReportTempFolder() & Application.PathSeparator & "K-SACCR_report_chart_" & ChartCount & ".png"
             If FileExists(PictureFile) Then Kill PictureFile
@@ -6771,49 +6811,93 @@ End Function
 Private Sub CheckCsvFile( _
     ByVal Kind As String)
 '
-'==============================================================================
-'                                CheckCsvFile
+'------------------------------------------------------------------------------
+'                 CHECK A CSV FILE AGAINST ITS INPUT CONTRACT
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Ask for a CSV file, read it as a file of Kind and report whether it
+'   Asks for a CSV file, reads it as a file of Kind and reports whether it
 '   follows the contract: the number of records of an accepted file, or
 '   the number of findings and the first of them, up to
-'   CSV_MESSAGE_FINDINGS (CsvCheckMessage). A cancelled dialog does
-'   nothing; nothing is ever written to the workbook.
+'   CSV_MESSAGE_FINDINGS (CsvCheckMessage)
+'
+' WHY THIS EXISTS
+'   A file can be checked before it is imported; nothing is ever written
+'   to the workbook
+'
+' INPUTS
+'   Kind
+'     The kind of file, such as "Trades" or "NettingSets"
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - A cancelled dialog does nothing
+'   - Shows "reading and checking" in the status bar while the file is
+'     read (#807); the message gives the status bar back
 '
 ' ERROR POLICY
 '   Reports a file that cannot be read in a message, or in the Immediate
-'   window in silent mode; never raises.
+'   window in silent mode; never raises
+'
+' DEPENDENCIES
+'   ReadCsvFile (CORE_CsvReader), CsvCheckMessage, ProgressStart,
+'   ProgressShow, Notify
+'
+' NOTES
+'   Runs from CheckTradesCsv and the other Check macros
 '
 ' UPDATED
-'   2026-11-04
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ChosenFile  As Variant          'Chosen file, or False when cancelled
-    Dim Result      As CsvReadResult    'What the reader found
-    Dim Values()    As String           'The records of an accepted file
-    Dim Lines()     As Long             'Their lines
-    Dim Findings()  As CsvFinding       'The findings
+    Const PROC_NAME     As String = "M_Main.CheckCsvFile"
+
+    Dim ChosenFile      As Variant          'Chosen file, or False when cancelled
+    Dim Result          As CsvReadResult    'What the reader found
+    Dim Values()        As String           'The records of an accepted file
+    Dim Lines()         As Long             'Their lines
+    Dim Findings()      As CsvFinding       'The findings
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+        On Error GoTo ErrorHandler
 
 '------------------------------------------------------------------------------
 ' ASK AND READ
 '------------------------------------------------------------------------------
-        On Error GoTo Failed
+    'Ask for the file; a cancelled dialog does nothing
         ChosenFile = Application.GetOpenFilename(FileFilter:="CSV files (*.csv), *.csv", _
                                                  Title:="Check " & Kind & " CSV file")
         If VarType(ChosenFile) = vbBoolean Then
             Exit Sub
         End If
+    'Read and check it, its progress in the status bar
+        ProgressStart "Check " & Kind
+        ProgressShow 0, 1, "reading and checking " & CutText(CStr(ChosenFile), CSV_MESSAGE_PATH, True)
         ReadCsvFile CStr(ChosenFile), Kind, Result, Values, Lines, Findings
+
+'------------------------------------------------------------------------------
+' REPORT
+'------------------------------------------------------------------------------
+    'Say what the file holds; the message gives the status bar back
         Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings), _
                IIf(Result.Accepted, vbInformation, vbExclamation)
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
         Exit Sub
 
-Failed:
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+ErrorHandler:
+    'Say what failed
         Notify Kind & " CSV file not checked: " & Err.Description, vbCritical
 
 End Sub
@@ -7316,60 +7400,111 @@ End Function
 Private Sub ImportCsv( _
     ByVal Kind As String)
 '
-'==============================================================================
-'                                  ImportCsv
+'------------------------------------------------------------------------------
+'                    IMPORT A CSV FILE INTO ITS STAGING SHEET
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Ask for a CSV file, read it as a file of Kind and load its records into
-'   the staging sheet as text, with the CSV line of each, then show the
-'   outcome and the sheet. A structural finding loads nothing; findings
-'   about values are listed and stay to be corrected on the sheet. When
-'   the sheet has changes since its last load, the user is asked before
-'   they are replaced. A cancelled dialog or a No changes nothing.
+'   Asks for a CSV file, reads it as a file of Kind and loads its records
+'   into the staging sheet as text, with the CSV line of each, then shows
+'   the outcome and the sheet
+'
+' WHY THIS EXISTS
+'   The records are loaded as they are written in the file, so that the
+'   findings about values can be corrected on the sheet before they are
+'   validated (docs/IMPORT.md)
+'
+' INPUTS
+'   Kind
+'     The kind of file, such as "Trades" or "NettingSets"
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - A cancelled dialog changes nothing
+'   - Shows the progress in the status bar by phases (#807): reading and
+'     checking the file, then writing its records
+'   - A structural finding loads nothing; findings about values are
+'     listed and stay to be corrected on the sheet
+'   - When the sheet has changes since its last load, asks before they
+'     are replaced; a No changes nothing
 '
 ' ERROR POLICY
 '   Reports a file that cannot be read or loaded in a message, or in the
 '   Immediate window in silent mode; never raises. The staging sheet is
-'   put back as it was when its writing fails (LoadStaging).
+'   put back as it was when its writing fails (LoadStaging)
+'
+' DEPENDENCIES
+'   StagingSheetOf, ReadCsvFile (CORE_CsvReader), CsvCheckMessage,
+'   StagingHasEdits, ReplaceConfirmed, LoadStaging, CutText,
+'   ProgressStart, ProgressShow, ProgressEnd, Notify
+'
+' NOTES
+'   Every message gives the status bar back (Notify); the question gets it
+'   back first (ProgressEnd)
 '
 ' UPDATED
-'   2026-10-26
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim SheetName   As String           'The staging sheet
-    Dim ChosenFile  As Variant          'Chosen file, or False when cancelled
-    Dim Result      As CsvReadResult    'What the reader found
-    Dim Values()    As String           'The records of a readable file
-    Dim Lines()     As Long             'Their lines
-    Dim Findings()  As CsvFinding       'The findings
-    Dim Note        As String           'What was loaded
+    Const PROC_NAME     As String = "M_Main.ImportCsv"
+
+    Dim SheetName       As String           'The staging sheet
+    Dim ChosenFile      As Variant          'Chosen file, or False when cancelled
+    Dim Result          As CsvReadResult    'What the reader found
+    Dim Values()        As String           'The records of a readable file
+    Dim Lines()         As Long             'Their lines
+    Dim Findings()      As CsvFinding       'The findings
+    Dim Note            As String           'What was loaded
 
 '------------------------------------------------------------------------------
-' ASK, READ AND LOAD
+' INITIALIZE
 '------------------------------------------------------------------------------
-        On Error GoTo Failed
+        On Error GoTo ErrorHandler
+
+'------------------------------------------------------------------------------
+' ASK AND READ
+'------------------------------------------------------------------------------
+    'Ask for the file; a cancelled dialog changes nothing
         SheetName = StagingSheetOf(Kind)
         ChosenFile = Application.GetOpenFilename(FileFilter:="CSV files (*.csv), *.csv", _
                                                  Title:="Import " & Kind & " CSV file into " & SheetName)
         If VarType(ChosenFile) = vbBoolean Then
             Exit Sub
         End If
+    'Read and check it, its progress in the status bar
+        ProgressStart "Import " & Kind
+        ProgressShow 0, 2, "reading and checking " & CutText(CStr(ChosenFile), CSV_MESSAGE_PATH, True)
         ReadCsvFile CStr(ChosenFile), Kind, Result, Values, Lines, Findings, 0, True
+    'A file that cannot be read loads nothing
         If Not Result.Readable Then
             Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, _
                                    "Nothing was loaded: " & SheetName & " is unchanged."), vbExclamation
             Exit Sub
         End If
+
+'------------------------------------------------------------------------------
+' CONFIRM
+'------------------------------------------------------------------------------
+    'Changes made on the sheet are replaced only when the user says so
         If StagingHasEdits(Kind) Then
+            ProgressEnd
             If Not ReplaceConfirmed(Kind, CStr(ChosenFile)) Then
                 Exit Sub
             End If
+            ProgressStart "Import " & Kind
         End If
+
+'------------------------------------------------------------------------------
+' LOAD
+'------------------------------------------------------------------------------
+    'Write the records to the staging sheet
+        ProgressShow 1, 2, "writing " & Result.RecordCount & " records to " & SheetName
         LoadStaging Kind, CStr(ChosenFile), Result, Values, Lines
+    'Say what was loaded and what is left to do
         If Result.Accepted Then
             Note = "Loaded into " & SheetName & " as text." & vbLf & "Not validated yet; " & Kind & " is unchanged."
         Else
@@ -7379,9 +7514,17 @@ Private Sub ImportCsv( _
         ThisWorkbook.Worksheets(SheetName).Activate
         Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, Note), _
                IIf(Result.Accepted, vbInformation, vbExclamation)
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
         Exit Sub
 
-Failed:
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+ErrorHandler:
+    'Say what failed; the message gives the status bar back
         Notify Kind & " CSV import: " & Err.Description, vbCritical
 
 End Sub
@@ -7390,34 +7533,74 @@ End Sub
 Private Sub ImportBankCsv( _
     ByVal Kind As String)
 '
-'==============================================================================
-'                                ImportBankCsv
+'------------------------------------------------------------------------------
+'                     IMPORT A BANK CSV FILE INTO ITS SHEET
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   The interactive load of a bank file (#718): ask for the file, read it,
-'   say what is wrong with it when it does not follow the contract, ask
-'   before replacing figures that are on the sheet, and write the records.
-'   The file is accepted or rejected as a whole; a record is never dropped
-'   or truncated, so a file with more records than the sheet holds is
-'   rejected.
+'   The interactive load of a bank file (#718): asks for the file, reads
+'   it, says what is wrong with it when it does not follow the contract,
+'   asks before replacing figures that are on the sheet, and writes the
+'   records
+'
+' WHY THIS EXISTS
+'   The bank figures are compared with the run's (docs/IMPORT.md); the
+'   file is accepted or rejected as a whole, so a record is never dropped
+'   or truncated and a file with more records than the sheet holds is
+'   rejected
+'
+' INPUTS
+'   Kind
+'     BankNettingSets or BankTrades
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - A cancelled dialog changes nothing
+'   - Shows the progress in the status bar by phases (#807): reading and
+'     checking the file, then writing its records
+'   - A file that is not accepted, or holds no record, loads nothing
+'   - Asks before replacing the figures on the sheet, except in silent
+'     mode; a No changes nothing
 '
 ' ERROR POLICY
-'   Reported to the user, never raised.
+'   Reported to the user, never raised
+'
+' DEPENDENCIES
+'   BankReconKind, BankSheetOf, ReadCsvFile (CORE_CsvReader),
+'   CsvCheckMessage, CutText, BankRowsEntered, LoadBank, ProgressStart,
+'   ProgressShow, ProgressEnd, Notify
+'
+' NOTES
+'   Every message gives the status bar back (Notify); the question gets it
+'   back first (ProgressEnd)
 '
 ' UPDATED
-'   2026-11-20
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
-    Dim ReconKind   As Long             'The reconciliation the sheet belongs to
-    Dim SheetName   As String           'The bank sheet
-    Dim ChosenFile  As Variant          'Chosen file, or False when cancelled
-    Dim Result      As CsvReadResult    'What the reader found
-    Dim Values()    As String           'The records of a readable file
-    Dim Lines()     As Long             'Their lines
-    Dim Findings()  As CsvFinding       'The findings
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME     As String = "M_Main.ImportBankCsv"
 
-        On Error GoTo Failed
+    Dim ReconKind       As Long             'The reconciliation the sheet belongs to
+    Dim SheetName       As String           'The bank sheet
+    Dim ChosenFile      As Variant          'Chosen file, or False when cancelled
+    Dim Result          As CsvReadResult    'What the reader found
+    Dim Values()        As String           'The records of a readable file
+    Dim Lines()         As Long             'Their lines
+    Dim Findings()      As CsvFinding       'The findings
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+        On Error GoTo ErrorHandler
+
+'------------------------------------------------------------------------------
+' ASK AND READ
+'------------------------------------------------------------------------------
+    'Ask for the file; a cancelled dialog changes nothing
         ReconKind = BankReconKind(Kind)
         SheetName = BankSheetOf(ReconKind)
         ChosenFile = Application.GetOpenFilename(FileFilter:="CSV files (*.csv), *.csv", _
@@ -7425,7 +7608,11 @@ Private Sub ImportBankCsv( _
         If VarType(ChosenFile) = vbBoolean Then
             Exit Sub
         End If
+    'Read and check it, its progress in the status bar
+        ProgressStart "Import " & Kind
+        ProgressShow 0, 2, "reading and checking " & CutText(CStr(ChosenFile), CSV_MESSAGE_PATH, True)
         ReadCsvFile CStr(ChosenFile), Kind, Result, Values, Lines, Findings, 0, True
+    'The file is accepted as a whole, or loads nothing
         If Not Result.Accepted Then
             Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, _
                                    "Nothing was loaded: " & SheetName & " is unchanged."), vbExclamation
@@ -7436,24 +7623,45 @@ Private Sub ImportBankCsv( _
                    "The file holds no record. Nothing was loaded: " & SheetName & " is unchanged.", vbExclamation
             Exit Sub
         End If
+
+'------------------------------------------------------------------------------
+' CONFIRM
+'------------------------------------------------------------------------------
+    'Figures on the sheet are replaced only when the user says so
         If BankRowsEntered(ReconKind) Then
             If Not gSilent Then
+                ProgressEnd
                 If MsgBox(SheetName & " holds bank figures." & vbLf & vbLf & "Replace them with the " & _
                           Result.RecordCount & " records of " & CutText(CStr(ChosenFile), CSV_MESSAGE_PATH, True) & "?", _
                           vbYesNo + vbExclamation + vbDefaultButton2, MSG_TITLE) <> vbYes Then
                     Exit Sub
                 End If
+                ProgressStart "Import " & Kind
             End If
         End If
+
+'------------------------------------------------------------------------------
+' LOAD
+'------------------------------------------------------------------------------
+    'Write the records to the bank sheet and say so
+        ProgressShow 1, 2, "writing " & Result.RecordCount & " records to " & SheetName
         LoadBank ReconKind, Result, Values
         ThisWorkbook.Worksheets(SheetName).Activate
         Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, _
                                "Loaded into " & SheetName & ": " & Result.RecordCount & " records." & vbLf & _
                                "The amount scale and the tolerances of the sheet are unchanged; press Run SA-CCR to reconcile."), _
                vbInformation
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
         Exit Sub
 
-Failed:
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+ErrorHandler:
+    'Say what failed; the message gives the status bar back
         Notify Kind & " CSV import: " & Err.Description, vbCritical
 
 End Sub
@@ -15516,25 +15724,49 @@ Private Sub Notify( _
     ByVal Message As String, _
     ByVal IconStyle As VbMsgBoxStyle)
 '
-'==============================================================================
-'                                    Notify
+'------------------------------------------------------------------------------
+'                          SHOW A MESSAGE TO THE USER
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Show a message to the user, or print it in silent mode unless
-'   gQuietLog is set.
+'   Shows a message to the user, or prints it in silent mode unless
+'   gQuietLog is set
+'
+' WHY THIS EXISTS
+'   Every message of the workbook goes through one place, so that silent
+'   mode and the tests can capture it
 '
 ' INPUTS
-'   Message: the text to show.
-'   IconStyle: message-box icon, for example vbInformation or vbCritical.
+'   Message
+'     The text to show
+'   IconStyle
+'     Message-box icon, for example vbInformation or vbCritical
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Gives the status bar back to Excel first, when an operation shows
+'     its progress there (ProgressEnd, #807)
+'
+' ERROR POLICY
+'   None of its own; MsgBox errors propagate
+'
+' DEPENDENCIES
+'   ProgressEnd, MsgBox, gSilent, gQuietLog, gLastMessage
+'
+' NOTES
+'   None
 '
 ' UPDATED
-'   2026-10-17
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' SHOW OR PRINT
 '------------------------------------------------------------------------------
+    'The message ends the operation, and its progress
+        ProgressEnd
+    'Remember the message for the tests, then show or print it
         gLastMessage = Message
         If gSilent Then
             If Not gQuietLog Then
@@ -15543,5 +15775,229 @@ Private Sub Notify( _
         Else
             MsgBox Message, IconStyle, MSG_TITLE
         End If
+
+End Sub
+
+
+Private Sub ProgressStart( _
+    ByVal Operation As String)
+'
+'------------------------------------------------------------------------------
+'                     SHOW THE PROGRESS OF AN OPERATION
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Starts showing the progress of a long operation in the status bar
+'   (#807), under the name Operation
+'
+' WHY THIS EXISTS
+'   Excel freezes while a long import or report runs; the status bar
+'   says what it is doing
+'
+' INPUTS
+'   Operation
+'     The operation, such as "Report" or "Import Trades"
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Does nothing in silent mode: automation and tests show nothing
+'   - ProgressShow then writes each step, ProgressEnd gives the status bar
+'     back to Excel; Notify calls ProgressEnd
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   gSilent
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' START
+'------------------------------------------------------------------------------
+    'Nothing is shown in silent mode
+        If gSilent Then Exit Sub
+    'Name the operation; nothing is written until its first step
+        mProgressOperation = Operation
+        mProgressText = vbNullString
+        mProgressDone = 0
+        mProgressTotal = 0
+
+End Sub
+
+
+Private Sub ProgressShow( _
+    ByVal Done As Long, _
+    ByVal Total As Long, _
+    ByVal Detail As String)
+'
+'------------------------------------------------------------------------------
+'                     WRITE A STEP OF AN OPERATION'S PROGRESS
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Writes the progress of the operation ProgressStart named to the status
+'   bar: Done of Total steps, and what is being done (CORE_Util.ProgressText)
+'
+' WHY THIS EXISTS
+'   The procedures of an operation say their own steps, while only the
+'   interactive caller decides whether progress is shown
+'
+' INPUTS
+'   Done
+'     Steps done
+'   Total
+'     Steps in all; 0 for unknown, which shows no bar
+'   Detail
+'     What is being done
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Does nothing when no progress was started, so that the procedures of
+'     an operation can show their steps whoever calls them
+'   - Writes the status bar only when its text changes
+'   - Keeps the step, for ProgressDetail
+'
+' ERROR POLICY
+'   Best effort: a status bar that cannot be written is left as it is
+'
+' DEPENDENCIES
+'   CORE_Util.ProgressText, Application.StatusBar
+'
+' NOTES
+'   No DoEvents: the status bar repaints without yielding to Excel
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Text            As String         'The text of the status bar
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+    'Only an operation that shows its progress
+        If VBA.Len(mProgressOperation) = 0 Then Exit Sub
+    'Keep the step for ProgressDetail
+        mProgressDone = Done
+        mProgressTotal = Total
+    'Only a text that changed
+        Text = CORE_Util.ProgressText(mProgressOperation, Done, Total, Detail)
+        If Text = mProgressText Then Exit Sub
+        On Error Resume Next
+        Application.StatusBar = Text
+        On Error GoTo 0
+        mProgressText = Text
+
+End Sub
+
+
+Private Sub ProgressDetail( _
+    ByVal Detail As String)
+'
+'------------------------------------------------------------------------------
+'                    SAY WHAT THE CURRENT STEP IS DOING
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Writes a new detail for the step ProgressShow wrote last, such as the
+'   chart being pictured, without moving the bar (#807)
+'
+' WHY THIS EXISTS
+'   A step can be long, as the charts of a PDF; its detail moves while
+'   the bar stays
+'
+' INPUTS
+'   Detail
+'     What is being done
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Does nothing when no progress was started (ProgressShow)
+'
+' ERROR POLICY
+'   As ProgressShow
+'
+' DEPENDENCIES
+'   ProgressShow
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+    'The step stays; the detail changes
+        ProgressShow mProgressDone, mProgressTotal, Detail
+
+End Sub
+
+
+Private Sub ProgressEnd()
+
+'
+'------------------------------------------------------------------------------
+'                   GIVE THE STATUS BAR BACK TO EXCEL
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Ends the progress ProgressStart began and gives the status bar back to
+'   Excel (#807)
+'
+' WHY THIS EXISTS
+'   Excel keeps a text written to the status bar until it is given back
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Does nothing when no progress was started, so that a status bar
+'     another procedure writes, as Download prices, is left as it is
+'   - Called before every message (Notify) and every question, so that a
+'     dialog never shows over a status bar that still runs
+'
+' ERROR POLICY
+'   Best effort: a status bar that cannot be reset is left as it is
+'
+' DEPENDENCIES
+'   Application.StatusBar
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' END
+'------------------------------------------------------------------------------
+    'Only an operation that showed its progress
+        If VBA.Len(mProgressOperation) = 0 Then Exit Sub
+    'Give the status bar back to Excel
+        mProgressOperation = vbNullString
+        mProgressText = vbNullString
+        mProgressDone = 0
+        mProgressTotal = 0
+        On Error Resume Next
+        Application.StatusBar = False
+        On Error GoTo 0
 
 End Sub

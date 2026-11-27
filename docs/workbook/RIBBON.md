@@ -249,6 +249,27 @@ another state callback runs, shows `Status unavailable`.
 fingerprint, which a Ribbon callback must not do. The evidence export still
 refuses edited results on its own.
 
+## ⏳ Progress
+
+<a id="progress"></a>
+
+**Progress in the status bar (#807).** The long commands say what they are
+doing in Excel's status bar, at the bottom of the window, while they run:
+the command, a bar of 20 blocks, one per 5% done, the percentage and the
+step, for example `K-SACCR - Report  ██████████░░░░░░░░░░  50%  Results`.
+
+| Command | Steps |
+| --- | --- |
+| **Export report** | One per section of the report (Run, Dashboard, Charts for a PDF, Totals, Results, Checks, each reconciliation made) and the save; the Charts step names the chart being pictured |
+| **Import CSV** (all four files) | Reading and checking the file, then writing its records to the sheet |
+| The Check macros (`CheckTradesCsv`, ...) | Reading and checking the file |
+
+The status bar is given back to Excel before every message and question, so
+a dialog never shows over a running bar; a failure gives it back too. The
+silent entry points (`ExportReport_Silent`, `ImportCsv_Silent`, ...) and the
+tests show nothing. The text is `CORE_Util.ProgressText`, which
+`TEST_MainState` checks (`progress.text`).
+
 ## ✅ Enabled states
 
 Every command and the Navigation bar toggle call `RibbonGetEnabled` (#216);
