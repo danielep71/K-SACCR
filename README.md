@@ -13,7 +13,7 @@
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
 [![Release](https://img.shields.io/badge/Release-1.2.0-2ea44f?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-13%2F13_PASS-2ea44f?style=for-the-badge)](#validation)
-[![Regression](https://img.shields.io/badge/Regression-557_cases_%C2%B7_2556_checks-2ea44f?style=for-the-badge)](#test-suites)
+[![Regression](https://img.shields.io/badge/Regression-557_cases_%C2%B7_2557_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16605/badge)](https://www.bestpractices.dev/projects/16605)
 
@@ -176,7 +176,7 @@ inspected. This toolkit is the opposite:
 | Evidence export | One CSV file per run, refused while anything is out of date ([how](#3-run)) |
 | Worksheet functions | Eleven `SACCR_*` functions for the building blocks, returning Excel errors for invalid inputs |
 | Deployment | Plain exported VBA and a macro-free template; no add-in, COM component, DLL or extra VBA reference |
-| Testing | Thirteen Excel suites (557 cases, 2556 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
+| Testing | Thirteen Excel suites (557 cases, 2557 checks), `Test_RunAll` summary, static checks in CI, and a validator for the Excel evidence record |
 | Scale | 500,000 synthetic trade legs in 1,000 netting sets calculated in under two minutes on the supported 64-bit Excel host, every leg used; no fixed trade limit ([portfolio size](INSTALLATION.md#portfolio-size)) |
 
 The [support matrix](docs/methodology/README.md#support-matrix) lists what is
@@ -381,7 +381,7 @@ SACCR TEST SUMMARY 2026-11-19 09:36:50
   PASS  TEST_InputValidation  cases=197; checks=345; failures=0; restore=PASS  (28,4 s)
   PASS  TEST_Aggregation      cases=12; checks=15; failures=0; restore=PASS  (3,3 s)
   PASS  TEST_Invariants       cases=4; checks=23; failures=0; restore=PASS  (1,6 s)
-  PASS  TEST_Reconcile        cases=24; checks=246; failures=0; restore=PASS  (10,7 s)
+  PASS  TEST_Reconcile        cases=24; checks=247; failures=0; restore=PASS  (10,7 s)
   PASS  TEST_CsvReader        cases=144; checks=385; failures=0; restore=PASS  (0,3 s)
   PASS  TEST_Import           cases=40; checks=242; failures=0; restore=PASS  (37,2 s)
   PASS  TEST_FormulaRandom    cases=19; checks=47; failures=0; restore=PASS  (3,1 s)
@@ -709,13 +709,13 @@ reproducible cross-check with the registered R package `SACCR` (#100)
 | `TEST_InputValidation` | Rejection of malformed inputs and the input conventions, FX conversion in several currencies included | 197 | 345 |
 | `TEST_Aggregation` | Row-order independence, offsets and a mixed clearing population | 12 | 15 |
 | `TEST_Invariants` | Relations every result must satisfy | 4 | 23 |
-| `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates, and Clear bank figures | 24 | 246 |
+| `TEST_Reconcile` | Netting-set and trade-leg reconciliation, the evidence export and the CSV templates, and Clear bank figures | 24 | 247 |
 | `TEST_CsvReader` | The VBA CSV reader against every fixture, case, portfolio case, staged case and context case the reference implementation pins | 144 | 385 |
 | `TEST_Import` | Loading a CSV file into the staging sheets: text kept as written, findings, edits, failure and the live sheets left alone; validating them: findings on Checks with links and marks, corrections and repeated validation, the evidence export refused, error values, the rules against Params, whether a validation is still current and the OUT OF DATE status; committing them: refusals, failures put back and verified, typed values, a sheet left alone and the button in silent mode; the CSV line locked and the staged values unlocked, the committed input sheets protected; formula inputs recalculated in manual calculation; a formula below the data inside the commit; committed rows run as the same rows typed by hand; what a commit leaves of the Excel settings and of the results, also when its cleanup fails; the import specification saved byte for byte, an existing file refused or replaced, failed writes leaving it as it was, and its example files validating together; the Excel settings after a load and a validation, live Trades and FX changes after a validation, a 15-digit notional, netting sets committed alone with a header-only Trades file, the counterparty sector committed from a version 2 file and left blank by a version 1 file, and the output tables of committed rows against the same rows typed by hand, and the format of committed rows below the template's formatted ones | 40 | 242 |
 | `TEST_FormulaRandom` | The FormulaTest sheet at scale: 1,000 reproducible random draws of each range set and draws at and around its branch points, each judged by the sheet's own comparison; the shipped inputs restored, a seed replayed, an unusable range table refused, no volatile function, a perturbed Expected caught and the sheet put back | 19 | 47 |
 | `TEST_Dashboard` | The Dashboard after a run: every block against the figures computed from Results, TradeCalc, Checks, NettingSets and the reconciliation sheets, on the demonstration portfolio, on both regimes with netting sets in and out of the money, holding collateral and invalid, and on a netting set with no trade; the reading of the path from notional to EAD; Clear outputs, a failed run and an edited input | 6 | 65 |
 | `TEST_Report` | The formatted run report: the text a PDF writes for amounts, ratios, counts and dates, the examples of `docs/workbook/report.json`, whatever the regional settings; a reconciled figure in the format of its measure; a value in the format of its cell; Checks by code; the refusals of Export evidence and a Dashboard changed after the run; an XLSX read back from its file with its sheets in order, values only, no link and no macro, and the figures of the run; a PDF with the Dashboard's charts; a failure before the save, during the replacement and on a read-only file, each leaving the older report as it was; the results still current afterwards | 5 | 55 |
-| **Total** | | **557** | **2556** |
+| **Total** | | **557** | **2557** |
 
 The harness counts assertions as its checks. The counts are those of 64-bit
 Excel; on 32-bit, `TEST_Formulas` skips two `LongLong` checks (133).

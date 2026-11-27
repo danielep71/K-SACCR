@@ -84,7 +84,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 24              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 246              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 247              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -816,7 +816,7 @@ Private Sub CaseBankClear()
 '   Clear bank figures (#815): ClearBank_Silent empties the figures and
 '   comments of BankNettingSets and of BankTrades, says how many rows held
 '   an entry, leaves the amount scale and the tolerances, clears an empty
-'   table without complaint, and raises for a kind that is not a bank
+'   table without complaint, counts a comment alone as an entry, and raises for a kind that is not a bank
 '   file. The suite then puts both tables back.
 '
 ' UPDATED
@@ -862,6 +862,11 @@ Private Sub CaseBankClear()
         TEST_Kit.Check NamedCell(NM_BN_SCALE).Value2 = 1000, "the amount scale changed: " & CStr(NamedCell(NM_BN_SCALE).Value2)
         ResultLine = M_Main.ClearBank_Silent("BankNettingSets")
         TEST_Kit.Check ResultLine = "RESULT=CLEARED; sheet=BankNettingSets; rows=0", "clear an empty table: " & ResultLine
+
+    'A comment alone is an entry to clear (Codex on #817)
+        TableCell(NsSheet, NsFirst + 3, BN_NCOLS).Value = "a comment alone"
+        ResultLine = M_Main.ClearBank_Silent("BankNettingSets")
+        TEST_Kit.Check ResultLine = "RESULT=CLEARED; sheet=BankNettingSets; rows=1", "clear a comment alone: " & ResultLine
 
     'One trade row
         TableRange(TrSheet, TrFirst, 1, TrFirst + 49, BT_NCOLS).ClearContents

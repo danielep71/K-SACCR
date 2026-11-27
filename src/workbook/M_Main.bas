@@ -7450,7 +7450,9 @@ Private Sub ClearBankCommand( _
 '
 ' BEHAVIOR
 '   - Refuses while an operation runs
-'   - A sheet without figures is left as it is, with a message
+'   - A sheet without an entry, a comment included, is left as it is,
+'     with a message (BankEntryRows; BankRowsEntered ignores the comment
+'     column, Codex on #817)
 '   - Asks first, with No as the default; silent mode, which shows no
 '     question, clears nothing (automation calls ClearBank_Silent)
 '   - The amount scale and the tolerances are not changed; the next Run
@@ -7461,7 +7463,7 @@ Private Sub ClearBankCommand( _
 '   mode; never raises
 '
 ' DEPENDENCIES
-'   BankReconKind, BankSheetOf, BankRowsEntered, ClearBankFigures,
+'   BankReconKind, BankSheetOf, BankEntryRows, ClearBankFigures,
 '   RibbonStateChanged, CountText, Notify
 '
 ' NOTES
@@ -7495,9 +7497,9 @@ Private Sub ClearBankCommand( _
             Notify "An SA-CCR operation is already running.", vbExclamation
             Exit Sub
         End If
-    'A sheet without figures is left as it is
-        If Not BankRowsEntered(ReconKind) Then
-            Notify SheetName & " holds no bank figures: nothing to clear.", vbInformation
+    'A sheet without an entry, figure or comment, is left as it is
+        If BankEntryRows(ReconKind) = 0 Then
+            Notify SheetName & " holds no bank figures or comments: nothing to clear.", vbInformation
             Exit Sub
         End If
     'Silent mode cannot ask
@@ -7573,8 +7575,8 @@ Private Function ClearBankFigures( _
 '
 ' DEPENDENCIES
 '   BankHeaderRow, HeaderNameOf, GetSheet, BankSheetOf, BankColsOf,
-'   UsedLastRow and TableRange (CORE_Util), ProtectWorkbook,
-'   RestoreSettings
+'   BankEntryRows, UsedLastRow and TableRange (CORE_Util),
+'   ProtectWorkbook, RestoreSettings
 '
 ' NOTES
 '   The stored reconciliation fingerprint is left as it is: the evidence
@@ -7595,7 +7597,6 @@ Private Function ClearBankFigures( _
     Dim FirstRow            As Long            'First row below the header
     Dim LastRow             As Long            'Last used row
     Dim Width               As Long            'Columns of the table
-    Dim Block               As Variant         'The table before the clear
     Dim Entered             As Long            'Rows that held an entry
     Dim SavedCalculation    As XlCalculation   'Calculation mode before the clear
     Dim SavedEvents         As Boolean         'EnableEvents before the clear
@@ -7605,8 +7606,6 @@ Private Function ClearBankFigures( _
     Dim ErrorSource         As String          'Its source
     Dim ErrorDescription    As String          'Its description
     Dim CleanupDetails      As String          'Settings not restored
-    Dim r                   As Long            'Row of the block
-    Dim c                   As Long            'Column of the block
 
 '------------------------------------------------------------------------------
 ' VALIDATE INPUTS
@@ -7629,16 +7628,8 @@ Private Function ClearBankFigures( _
 '------------------------------------------------------------------------------
 ' COUNT THE ROWS WITH AN ENTRY
 '------------------------------------------------------------------------------
-    'A row with any cell that is not blank
-        Block = TableRange(Sheet, FirstRow, 1, LastRow, Width).Value2
-        For r = 1 To UBound(Block, 1)
-            For c = 1 To UBound(Block, 2)
-                If VBA.Len(VBA.Trim$(CORE_Util.SafeStr(Block(r, c)))) > 0 Then
-                    Entered = Entered + 1
-                    Exit For
-                End If
-            Next c
-        Next r
+    'A row with any cell that is not blank, the comment included
+        Entered = BankEntryRows(ReconKind)
 
 '------------------------------------------------------------------------------
 ' INITIALIZE
@@ -7693,6 +7684,84 @@ ErrorHandler:
         ErrorSource = Err.Source
         ErrorDescription = Err.Description
         Resume CleanUp
+
+End Function
+
+
+Private Function BankEntryRows( _
+    ByVal ReconKind As Long) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                  COUNT THE ROWS OF A BANK TABLE THAT HOLD AN ENTRY
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Counts the rows below the header of a bank table with any cell that is
+'   not blank, the comment column included (#815)
+'
+' WHY THIS EXISTS
+'   BankRowsEntered decides whether a reconciliation is needed and ignores
+'   the comment column; Clear bank figures clears comments too, so a sheet
+'   of comments alone must reach it (Codex on #817)
+'
+' INPUTS
+'   ReconKind
+'     RECON_NS or RECON_TR
+'
+' RETURNS
+'   The rows with an entry; 0 for an empty table or a missing header
+'
+' BEHAVIOR
+'   - Reads the table once, as Value2, down to the last used row
+'   - A cell of spaces alone counts as blank
+'
+' ERROR POLICY
+'   An error of Excel propagates
+'
+' DEPENDENCIES
+'   BankHeaderRow, GetSheet, BankSheetOf, BankColsOf, UsedLastRow,
+'   TableRange and SafeStr (CORE_Util)
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Sheet           As Worksheet    'The bank sheet
+    Dim HeaderRow       As Long         'Its header row
+    Dim LastRow         As Long         'Its last used row
+    Dim Block           As Variant      'The table
+    Dim r               As Long         'Row of the block
+    Dim c               As Long         'Column of the block
+
+'------------------------------------------------------------------------------
+' COUNT
+'------------------------------------------------------------------------------
+    'Nothing below a missing header or an empty table
+        HeaderRow = BankHeaderRow(ReconKind)
+        If HeaderRow = 0 Then Exit Function
+        Set Sheet = GetSheet(BankSheetOf(ReconKind))
+        LastRow = UsedLastRow(Sheet)
+        If LastRow <= HeaderRow Then Exit Function
+    'A row with any cell that is not blank
+        Block = TableRange(Sheet, HeaderRow + 1, 1, LastRow, BankColsOf(ReconKind)).Value2
+        If Not IsArray(Block) Then
+            If VBA.Len(VBA.Trim$(CORE_Util.SafeStr(Block))) > 0 Then BankEntryRows = 1
+            Exit Function
+        End If
+        For r = 1 To UBound(Block, 1)
+            For c = 1 To UBound(Block, 2)
+                If VBA.Len(VBA.Trim$(CORE_Util.SafeStr(Block(r, c)))) > 0 Then
+                    BankEntryRows = BankEntryRows + 1
+                    Exit For
+                End If
+            Next c
+        Next r
 
 End Function
 

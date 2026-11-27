@@ -104,7 +104,7 @@ Use only the categories needed by a release.
   the Import CSV menu of the Ribbon (`ksClearBankNettingSets`, `ksClearBankTrades`), clear every
   figure and comment after a confirmation, No being the default; the amount scale and the
   tolerances stay. `ClearBank_Silent(kind)` is the automation entry point; `TEST_Reconcile` checks
-  it (`bank.clear`, 24 cases, 246 checks).
+  it (`bank.clear`, 24 cases, 247 checks); a sheet of comments alone is cleared too (Codex on #817).
 - Show the progress of the long commands in Excel's status bar (#807), as the owner asked: the
   command, a bar of 20 blocks, the percentage and the step. **Run** and Validate inputs follow
   the engine's phases and its trades; **Import CSV**, for the four files, and the Check macros
