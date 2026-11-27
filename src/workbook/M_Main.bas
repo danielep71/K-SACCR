@@ -7630,6 +7630,9 @@ Private Function ClearBankFigures( _
 '   - Holds the operation guard while it writes
 '   - Turns off screen updating, events and calculation while it writes,
 '     and puts them back on every path
+'   - Recalculates the status formulas before the settings are put back,
+'     so that a retained reconciliation shows OUT OF DATE at once, also
+'     in manual calculation (Codex on #841)
 '
 ' ERROR POLICY
 '   Raises ERR_RUN_ACTIVE while an operation runs (or with the test seam
@@ -7641,7 +7644,7 @@ Private Function ClearBankFigures( _
 ' DEPENDENCIES
 '   BankHeaderRow, HeaderNameOf, GetSheet, BankSheetOf, BankColsOf,
 '   BankEntryRows, UsedLastRow and TableRange (CORE_Util),
-'   ProtectWorkbook, RestoreSettings
+'   ProtectWorkbook, RefreshResultsStatus, RestoreSettings
 '
 ' NOTES
 '   The stored reconciliation fingerprint is left as it is: the evidence
@@ -7721,10 +7724,13 @@ Private Function ClearBankFigures( _
 '------------------------------------------------------------------------------
 ' EXIT PROCEDURE
 '------------------------------------------------------------------------------
-    'Reached on success and, through the handler, after an error
+    'Reached on success and, through the handler, after an error. The
+    'status formulas are recalculated first: in manual calculation they
+    'would keep saying that the reconciliation is current
 CleanUp:
         On Error GoTo 0
         If StateCaptured Then
+            RefreshResultsStatus
             CleanupDetails = RestoreSettings(SavedCalculation, SavedEvents, SavedScreen)
         End If
         mRunning = False
