@@ -43,7 +43,7 @@ from the macro-free template `src/workbook/SACCR_Template.xlsx` and the VBA in
 | --- | --- |
 | VBA source layout | Defined in [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) |
 | Import/export conventions and host support | Defined below and in [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) |
-| Test suites | `tests/modules/`: the harness `TEST_Harness`, eleven suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`, `TEST_CsvReader`, `TEST_Import`, `TEST_FormulaRandom`, `TEST_Dashboard`), the shared suite lifecycle `TEST_Kit`, the shared case runner `TEST_CaseRunner`, `TEST_Suite`, which runs the harness and every suite, and the benchmark `TEST_Benchmark`, which is not a suite; see [running the harness](#running-the-harness) |
+| Test suites | `tests/modules/`: the harness `TEST_Harness`, twelve suites (`TEST_Formulas`, `TEST_MainState`, `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`, `TEST_Reconcile`, `TEST_CsvReader`, `TEST_Import`, `TEST_FormulaRandom`, `TEST_Dashboard`, `TEST_Report`), the shared suite lifecycle `TEST_Kit`, the shared case runner `TEST_CaseRunner`, `TEST_Suite`, which runs the harness and every suite, and the benchmark `TEST_Benchmark`, which is not a suite; see [running the harness](#running-the-harness) |
 | Excel evidence | Record and validator defined in [`docs/EXCEL_EVIDENCE.md`](docs/EXCEL_EVIDENCE.md) |
 | Released versions | 1.2.0 (2026-11-07), tag `v1.2.0`; 1.1.0 (2026-11-05), tag `v1.1.0`; 1.0.2 (2026-10-23), tag `v1.0.2`; 1.0.1 (2026-10-18), tag `v1.0.1`; 1.0.0 (2026-10-17), tag `v1.0.0` |
 
@@ -286,13 +286,13 @@ The layout and file conventions are defined in
    | 3 | `src/core/CORE_CsvSchema.bas` | `CORE_CsvSchema` | Internal; the CSV input contract for `CORE_CsvReader`, generated from `docs/csv/contract.json` |
    | 4 | `src/core/CORE_Dashboard.bas` | `CORE_Dashboard` | Internal; computes the blocks of the Dashboard from the rows of the output sheets; reads no sheet |
    | 5 | `src/core/CORE_Engine.bas` | `CORE_Engine` | Internal; calculates EAD per netting set and writes the output sheets |
-   | 6 | `src/core/CORE_Export.bas` | `CORE_Export` | Internal; writes the evidence report as CSV text and UTF-8 bytes |
+   | 6 | `src/core/CORE_Export.bas` | `CORE_Export` | Internal; writes the evidence report as CSV text and UTF-8 bytes, and the text of the formatted run report (#259); reads no sheet |
    | 7 | `src/core/CORE_ImportSpec.bas` | `CORE_ImportSpec` | Internal; the CSV import specification page and its example files, generated from `docs/csv/contract.json` |
    | 8 | `src/core/CORE_Reconcile.bas` | `CORE_Reconcile` | Internal; compares a bank's figures with Results and TradeCalc |
    | 9 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 10 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
    | 11 | `src/workbook/M_FormulaTest.bas` | `M_FormulaTest` | The macros of the Randomize inputs and Restore defaults buttons of the FormulaTest sheet and the generator behind them: reproducible random inputs within the sheet's range table, and the shipped inputs back (#165) |
-   | 12 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `DownloadClosingPrices`, `RestoreRegulatoryParameters`; `Auto_Open`, which protects the workbook again when a user opens it and gives every visible sheet a zoom of 100% (`ApplyOpeningView`, #726), and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `DownloadClosingPrices_Silent`, `RebaseFxTable_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
+   | 12 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `DownloadClosingPrices`, `RestoreRegulatoryParameters` and `ExportReport` (#259, the formatted run report, Export report on the Ribbon); `Auto_Open`, which protects the workbook again when a user opens it and gives every visible sheet a zoom of 100% (`ApplyOpeningView`, #726), and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportReport_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `DownloadClosingPrices_Silent`, `RebaseFxTable_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
    | 13 | `src/workbook/M_Ribbon.bas` | `M_Ribbon` | The callbacks of the K-SACCR Ribbon tab ([contract](docs/workbook/RIBBON.md)): `RibbonOnLoad` keeps the Ribbon object and selects the K-SACCR tab, once more 3 seconds later for an add-in that took it (`ActivateRibbonTab`, #726), `RibbonAction` runs the `M_Main` macro of a command, `RibbonGoTo` opens a sheet, `RibbonToggle` answers the Navigation bar toggle, `RibbonGetEnabled`, `RibbonGetLabel` and `RibbonGetPressed` give the state of the controls; keeps the Ribbon's pointer in a hidden name and recovers it after a VBA state reset with `RtlMoveMemory` of `kernel32` (#216) |
    | 14 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 15 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
@@ -309,7 +309,8 @@ The layout and file conventions are defined in
    | 26 | `tests/modules/TEST_Kit.bas` | `TEST_Kit` | Shared suite lifecycle: counts, the SUITE, MODE, CASE, FAILURE and RESULT lines, the restoration check and the refusal of a dirty workbook; development workbook only |
    | 27 | `tests/modules/TEST_MainState.bas` | `TEST_MainState` | Test suite; Excel state and failures of the workbook macros; development workbook only |
    | 28 | `tests/modules/TEST_Reconcile.bas` | `TEST_Reconcile` | Test suite; reconciliation of bank figures with Results; development workbook only |
-   | 29 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
+   | 29 | `tests/modules/TEST_Report.bas` | `TEST_Report` | Test suite; the formatted run report: its text, an XLSX read back, a PDF and the failures that keep an older report; development workbook only |
+   | 30 | `tests/modules/TEST_Suite.bas` | `TEST_Suite` | Runs every suite and prints a summary (`Test_RunAll`); print routine of the suites; development workbook only |
 
    The K-SACCR Ribbon tab of the template calls every command through
    `M_Ribbon`, and the buttons of the two staging sheets call
@@ -362,7 +363,7 @@ match the file name.
 To run every suite at once, type `Test_RunAll` in the Immediate window
 (**Ctrl+G**). It runs `TEST_Harness`, `TEST_Formulas`, `TEST_MainState`,
 `TEST_Cases`, `TEST_InputValidation`, `TEST_Aggregation`, `TEST_Invariants`,
-`TEST_Reconcile`, `TEST_CsvReader`, `TEST_Import`, `TEST_FormulaRandom` and `TEST_Dashboard` in turn and prints only a
+`TEST_Reconcile`, `TEST_CsvReader`, `TEST_Import`, `TEST_FormulaRandom`, `TEST_Dashboard` and `TEST_Report` in turn and prints only a
 summary: one line per suite with its verdict, counts and duration, the failure lines of a suite that
 failed, and a final `RESULT=` line with the number of suites passed and
 failed. An error raised by a suite counts as its failure and the next suite
@@ -629,6 +630,26 @@ EAD in words, that Clear outputs and a run that fails leave every block empty,
 and that an edited input shows the sheet out of date. The inputs are put back
 at the end. It needs a workbook built from the current template.
 
+### Report tests
+
+```text
+TEST_Report.RunReportTests
+```
+
+Checks the formatted run report (#259, [`docs/workbook/REPORT.md`](docs/workbook/REPORT.md)).
+It checks the text a PDF writes for amounts, ratios, counts and dates on the examples
+of `docs/workbook/report.json`, Checks by code, the refusals of Export evidence and a
+Dashboard figure changed after the run.
+It writes an XLSX of the demonstration run through `ExportReport_Silent` and reads it
+back from the file: the sheets in order, values only, no link and no macro, the input
+fingerprint, the reporting date as a date, the EAD of the CRR total, the rows of
+Checks counted by code, and no Limitations sheet. It writes a PDF with the
+Dashboard's charts; the pages themselves are checked by eye. A failure before the
+save, during the replacement of an older report and on a read-only file each leave
+the older report as it was. The results stay current throughout. The files are
+written to the temporary folder and deleted. It needs a workbook built from the
+current template.
+
 ### Randomized formula tests
 
 ```text
@@ -843,6 +864,21 @@ the currency per 1 unit of the reporting currency, as the market quotes them,
 `SF_Table` or `FX_Table` down to the first blank key, also below the name's
 range. `HOLIDAY_TABLE` holds the header of `Holiday_Table` and every closing day in
 its 100 rows, also below a blank row, as the engine reads them all.
+
+### ExportReport_Silent
+
+`ExportReport_Silent(filePath)` writes the formatted report of the run
+(#259, [`docs/workbook/REPORT.md`](docs/workbook/REPORT.md)) without a dialog:
+a PDF or an XLSX workbook, chosen by the extension of `filePath` (`.pdf` or
+`.xlsx`, any case). It refuses another extension and the cases of
+`ExportEvidence_Silent`, with the same reasons, and returns
+`RESULT=OK; format=PDF|XLSX; sheets=N; charts=N; page_setup=OK; file=...` or
+`RESULT=REFUSED; reason=...`. A printer driver that refuses a page setting
+does not stop a PDF: the line then says `page_setup=FAILED (...)`. A report
+that cannot be written raises to the caller, and an older file of the same
+name is left as it was. The workbook, its names and its results are not
+changed. The **Export report** button of the Ribbon runs `ExportReport`, which
+asks for the file and reports the outcome in a message.
 
 ### ReadCsv_Silent
 

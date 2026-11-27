@@ -143,6 +143,17 @@ class RibbonContractTests(unittest.TestCase):
         self.assertEqual(dispatched, set(documented.values()) - set(PLANNED_MACROS),
                          "RibbonAction must call every mapped macro, and only those")
 
+    def test_every_icon_is_drawn_and_none_is_built_in(self) -> None:
+        # #803: the workbook's own icons, a navy tile with a white glyph, in place of imageMso.
+        icons = ROOT / "src" / "workbook" / "ribbon-icons"
+        names = [element.get("image") for element in self.root.iter() if element.get("image")]
+        self.assertGreaterEqual(len(names), 12)
+        for name in names:
+            with self.subTest(image=name):
+                self.assertRegex(str(name), r"^ksi[A-Z][A-Za-z]+(Large|Small)$")
+                self.assertTrue((icons / f"{name}.png").is_file())
+        self.assertEqual([e.get("id") for e in self.root.iter() if e.get("imageMso")], [])
+
     def test_vba_sheet_map_matches_contract(self) -> None:
         documented = {code(row[1]): code(row[3]) for row in contract_table("Navigation")}
         self.assertEqual(vba_map("RibbonSheet"), documented)

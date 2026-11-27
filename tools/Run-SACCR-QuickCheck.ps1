@@ -10,7 +10,9 @@ The step of .github\workflows\excel-quick.yml that needs Excel. In order:
 2. removes the bundles of runs older than 14 days next to the checkout;
 3. takes the machine's Excel mutex, so that two runs never drive Excel at once,
    and waits for it up to -WaitMinutes;
-4. runs tools\Verify-SACCR-Branch.ps1 -Quick -Commit on the commit the
+4. runs tools\Verify-SACCR-Branch.ps1 -Smoke -Commit (a pull request, or a
+   run by hand with CHECK_MODE smoke; #801) or -Quick -Commit (a run by hand
+   with CHECK_MODE full) on the commit the
    workflow checked out, in its own PowerShell, and releases the mutex. The
    commit is fixed before the wait: a push that moves the branch while the run
    waits changes nothing, so a result is never attached to a commit whose
@@ -24,9 +26,10 @@ the reporting itself is a warning and does not change it. The report never
 replaces the owner's verification and is not release evidence.
 The environment supplies the event (EVENT_NAME, HEAD_REPO, REPOSITORY, PR_NUMBER,
 RUN_URL, ARTIFACT_NAME) and GITHUB_TOKEN; nothing from the event is put into a
-command line. A run started by hand may also supply BENCHMARK_SIZES: the quick
-check then runs the benchmark too (-BenchmarkSizes of Verify-SACCR-Branch.ps1,
-#771), which checks the sizes; a pull request never does.
+command line. A run started by hand supplies CHECK_MODE, full or smoke (#801),
+and may supply BENCHMARK_SIZES: a full quick check then runs the benchmark too
+(-BenchmarkSizes of Verify-SACCR-Branch.ps1, #771), which checks the sizes; a
+pull request never does.
 .EXAMPLE
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Run-SACCR-QuickCheck.ps1 -Branch fix/123-slug
 #>
@@ -109,11 +112,19 @@ try {
     $verify = Join-Path $repoRoot "tools\Verify-SACCR-Branch.ps1"
     # Windows PowerShell 5.1 turns a child's stderr line into an error record under "Stop".
     $ErrorActionPreference = "Continue"
-    $verifyArguments = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $verify, "-Branch", $Branch, "-Quick",
+    # A pull request gets the smoke check; the full quick check runs only by hand (#801).
+    $checkMode = Get-QuickCheckMode -EventName (Get-EnvText "EVENT_NAME") -Mode (Get-EnvText "CHECK_MODE")
+    $modeSwitch = "-Quick"
+    if ($checkMode -eq "smoke") {
+        $modeSwitch = "-Smoke"
+    }
+    Write-Host "Check: $checkMode"
+    $verifyArguments = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $verify, "-Branch", $Branch, $modeSwitch,
                          "-Commit", $pinned, "-RepoRoot", $repoRoot)
-    # The benchmark only on a run by hand (#771): its timings belong to the machine, not to the pull request.
+    # The benchmark only in a full quick check run by hand (#771): its timings belong to the machine, not to
+    # the pull request.
     $sizes = (Get-EnvText "BENCHMARK_SIZES").Trim()
-    if ($sizes -and (Get-EnvText "EVENT_NAME") -eq "workflow_dispatch") {
+    if ($sizes -and $checkMode -eq "full") {
         $verifyArguments += @("-BenchmarkSizes", $sizes)
         Write-Host "The benchmark runs too, sizes $sizes"
     }

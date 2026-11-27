@@ -37,6 +37,12 @@ For the branch of a pull request, with one command on the Windows host:
    and no evidence record is written, so the folder is not an evidence
    bundle and tools\check_excel_evidence.py cannot validate it: a quick run
    is a pull-request check, never a release certification;
+   With -Smoke, the smoke check of a pull request (#801), in the folder
+   saccr-smoke-SHORTSHA: the quick check cut to the build, the Auto_Open,
+   the compile and one pass of the harness and the calculation suites
+   (TEST_Suite.Smoke, into summary.log), with no sheet review and no
+   protection checks. It takes a few minutes; the full quick check and
+   certification run before a release;
    With -Quick and -BenchmarkSizes, the quick run also runs the benchmark
    (TEST_Benchmark.RunBenchmark, #771) in the same Excel session after the
    sheet review, through TEST_Suite.Benchmark, into benchmark.log; its BENCH
@@ -68,6 +74,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify-SACCR-Bra
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify-SACCR-Branch.ps1 -Branch fix/123-slug -Quick -Commit 0123456789abcdef0123456789abcdef01234567
 .EXAMPLE
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify-SACCR-Branch.ps1 -Branch fix/123-slug -Quick
+.EXAMPLE
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify-SACCR-Branch.ps1 -Branch fix/123-slug -Smoke
 #>
 [CmdletBinding()]
 param(
@@ -75,6 +83,8 @@ param(
     [string]$Branch,
     [Parameter(Mandatory = $false)]
     [switch]$Quick,
+    [Parameter(Mandatory = $false)]
+    [switch]$Smoke,
     [Parameter(Mandatory = $false)]
     [string]$Python = "python",
     [Parameter(Mandatory = $false)]
@@ -91,6 +101,12 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+# The smoke check of a pull request (#801) is the quick check cut to the build, the compile and the
+# calculation suites: -Smoke runs the quick check's steps up to its suites, through TEST_Suite.Smoke.
+if ($Smoke) {
+    $Quick = [switch]$true
+}
 
 # Calls Excel rejects while it is busy are retried for up to two minutes
 # (#773); see tools\Excel-BusyRetry.ps1.
@@ -203,7 +219,10 @@ function Stop-CompileWatchdog {
 
 function Invoke-QuickRun {
     # The quick check of a pull request, unattended; returns 0 when the
-    # project compiled, Test_RunAll passed and the 14 protection checks pass.
+    # project compiled, Test_RunAll passed, the sheet review passed and the
+    # 14 protection checks pass. With -Smoke (#801), only the compile and
+    # the calculation suites of TEST_Suite.Smoke: no sheet review and no
+    # protection checks.
     param([string]$Bundle, [string]$Sha)
 
     New-Item -ItemType Directory -Path $Bundle | Out-Null
@@ -211,7 +230,13 @@ function Invoke-QuickRun {
     $script:compileLine = "Compile: NOT RUN"
     $script:reviewLine = "Sheet review: NOT RUN"
     $script:benchmarkLine = "Benchmark: NOT RUN"
-    Write-Log "K-SACCR quick verification of ${Sha}: a pull-request check, not a release certification"
+    if ($Smoke) {
+        $script:reviewLine = "Sheet review: not run (smoke check)"
+        Write-Log "K-SACCR smoke verification of ${Sha}: a pull-request check, not a release certification"
+    }
+    else {
+        Write-Log "K-SACCR quick verification of ${Sha}: a pull-request check, not a release certification"
+    }
     Write-Log "Started at $((Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz')); folder $Bundle"
     $workbookPath = Join-Path $Bundle "K-SACCR_Verification.xlsm"
     $excel = $null
@@ -320,15 +345,22 @@ function Invoke-QuickRun {
         $script:compileLine = "Compile: PASS; Debug > Compile VBAProject completed with no error"
         Write-Log "Compiled with no error"
 
-        # One pass of the suites, into summary.log.
-        Write-Log "Running TEST_Suite.Verify: Test_RunAll once, into summary.log"
+        # One pass of the suites, into summary.log: every suite, or the smoke test's.
+        $entry = "TEST_Suite.Verify"
+        $what = "Test_RunAll once"
+        $since = "the quick mode (#618)"
+        if ($Smoke) {
+            $entry = "TEST_Suite.Smoke"
+            $what = "the harness and the calculation suites once"
+            $since = "the smoke check (#801)"
+        }
+        Write-Log "Running ${entry}: $what, into summary.log"
         $verifyResult = ""
         try {
-            $verifyResult = [string]$excel.Run($qualified + "TEST_Suite.Verify", $Bundle, $Sha)
+            $verifyResult = [string]$excel.Run($qualified + $entry, $Bundle, $Sha)
         }
         catch {
-            throw ("TEST_Suite.Verify could not be run; the branch may predate the quick mode (#618): " +
-                   $_.Exception.Message)
+            throw ("$entry could not be run; the branch may predate ${since}: " + $_.Exception.Message)
         }
         Write-Log "Verify: $verifyResult"
         $suitesRan = $verifyResult.StartsWith("RESULT=DONE;")
@@ -338,8 +370,12 @@ function Invoke-QuickRun {
 
         # The sheet review (#706), in the same Excel session: Clear outputs,
         # pictures, a run of the demonstration portfolio, pictures, checks.
+        # A smoke check does without it.
         $reviewScript = Join-Path $RepoRoot "tools\Review-SACCR-Sheets.ps1"
-        if (Test-Path -LiteralPath $reviewScript) {
+        if ($Smoke) {
+            Write-Log $script:reviewLine
+        }
+        elseif (Test-Path -LiteralPath $reviewScript) {
             . $reviewScript
             Write-Log "Reviewing the sheets: Clear outputs, pictures, a run, pictures; into sheet-review.txt"
             try {
@@ -404,9 +440,12 @@ function Invoke-QuickRun {
         Unregister-ExcelBusyRetry
     }
 
-    # The 14 protection checks on a production workbook, unattended.
+    # The 14 protection checks on a production workbook, unattended; not in a smoke check.
     $protectionCode = 1
-    if ($suitesRan) {
+    if ($Smoke) {
+        Write-Log "Protection checks: not run (smoke check)"
+    }
+    elseif ($suitesRan) {
         Write-Log "Running the protection checks unattended: tools\Check-SACCR-Protection.ps1 -Unattended"
         try {
             & (Join-Path $RepoRoot "tools\Check-SACCR-Protection.ps1") -OutputDir $Bundle -Python $Python `
@@ -431,6 +470,12 @@ function Invoke-QuickRun {
     $summaryPassed = (Get-FileText (Join-Path $Bundle "summary.log")) -match '(?m)^RESULT=PASS; suites='
     Write-Log "Finished at $((Get-Date).ToString('yyyy-MM-ddTHH:mm:sszzz'))"
     $reviewPassed = $script:reviewLine.StartsWith("Sheet review: RESULT=PASS;")
+    if ($Smoke) {
+        if ($suitesRan -and $summaryPassed) {
+            return 0
+        }
+        return 1
+    }
     if ($suitesRan -and $summaryPassed -and $reviewPassed -and $protectionCode -eq 0) {
         return 0
     }
@@ -455,6 +500,9 @@ if (-not [string]::IsNullOrWhiteSpace($BenchmarkSizes)) {
     # Sizes as TEST_Benchmark.RunBenchmark reads them: at most ten whole numbers, separated by commas.
     if (-not $Quick) {
         throw "-BenchmarkSizes needs -Quick."
+    }
+    if ($Smoke) {
+        throw "-BenchmarkSizes needs the full quick check, -Quick without -Smoke."
     }
     if ($BenchmarkSizes -cnotmatch '^[0-9]{1,7}(,[0-9]{1,7}){0,9}$') {
         throw "Not a list of benchmark sizes: $BenchmarkSizes"
@@ -498,7 +546,10 @@ else {
 # ----------------------------------------------------------------------------
 $parent = Split-Path -Parent $RepoRoot
 $prefix = "saccr-evidence-"
-if ($Quick) {
+if ($Smoke) {
+    $prefix = "saccr-smoke-"
+}
+elseif ($Quick) {
     $prefix = "saccr-verify-"
 }
 $bundle = Join-Path $parent ($prefix + $sha.Substring(0, 7))
@@ -509,6 +560,9 @@ $started = Get-Date
 Write-Host ""
 if ($Quick) {
     $mode = "quick: a pull-request check, not a release certification"
+    if ($Smoke) {
+        $mode = "smoke: a pull-request check of the build, the compile and the calculation suites"
+    }
     $quickResult = @(Invoke-QuickRun -Bundle $bundle -Sha $sha)
     $code = [int]$quickResult[-1]
 }
@@ -537,7 +591,11 @@ if ($code -eq 0) {
 }
 $title = "K-SACCR branch verification"
 $resultLine = "Result: " + $verdict + " (Certify-SACCR exit code " + $code + ")"
-if ($Quick) {
+if ($Smoke) {
+    $title = "K-SACCR branch verification (smoke): a pull-request check, not a release certification"
+    $resultLine = "Result: " + $verdict + " (smoke run; compile and the calculation suites)"
+}
+elseif ($Quick) {
     $title = "K-SACCR branch verification (quick): a pull-request check, not a release certification"
     $resultLine = "Result: " + $verdict + " (quick run; compile, Test_RunAll, the sheet review and the 14 protection checks)"
 }
@@ -550,18 +608,23 @@ $lines = @(
     ("Duration: " + [int][Math]::Floor($elapsed.TotalMinutes) + " min " + $elapsed.Seconds + " s"),
     $resultLine
 )
-if ($Quick) {
-    $lines += @($script:compileLine, $script:reviewLine)
+if ($Smoke) {
+    $lines += @($script:compileLine, "", "Suites (summary.log):", (Get-FileText (Join-Path $bundle "summary.log")))
 }
-$lines += @(
-    "",
-    "Test_RunAll (summary.log):",
-    (Get-FileText (Join-Path $bundle "summary.log")),
-    "",
-    "Protection checks (protection-checks.txt):",
-    (Get-FileText (Join-Path $bundle "protection-checks.txt"))
-)
-if ($Quick) {
+else {
+    if ($Quick) {
+        $lines += @($script:compileLine, $script:reviewLine)
+    }
+    $lines += @(
+        "",
+        "Test_RunAll (summary.log):",
+        (Get-FileText (Join-Path $bundle "summary.log")),
+        "",
+        "Protection checks (protection-checks.txt):",
+        (Get-FileText (Join-Path $bundle "protection-checks.txt"))
+    )
+}
+if ($Quick -and -not $Smoke) {
     # The review's failing lines, their details and its result line.
     $review = Get-FileText (Join-Path $bundle "sheet-review.txt")
     $failing = @($review -split "\r?\n" | Where-Object { $_ -match 'FAIL' -or $_ -match '^  [a-z]+: [0-9]' -or $_ -match '^  (gridlines|tab):' })

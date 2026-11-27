@@ -18,80 +18,84 @@
 
         <group id="ksGrpCalculation" label="Calculation">
           <splitButton id="ksRunSplit" size="large" keytip="R" getEnabled="RibbonGetEnabled">
-            <button id="ksRun" label="Run" imageMso="CalculateNow"
+            <button id="ksRun" label="Run" image="ksiRunLarge"
                     screentip="Run SA-CCR"
                     supertip="Validate every input, calculate the EAD of every netting set and write Results, HedgingSets, Buckets, TradeCalc, Checks and both reconciliations."
                     onAction="RibbonAction"/>
             <menu id="ksRunMenu" itemSize="normal">
               <menuSeparator id="ksRunSepCalculation" title="Calculation"/>
-              <button id="ksRunMenuRun" label="Run SA-CCR" imageMso="CalculateNow" keytip="R"
+              <button id="ksRunMenuRun" label="Run SA-CCR" image="ksiRunSmall" keytip="R"
                       supertip="Validate every input and calculate."
                       onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
-              <button id="ksValidateInputs" label="Validate inputs" imageMso="DataValidation" keytip="V"
+              <button id="ksValidateInputs" label="Validate inputs" image="ksiChecklistSmall" keytip="V"
                       supertip="Clear the outputs and check every input; the findings are listed on Checks. Nothing is calculated."
                       onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
             </menu>
           </splitButton>
-          <button id="ksClearOutputs" label="Clear outputs" size="large" imageMso="ClearAll" keytip="C"
+          <button id="ksClearOutputs" label="Clear outputs" size="large" image="ksiClearLarge" keytip="C"
                   screentip="Clear outputs"
                   supertip="Empty the five output tables and both reconciliations. The inputs, Params and the evidence record stay."
                   onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
         </group>
 
         <group id="ksGrpImport" label="CSV import">
-          <menu id="ksImportMenu" label="Import CSV" size="large" imageMso="ImportTextFile" keytip="I"
+          <menu id="ksImportMenu" label="Import CSV" size="large" image="ksiImportLarge" keytip="I"
                 screentip="Import CSV"
                 supertip="Load a NettingSets or Trades file onto its staging sheet as text: the input sheets do not change until Commit import. A bank file replaces the figures on BankNettingSets or BankTrades at once."
                 getEnabled="RibbonGetEnabled">
-            <button id="ksImportNettingSets" label="NettingSets file..." keytip="N"
+            <button id="ksImportNettingSets" label="NettingSets file..." image="ksiNettingSetsSmall" keytip="N"
                     supertip="Load a NettingSets CSV file onto Import_NettingSets."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
-            <button id="ksImportTrades" label="Trades file..." keytip="T"
+            <button id="ksImportTrades" label="Trades file..." image="ksiTradesSmall" keytip="T"
                     supertip="Load a Trades CSV file onto Import_Trades."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
-            <button id="ksImportBankNettingSets" label="BankNettingSets file..." keytip="B"
+            <button id="ksImportBankNettingSets" label="BankNettingSets file..." image="ksiBankNettingSetsSmall" keytip="B"
                     supertip="Replace the figures on BankNettingSets with those of a CSV file that follows the contract; nothing changes if it does not."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
-            <button id="ksImportBankTrades" label="BankTrades file..." keytip="L"
+            <button id="ksImportBankTrades" label="BankTrades file..." image="ksiBankTradesSmall" keytip="L"
                     supertip="Replace the figures on BankTrades with those of a CSV file that follows the contract; nothing changes if it does not."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
           </menu>
-          <button id="ksValidateStaging" label="Validate staging" imageMso="DataValidation" keytip="V"
+          <button id="ksValidateStaging" label="Validate staging" image="ksiStagingSmall" keytip="V"
                   supertip="Check the staged rows of both staging sheets against the CSV contract, each other, the input sheets and Params; the findings are listed on Checks."
                   onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
-          <button id="ksCommitImport" label="Commit import" imageMso="ReviewAcceptChange" keytip="M"
+          <button id="ksCommitImport" label="Commit import" image="ksiCommitSmall" keytip="M"
                   supertip="Replace NettingSets, Trades or both with the staged rows of a VALID validation that still holds. Nothing is calculated until Run."
                   onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
-          <menu id="ksTemplatesMenu" label="Templates" imageMso="ExportTextFile" keytip="P"
+          <menu id="ksTemplatesMenu" label="Templates" image="ksiTemplatesSmall" keytip="P"
                 supertip="Write blank CSV templates or the import specification."
                 getEnabled="RibbonGetEnabled">
-            <button id="ksTemplateNettingSets" label="NettingSets template..." keytip="N"
+            <button id="ksTemplateNettingSets" label="NettingSets template..." image="ksiNettingSetsSmall" keytip="N"
                     supertip="Write the blank NettingSets CSV template, its header line alone."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
-            <button id="ksTemplateTrades" label="Trades template..." keytip="T"
+            <button id="ksTemplateTrades" label="Trades template..." image="ksiTradesSmall" keytip="T"
                     supertip="Write the blank Trades CSV template, its header line alone."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
-            <button id="ksTemplateBankNettingSets" label="BankNettingSets template..." keytip="B"
+            <button id="ksTemplateBankNettingSets" label="BankNettingSets template..." image="ksiBankNettingSetsSmall" keytip="B"
                     supertip="Write the blank BankNettingSets CSV template, its header line alone."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
-            <button id="ksTemplateBankTrades" label="BankTrades template..." keytip="L"
+            <button id="ksTemplateBankTrades" label="BankTrades template..." image="ksiBankTradesSmall" keytip="L"
                     supertip="Write the blank BankTrades CSV template, its header line alone."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
-            <button id="ksImportSpecification" label="Import specification..." keytip="S"
+            <button id="ksImportSpecification" label="Import specification..." image="ksiSpecificationSmall" keytip="S"
                     supertip="Save one HTML page describing the four CSV files, every column, rule and finding code, with an example of each file."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
           </menu>
         </group>
 
         <group id="ksGrpEvidence" label="Evidence">
-          <button id="ksExportEvidence" label="Export evidence" size="large" imageMso="FileSaveAs" keytip="E"
+          <button id="ksExportEvidence" label="Export evidence" size="large" image="ksiEvidenceLarge" keytip="E"
                   screentip="Export evidence"
                   supertip="Write the evidence CSV of the current run. Refused while the results are out of date or edited."
+                  onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+          <button id="ksExportReport" label="Export report" size="large" image="ksiReportLarge" keytip="O"
+                  screentip="Export report"
+                  supertip="Write a formatted report of the current run, as a PDF or an XLSX workbook: the Dashboard, the totals, Results, Checks by code and the reconciliations. Refused while the results are out of date or edited."
                   onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
         </group>
 
         <group id="ksGrpParameters" label="Parameters">
-          <button id="ksRestoreParameters" label="Restore parameters" size="large" imageMso="Undo" keytip="A"
+          <button id="ksRestoreParameters" label="Restore parameters" size="large" image="ksiRestoreLarge" keytip="A"
                   screentip="Restore regulatory parameters"
                   supertip="Put the reference parameters and the supervisory-factor table back to the regulatory set, so the next run is REGULATORY. The reporting date, currency, regime and FX table are not changed."
                   onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
@@ -111,41 +115,41 @@
 
         <group id="ksGrpNavigate" label="Navigate">
           <splitButton id="ksGoSplit" size="large" keytip="G">
-            <button id="ksGo" label="Go to" imageMso="FileOpen"
+            <button id="ksGo" label="Go to" image="ksiHomeLarge"
                     screentip="Go to"
                     supertip="Open Home. The arrow lists every sheet."
                     onAction="RibbonGoTo"/>
             <menu id="ksGoMenu" itemSize="normal">
               <menuSeparator id="ksGoSepStart" title="Start"/>
-              <button id="ksGoHome" label="Home" onAction="RibbonGoTo" supertip="The starting page: scope, workflow and links."/>
+              <button id="ksGoHome" label="Home" image="ksiHomeSmall" onAction="RibbonGoTo" supertip="The starting page: scope, workflow and links."/>
               <menuSeparator id="ksGoSepInputs" title="Inputs"/>
-              <button id="ksGoParams" label="Params" onAction="RibbonGoTo" supertip="Reporting date, currency, regime, reference parameters and FX rates."/>
-              <button id="ksGoNettingSets" label="NettingSets" onAction="RibbonGoTo" supertip="One row per netting set."/>
-              <button id="ksGoTrades" label="Trades" onAction="RibbonGoTo" supertip="One row per trade leg."/>
+              <button id="ksGoParams" label="Params" image="ksiGearSmall" onAction="RibbonGoTo" supertip="Reporting date, currency, regime, reference parameters and FX rates."/>
+              <button id="ksGoNettingSets" label="NettingSets" image="ksiNettingSetsSmall" onAction="RibbonGoTo" supertip="One row per netting set."/>
+              <button id="ksGoTrades" label="Trades" image="ksiTradesSmall" onAction="RibbonGoTo" supertip="One row per trade leg."/>
               <menuSeparator id="ksGoSepStaging" title="Staging"/>
-              <button id="ksGoImportNettingSets" label="Import_NettingSets" onAction="RibbonGoTo" supertip="Netting sets loaded from a CSV file, before Commit import."/>
-              <button id="ksGoImportTrades" label="Import_Trades" onAction="RibbonGoTo" supertip="Trade legs loaded from a CSV file, before Commit import."/>
+              <button id="ksGoImportNettingSets" label="Import_NettingSets" image="ksiNettingSetsSmall" onAction="RibbonGoTo" supertip="Netting sets loaded from a CSV file, before Commit import."/>
+              <button id="ksGoImportTrades" label="Import_Trades" image="ksiTradesSmall" onAction="RibbonGoTo" supertip="Trade legs loaded from a CSV file, before Commit import."/>
               <menuSeparator id="ksGoSepOutputs" title="Outputs"/>
-              <button id="ksGoDashboard" label="Dashboard" onAction="RibbonGoTo" supertip="The last run in one page: key figures, breakdowns and the path from notional to EAD."/>
-              <button id="ksGoResults" label="Results" onAction="RibbonGoTo" supertip="EAD per netting set and the totals per regime."/>
-              <button id="ksGoHedgingSets" label="HedgingSets" onAction="RibbonGoTo" supertip="Effective notionals and add-ons per hedging set."/>
-              <button id="ksGoBuckets" label="Buckets" onAction="RibbonGoTo" supertip="Maturity buckets, FX pairs, entities and commodity types."/>
-              <button id="ksGoTradeCalc" label="TradeCalc" onAction="RibbonGoTo" supertip="Every trade-level quantity, or why a trade was excluded."/>
-              <button id="ksGoChecks" label="Checks" onAction="RibbonGoTo" supertip="Errors, warnings and information lines."/>
+              <button id="ksGoDashboard" label="Dashboard" image="ksiChartSmall" onAction="RibbonGoTo" supertip="The last run in one page: key figures, breakdowns and the path from notional to EAD."/>
+              <button id="ksGoResults" label="Results" image="ksiCalculatorSmall" onAction="RibbonGoTo" supertip="EAD per netting set and the totals per regime."/>
+              <button id="ksGoHedgingSets" label="HedgingSets" image="ksiCalculatorSmall" onAction="RibbonGoTo" supertip="Effective notionals and add-ons per hedging set."/>
+              <button id="ksGoBuckets" label="Buckets" image="ksiCalculatorSmall" onAction="RibbonGoTo" supertip="Maturity buckets, FX pairs, entities and commodity types."/>
+              <button id="ksGoTradeCalc" label="TradeCalc" image="ksiCalculatorSmall" onAction="RibbonGoTo" supertip="Every trade-level quantity, or why a trade was excluded."/>
+              <button id="ksGoChecks" label="Checks" image="ksiChecklistSmall" onAction="RibbonGoTo" supertip="Errors, warnings and information lines."/>
               <menuSeparator id="ksGoSepReconciliation" title="Reconciliation"/>
-              <button id="ksGoBankNettingSets" label="BankNettingSets" onAction="RibbonGoTo" supertip="A bank's own figures per netting set."/>
-              <button id="ksGoReconciliation" label="Reconciliation" onAction="RibbonGoTo" supertip="Bank figures against Results."/>
-              <button id="ksGoBankTrades" label="BankTrades" onAction="RibbonGoTo" supertip="A bank's own figures per trade leg."/>
-              <button id="ksGoTradeReconciliation" label="TradeReconciliation" onAction="RibbonGoTo" supertip="Bank figures against TradeCalc."/>
-              <button id="ksGoReconSummary" label="ReconSummary" onAction="RibbonGoTo" supertip="Sums, counts and the largest difference per measure, from the rows the reconciliation filters leave."/>
+              <button id="ksGoBankNettingSets" label="BankNettingSets" image="ksiBankNettingSetsSmall" onAction="RibbonGoTo" supertip="A bank's own figures per netting set."/>
+              <button id="ksGoReconciliation" label="Reconciliation" image="ksiCompareSmall" onAction="RibbonGoTo" supertip="Bank figures against Results."/>
+              <button id="ksGoBankTrades" label="BankTrades" image="ksiBankTradesSmall" onAction="RibbonGoTo" supertip="A bank's own figures per trade leg."/>
+              <button id="ksGoTradeReconciliation" label="TradeReconciliation" image="ksiCompareSmall" onAction="RibbonGoTo" supertip="Bank figures against TradeCalc."/>
+              <button id="ksGoReconSummary" label="ReconSummary" image="ksiCompareSmall" onAction="RibbonGoTo" supertip="Sums, counts and the largest difference per measure, from the rows the reconciliation filters leave."/>
               <menuSeparator id="ksGoSepReference" title="Reference and tests"/>
-              <button id="ksGoTestCatalogue" label="TestCatalogue" onAction="RibbonGoTo" supertip="The reference tests read from Results and TradeCalc."/>
-              <button id="ksGoFormulaTest" label="FormulaTest" onAction="RibbonGoTo" supertip="The worksheet functions against Excel's own formulas."/>
-              <button id="ksGoBaselVsCRR" label="Basel_vs_CRR" onAction="RibbonGoTo" supertip="CRE52 and the CRR compared, with the workbook treatment."/>
-              <button id="ksGoReadme" label="README" onAction="RibbonGoTo" supertip="Conventions, methodology summary and reference card."/>
+              <button id="ksGoTestCatalogue" label="TestCatalogue" image="ksiStagingSmall" onAction="RibbonGoTo" supertip="The reference tests read from Results and TradeCalc."/>
+              <button id="ksGoFormulaTest" label="FormulaTest" image="ksiStagingSmall" onAction="RibbonGoTo" supertip="The worksheet functions against Excel's own formulas."/>
+              <button id="ksGoBaselVsCRR" label="Basel_vs_CRR" image="ksiBookSmall" onAction="RibbonGoTo" supertip="CRE52 and the CRR compared, with the workbook treatment."/>
+              <button id="ksGoReadme" label="README" image="ksiInfoSmall" onAction="RibbonGoTo" supertip="Conventions, methodology summary and reference card."/>
             </menu>
           </splitButton>
-          <toggleButton id="ksNavigationBar" label="Navigation bar" keytip="B"
+          <toggleButton id="ksNavigationBar" label="Navigation bar" image="ksiNavigationBarSmall" keytip="B"
                         screentip="Navigation bar"
                         supertip="Show or hide the bar of sheet links on the left of every sheet, for this session. The workbook is always saved with the bar shown."
                         getPressed="RibbonGetPressed" onAction="RibbonToggle"

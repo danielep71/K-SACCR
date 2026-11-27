@@ -98,8 +98,8 @@ fails after a merge, record the failure and fix or revert it through a new PR
 before closing the issue. Never rewrite shared history to conceal the failed
 candidate.
 
-The quick Excel check of a pull request also runs on the owner's self-hosted
-Windows runner and reports in the pull request
+The Excel check of a pull request, a smoke check (#801; the full quick check by
+hand), also runs on the owner's self-hosted Windows runner and reports in the pull request
 ([`excel-quick.yml`](../.github/workflows/excel-quick.yml); see
 [Automatic quick check](EXCEL_EVIDENCE.md#automatic-quick-check)). It is a
 pull-request check, never release evidence, and not a required check. It counts
@@ -343,7 +343,8 @@ or a manual run on `main`; a manual run on any other branch skips it.
   and manual runs on main, reconcile live labels and verify an exact match. Only the
   reconciliation job receives `issues: write`. Before any mutation, a paginated
   `state=all` scan checks deletion candidates against open/closed issues and PRs.
-  If any candidate is in use, the entire apply is refused with counts per label;
+  If any candidate is in use, the entire apply is refused with the number of issues and the
+  number of pull requests that carry each label, and the lowest ten of their numbers;
   unreadable, malformed or incomplete usage scans also fail before mutation.
   Dry-run and drift summaries report the same refusal. Offline fixtures can
   include an `issues` array alongside `labels`; without it, usage is explicitly

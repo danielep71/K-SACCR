@@ -11,16 +11,19 @@ Attribute VB_Name = "TEST_Suite"
 '   writing each report to its own log file of an evidence bundle, first
 '   line CANDIDATE= (#535). Verify runs Test_RunAll once into summary.log,
 '   for the quick check of a pull request, which is no evidence bundle
-'   (#618).
+'   (#618). Smoke runs Test_RunSmoke, the harness and the calculation
+'   suites, once into summary.log, for the smoke check of a pull request
+'   (#801).
 '
 ' PUBLIC SURFACE
-'   Test_RunAll runs the suites. Say is the print routine of every suite,
+'   Test_RunAll runs the suites; Test_RunSmoke the smoke test. Say is the print routine of every suite,
 '   of TEST_CaseRunner and of TEST_Benchmark: it writes to the Immediate
 '   window, or during Test_RunAll records the RESULT and FAILURE lines
 '   instead; while Certify runs, every printed line is also written to
 '   the open log file. Certify, CertificationReady and
 '   CertificationReferences are called by tools\Certify-SACCR.ps1 through
-'   Application.Run, and Verify by tools\Verify-SACCR-Branch.ps1 -Quick.
+'   Application.Run, Verify by tools\Verify-SACCR-Branch.ps1 -Quick and
+'   Smoke by tools\Verify-SACCR-Branch.ps1 -Smoke.
 '   Option Private Module keeps them out of the external workbook
 '   automation API.
 '
@@ -50,10 +53,11 @@ Attribute VB_Name = "TEST_Suite"
 '   Import with the test modules, compile, then type Test_RunAll in the
 '   Immediate window. For an evidence bundle, run tools\Certify-SACCR.ps1,
 '   which calls Certify (docs/EXCEL_EVIDENCE.md); for a pull request,
-'   tools\Verify-SACCR-Branch.ps1 -Quick, which calls Verify.
+'   tools\Verify-SACCR-Branch.ps1 -Smoke, which calls Smoke, or -Quick,
+'   which calls Verify.
 '
 ' UPDATED
-'   2026-11-23
+'   2026-11-26
 '
 ' AUTHOR
 '   Daniele Penza
@@ -69,7 +73,7 @@ Attribute VB_Name = "TEST_Suite"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const SUITE_COUNT   As Long = 12    'Suites run by Test_RunAll
+        Private Const SUITE_COUNT   As Long = 13    'Suites run by Test_RunAll
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -95,17 +99,63 @@ Public Sub Test_RunAll()
 '                                 Test_RunAll
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Run the harness and the nine suites in turn and print the summary.
+'   Run the harness and every suite in turn and print the summary.
 '
 ' UPDATED
-'   2026-10-17
+'   2026-11-26
+'==============================================================================
+'
+        RunSuiteList SuiteEntries(), SUITE_COUNT, "SACCR TEST SUMMARY "
+
+End Sub
+
+
+Public Sub Test_RunSmoke()
+'
+'==============================================================================
+'                                Test_RunSmoke
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Run the smoke test of a pull request (#801): the harness and the
+'   calculation suites, TEST_Formulas, TEST_Cases, TEST_Aggregation and
+'   TEST_Invariants, which run in seconds, and print their summary as
+'   Test_RunAll does. Every suite, the sheet review and the protection
+'   checks run in the full quick check and in certification, before a
+'   release.
+'
+' UPDATED
+'   2026-11-26
+'==============================================================================
+'
+    Dim Suites      As Variant    'Entry points, as Module.Procedure
+
+        Suites = SmokeEntries()
+        RunSuiteList Suites, UBound(Suites) - LBound(Suites) + 1, "SACCR SMOKE SUMMARY "
+
+End Sub
+
+
+Private Sub RunSuiteList( _
+    ByVal Suites As Variant, _
+    ByVal SuiteCount As Long, _
+    ByVal Title As String)
+'
+'==============================================================================
+'                                RunSuiteList
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Run the suites of a list in turn and print the summary: the title with
+'   the time, one line per suite and the RESULT line, which counts
+'   SuiteCount suites. Test_RunAll and Test_RunSmoke share it.
+'
+' UPDATED
+'   2026-11-26
 '==============================================================================
 '
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim Suites         As Variant    'Entry points, as Module.Procedure
     Dim i              As Long       'Index into Suites
     Dim FailedCount    As Long       'Suites that did not pass
     Dim StartTime      As Single     'Start of the whole run
@@ -114,8 +164,7 @@ Public Sub Test_RunAll()
 '------------------------------------------------------------------------------
 ' RUN
 '------------------------------------------------------------------------------
-        Suites = SuiteEntries()
-        Emit "SACCR TEST SUMMARY " & Format$(Now, "yyyy-mm-dd hh:nn:ss")
+        Emit Title & Format$(Now, "yyyy-mm-dd hh:nn:ss")
         StartTime = Timer
         For i = LBound(Suites) To UBound(Suites)
             If Not RunOneSuite(CStr(Suites(i))) Then
@@ -130,8 +179,8 @@ Public Sub Test_RunAll()
         If TotalSeconds < 0 Then
             TotalSeconds = TotalSeconds + 86400!
         End If
-        Emit "RESULT=" & IIf(FailedCount = 0, "PASS", "FAIL") & "; suites=" & SUITE_COUNT & _
-                    "; passed=" & (SUITE_COUNT - FailedCount) & "; failed=" & FailedCount & _
+        Emit "RESULT=" & IIf(FailedCount = 0, "PASS", "FAIL") & "; suites=" & SuiteCount & _
+                    "; passed=" & (SuiteCount - FailedCount) & "; failed=" & FailedCount & _
                     "; seconds=" & Format$(TotalSeconds, "0.0")
 
 End Sub
@@ -304,6 +353,50 @@ Public Function Verify( _
         Test_RunAll
         mLogPath = ""
         Verify = "RESULT=DONE; logs=1; write_errors=" & mLogErrors
+
+End Function
+
+
+Public Function Smoke( _
+    ByVal Folder As String, _
+    ByVal Candidate As String) _
+    As String
+'
+'==============================================================================
+'                                    Smoke
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Write the summary of the smoke check of a pull request (#801):
+'   Test_RunSmoke once, into summary.log in Folder, with the line
+'   CANDIDATE=Candidate first, as Verify writes Test_RunAll's.
+'   tools\Verify-SACCR-Branch.ps1 -Smoke calls it through Application.Run.
+'
+' INPUTS
+'   As Verify.
+'
+' RETURNS
+'   As Verify: "RESULT=DONE; logs=1; write_errors=0" once the run has
+'   ended, or "RESULT=REFUSED; reason=...".
+'
+' ERROR POLICY
+'   As Verify.
+'
+' UPDATED
+'   2026-11-26
+'==============================================================================
+'
+    Dim Base        As String     'Folder with one path separator at its end
+
+        Smoke = Refusal(Folder, Candidate, Base)
+        If Len(Smoke) > 0 Then
+            Exit Function
+        End If
+        mLogErrors = 0
+        mLogPath = Base & "summary.log"
+        WriteLogLine "CANDIDATE=" & Candidate
+        Test_RunSmoke
+        mLogPath = ""
+        Smoke = "RESULT=DONE; logs=1; write_errors=" & mLogErrors
 
 End Function
 
@@ -638,8 +731,29 @@ Private Function SuiteEntries() As Variant
                        "TEST_Aggregation.RunAggregationTests", "TEST_Invariants.RunInvariantTests", _
                        "TEST_Reconcile.RunReconcileTests", "TEST_CsvReader.RunCsvReaderTests", _
                        "TEST_Import.RunImportTests", "TEST_FormulaRandom.RunFormulaRandomTests", _
-                       "TEST_Dashboard.RunDashboardTests")
+                       "TEST_Dashboard.RunDashboardTests", "TEST_Report.RunReportTests")
         SuiteEntries = Suites
+
+End Function
+
+
+Private Function SmokeEntries() As Variant
+'
+'==============================================================================
+'                                 SmokeEntries
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The entry points of the smoke test of a pull request (#801), as
+'   Module.Procedure: the harness and the calculation suites, which run in
+'   seconds. Each is one of SuiteEntries, which RunEntry dispatches.
+'
+' UPDATED
+'   2026-11-26
+'==============================================================================
+'
+        SmokeEntries = Array("TEST_Harness.RunTests", "TEST_Formulas.RunFormulaTests", _
+                             "TEST_Cases.RunCaseTests", "TEST_Aggregation.RunAggregationTests", _
+                             "TEST_Invariants.RunInvariantTests")
 
 End Function
 
@@ -709,6 +823,8 @@ Private Sub RunEntry( _
                 TEST_FormulaRandom.RunFormulaRandomTests
             Case "TEST_Dashboard.RunDashboardTests"
                 TEST_Dashboard.RunDashboardTests
+            Case "TEST_Report.RunReportTests"
+                TEST_Report.RunReportTests
             Case Else
                 Err.Raise vbObjectError + 513, "TEST_Suite.RunEntry", _
                     "No branch runs " & EntryPoint

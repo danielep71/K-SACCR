@@ -32,18 +32,32 @@ class NavigationBarTests(unittest.TestCase):
         self.assertEqual((self.folder / bar.TEMPLATE).read_bytes(), first)
         self.assertEqual(bar.problems(self.folder), [])
 
-    def test_blocks_put_inputs_on_top_and_home_last(self) -> None:
+    def test_blocks_put_home_and_the_inputs_on_top(self) -> None:
+        # The owner's request of 2026-11-26: Home at the top of the bar, above Inputs.
         top, rest = bar.blocks(bar.sections(self.contract().read_text(encoding="utf-8")))
-        self.assertEqual([name for name, _ in top[0][1]], ["Params", "NettingSets", "Trades"])
-        self.assertEqual(rest[-1][1][-1][0], "Home")
+        self.assertEqual([[name for name, _ in items] for _, items in top],
+                         [["Home"], ["Params", "NettingSets", "Trades"]])
+        self.assertEqual([title for title, _ in rest], ["Staging", "Outputs", "Reconciliation", "Reference and tests"])
 
     def test_top_block_fits_the_frozen_rows_of_every_sheet(self) -> None:
         contract = self.contract().read_text(encoding="utf-8")
         top, _ = bar.blocks(bar.sections(contract))
         package = bar.Package(ROOT / bar.TEMPLATE)
         for name, part in bar.sheets_of(package):
-            room = bar.row_offset_points(package.text(part), bar.TOP_ROWS) / 0.75
+            xml = package.text(part)
+            frozen = int(re.search(r'<pane [^>]*ySplit="(\d+)"', xml).group(1))  # type: ignore[union-attr]
+            room = bar.row_offset_points(xml, frozen) / 0.75
             self.assertGreaterEqual(room, bar.block_height(top), name)
+
+    def test_drawing_the_bar_raises_no_row(self) -> None:
+        # Home fits in the frozen rows as they are: no row of any sheet changes height.
+        def heights(package: "bar.Package") -> dict[str, list[str]]:
+            return {name: re.findall(r'<row r="\d+"[^>]*?\bht="[\d.]+"', package.text(part))
+                    for name, part in bar.sheets_of(package)}
+
+        before = heights(bar.Package(self.folder / bar.TEMPLATE))
+        bar.write(self.folder)
+        self.assertEqual(heights(bar.Package(self.folder / bar.TEMPLATE)), before)
 
     def test_renamed_tooltip_makes_the_template_stale(self) -> None:
         text = self.contract().read_text(encoding="utf-8")

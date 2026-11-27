@@ -181,7 +181,7 @@ Attribute VB_Name = "CORE_Config"
     'column A (#615), drawn into the template by tools/navigation_bar.py:
     'the block in the frozen rows and the block below them. The Ribbon's
     'Navigation bar toggle shows and hides them (#620).
-        Public Const NAV_GROUP_TOP   As String = "NavBarTop"    'Block in the frozen rows 1 to 3
+        Public Const NAV_GROUP_TOP   As String = "NavBarTop"    'Home and the inputs, in the frozen rows
         Public Const NAV_GROUP_REST  As String = "NavBar"       'Block below the frozen rows
     'The two triangles at the far left of B1 of every sheet that hide and
     'show the bar (#777), drawn with it: one is shown at a time, the one
@@ -562,6 +562,10 @@ Attribute VB_Name = "CORE_Config"
     'evidence report exports from the output sheets, taken when a run
     'completes; an output cell edited after the run no longer matches it.
         Public Const RUN_OUTPUTS_NAME As String = "SACCR_RunOutputs"    'Empty when no run completed
+    'RUN_DASHBOARD_NAME holds the fingerprint of the Dashboard's data table,
+    'taken with it; the formatted report refuses a Dashboard changed after
+    'the run (#259).
+        Public Const RUN_DASHBOARD_NAME As String = "SACCR_RunDashboard"    'Empty when no run completed
         Public Const TRC_NS         As Long = 3     'TradeReconciliation: NettingSetID on TradeCalc
         Public Const TRC_AC         As Long = 4     'TradeReconciliation: asset class on TradeCalc
     'TradeReconciliation has one column more, after the Note: the leg's
@@ -637,6 +641,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const ERR_CSV_READ         As Long = vbObjectError + 2059    'CSV file missing or unreadable, or kind, file or column not in the contract
         Public Const ERR_STAGING_WRITE    As Long = vbObjectError + 2062    'Staging sheet missing or not written as read
         Public Const ERR_PARAMS_WRITE     As Long = vbObjectError + 2063    'Params not written as read (#357)
+        Public Const ERR_REPORT_VALUE     As Long = vbObjectError + 2064    'A value the run report cannot show (#259)
 
 '------------------------------------------------------------------------------
 ' SEVERITY LABELS

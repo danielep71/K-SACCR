@@ -1,0 +1,232 @@
+"""The reference of the formatted run report (#259): its text rules and its row rules."""
+from __future__ import annotations
+
+import unittest
+
+import report
+
+
+class TextTests(unittest.TestCase):
+    def test_the_examples_of_the_specification(self) -> None:
+        for example in report.load_spec()["formats"]["examples"]:
+            with self.subTest(example=example):
+                self.assertEqual(report.cell_text(example["kind"], example["value"]), example["text"])
+
+    def test_an_amount_rounds_half_away_from_zero_on_its_15_digit_form(self) -> None:
+        # 2.675 is 2.67499999999999982236431605997495353221893310546875 as a double: its 15-digit form rounds up.
+        self.assertEqual(report.number_text(2.675, 2, True), "2.68")
+        self.assertEqual(report.number_text(-2.675, 2, True), "-2.68")
+        self.assertEqual(report.number_text(1.005, 2, True), "1.01")
+        self.assertEqual(report.number_text(0.125, 2, True), "0.13")
+        self.assertEqual(report.number_text(-0.125, 2, True), "-0.13")
+
+    def test_a_value_that_rounds_to_zero_has_no_sign(self) -> None:
+        self.assertEqual(report.number_text(-0.004, 2, True), "0.00")
+        self.assertEqual(report.number_text(-0.0000004, 6, False), "0.000000")
+        self.assertEqual(report.number_text(-0.0000005, 6, False), "-0.000001")
+
+    def test_thousands_are_grouped_by_three_with_a_comma(self) -> None:
+        self.assertEqual(report.number_text(999999.995, 2, True), "1,000,000.00")
+        self.assertEqual(report.number_text(-1234567890123.456, 2, True), "-1,234,567,890,123.46")
+        self.assertEqual(report.number_text(100, 2, True), "100.00")
+        self.assertEqual(report.number_text(1000, 0, True), "1,000")
+        self.assertEqual(report.number_text(1234567.5, 0, False), "1234568")
+
+    def test_a_blank_stays_blank_and_a_text_stays_a_text(self) -> None:
+        self.assertEqual(report.cell_text("amount", None), "")
+        self.assertEqual(report.cell_text("amount", ""), "")
+        self.assertEqual(report.cell_text("text", "n/a"), "n/a")
+
+    def test_dates(self) -> None:
+        self.assertEqual(report.date_text(61), "1900-03-01")
+        self.assertEqual(report.date_text(46295), "2026-09-30")
+        self.assertEqual(report.date_text(46295.9999), "2026-09-30")  # a time of day is ignored
+        self.assertEqual(report.date_text(73415), "2100-12-31")
+        with self.assertRaises(report.ReportError):
+            report.date_text(60)
+
+    def test_a_time_rounds_to_the_second_and_may_carry_into_the_next_day(self) -> None:
+        self.assertEqual(report.datetime_text(46352 + 0.6 / 86400), "2026-11-26 00:00:01")
+        self.assertEqual(report.datetime_text(46352 + 86399.6 / 86400), "2026-11-27 00:00:00")
+        self.assertEqual(report.datetime_text(46352.75), "2026-11-26 18:00:00")
+
+    def test_a_text_or_a_logical_value_in_a_column_of_numbers_stays_as_it_is(self) -> None:
+        self.assertEqual(report.cell_text("amount", "n/a"), "n/a")
+        self.assertEqual(report.cell_text("count", True), "TRUE")
+        self.assertEqual(report.cell_text("ratio", False), "FALSE")
+
+    def test_a_number_in_a_text_column_has_its_15_digit_form(self) -> None:
+        self.assertEqual(report.cell_text("text", 14), "14")
+        self.assertEqual(report.cell_text("text", 1.5), "1.5")
+        self.assertEqual(report.cell_text("text", 0.1 + 0.2), "0.3")
+
+    def test_a_value_follows_the_number_format_of_its_cell(self) -> None:
+        self.assertEqual(report.format_text(1234.5678, "#,##0.00"), "1,234.57")
+        self.assertEqual(report.format_text(1234.5678, "0.0"), "1234.6")
+        self.assertEqual(report.format_text(0.12345, "0.0%"), "12.3%")
+        self.assertEqual(report.format_text(0.0045, "0.0%"), "0.5%")
+        self.assertEqual(report.format_text(0.5, "0%"), "50%")
+        self.assertEqual(report.format_text(12, "#,##0"), "12")
+        self.assertEqual(report.format_text(1234567, "#,##0;[Red]-#,##0"), "1,234,567")
+        self.assertEqual(report.format_text(-1234567, "#,##0;[Red]-#,##0"), "-1,234,567")
+        self.assertEqual(report.format_text(46295, "yyyy-mm-dd"), "2026-09-30")
+        self.assertEqual(report.format_text(46352.75, "yyyy-mm-dd hh:mm:ss"), "2026-11-26 18:00:00")
+        self.assertEqual(report.format_text(0.25, "General"), "0.25")
+        self.assertEqual(report.format_text("EUR thousand", "@"), "EUR thousand")
+        self.assertEqual(report.format_text(None, "0.00"), "")
+
+    def test_an_unknown_kind_is_refused(self) -> None:
+        with self.assertRaises(report.ReportError):
+            report.cell_text("percent", 1)
+
+
+CHECKS = [
+    ("ERROR", "Trades", 39, "NIR-B", "price", "RUN", "TR-SHIFTED-PRICE", ""),
+    ("WARNING", "Trades", 12, "A", "late", "RUN", "TR-LATE", ""),
+    ("ERROR", "Trades", 44, "OT-X", "other", "RUN", "TR-OTHER-REGIME", "Asset class"),
+    ("INFO", "Checks", None, "", "note", "RUN", "INF-NOTE", ""),
+    ("ERROR", "Trades", 56, "A11", "matured", "RUN", "TR-MATURED", ""),
+    ("WARNING", "Trades", 13, "B", "late", "RUN", "TR-LATE", ""),
+    ("ERROR", "Trades", 40, "NIR-C", "price", "RUN", "TR-SHIFTED-PRICE", ""),
+    ("WARNING", "NettingSets", 5, "N", "no code", "RUN", "", ""),
+    ("ERROR", "Trades", 60, "Z", "late but error", "RUN", "TR-LATE", ""),
+]
+
+
+class ChecksTests(unittest.TestCase):
+    def test_the_summary_counts_the_rows_of_each_code_with_its_highest_severity(self) -> None:
+        self.assertEqual(report.checks_by_code(CHECKS), [
+            ("TR-LATE", "ERROR", 3),
+            ("TR-MATURED", "ERROR", 1),
+            ("TR-OTHER-REGIME", "ERROR", 1),
+            ("TR-SHIFTED-PRICE", "ERROR", 2),
+            ("(none)", "WARNING", 1),
+            ("INF-NOTE", "INFO", 1),
+        ])
+
+    def test_the_rows_follow_the_summary_and_keep_their_order_within_a_code(self) -> None:
+        ordered = report.checks_in_code_order(CHECKS)
+        self.assertEqual([row[6] for row in ordered], [
+            "TR-LATE", "TR-LATE", "TR-LATE", "TR-MATURED", "TR-OTHER-REGIME",
+            "TR-SHIFTED-PRICE", "TR-SHIFTED-PRICE", "", "INF-NOTE"])
+        self.assertEqual([row[2] for row in ordered if row[6] == "TR-LATE"], [12, 13, 60])
+        self.assertEqual(len(ordered), len(CHECKS))
+
+    def test_no_row_means_no_code(self) -> None:
+        self.assertEqual(report.checks_by_code([]), [])
+        self.assertEqual(report.checks_in_code_order([]), [])
+
+    def test_a_clean_run_has_one_info_code(self) -> None:
+        clean = [("INFO", "Checks", None, "", "No findings", "RUN", "RUN-CLEAN", "")]
+        self.assertEqual(report.checks_by_code(clean), [("RUN-CLEAN", "INFO", 1)])
+
+    def test_a_blank_code_and_a_code_of_spaces_are_the_same_code(self) -> None:
+        rows = [("ERROR", "S", 1, "", "m", "RUN", "  ", ""), ("ERROR", "S", 2, "", "m", "RUN", None, "")]
+        self.assertEqual(report.checks_by_code(rows), [("(none)", "ERROR", 2)])
+
+
+class ReconciliationTests(unittest.TestCase):
+    ROWS = [("A", "MATCH"), ("B", "DIFFERENCE"), ("C", "match"), ("D", "MISSING IN CALCULATOR"),
+            ("E", "NOT IN BANK FILE"), ("F", "MATCH")]
+
+    def test_the_pdf_keeps_every_row_that_is_not_a_match(self) -> None:
+        kept, omitted = report.pdf_reconciliation_rows(self.ROWS, 1)
+        self.assertEqual([row[0] for row in kept], ["B", "D", "E"])
+        self.assertEqual(omitted, 3)
+
+    def test_nothing_is_left_out_when_no_row_matches(self) -> None:
+        kept, omitted = report.pdf_reconciliation_rows([("A", "DIFFERENCE")], 1)
+        self.assertEqual((len(kept), omitted), (1, 0))
+        self.assertEqual(report.omitted_note(0), "")
+
+    def test_the_note_counts_the_rows_left_out(self) -> None:
+        self.assertEqual(report.omitted_note(1),
+                         "1 row with the result MATCH is left out; the workbook version of the report has every row.")
+        self.assertEqual(report.omitted_note(3),
+                         "3 rows with the result MATCH are left out; the workbook version of the report has every row.")
+
+
+class TradeReconciliationTests(unittest.TestCase):
+    # Trade id, result, absolute difference: a real portfolio gave a PDF of 163 pages (2026-11-26).
+    ROWS = [("A", "MATCH", 0.0), ("B", "DIFFERENCE", -5.0), ("C", "NOT IN BANK FILE", ""),
+            ("D", "DIFFERENCE", 250.0), ("E", "difference", 5.0), ("F", "MISSING IN CALCULATOR", ""),
+            ("G", "DIFFERENCE", 1.5)]
+
+    def test_the_pdf_keeps_the_largest_differences_first(self) -> None:
+        kept, differences, left_out = report.pdf_trade_rows(self.ROWS, 1, 2, 3)
+        self.assertEqual([row[0] for row in kept], ["D", "B", "E"])  # equal sizes keep the sheet's order
+        self.assertEqual((differences, left_out), (4, 4))
+
+    def test_the_limit_of_the_specification_is_fifty(self) -> None:
+        rows = [(f"T{i}", "DIFFERENCE", i) for i in range(80)] + [("X", "NOT IN BANK FILE", "")] * 5000
+        limit = report.load_spec()["reconciliation_rows"]["pdf_trade_limit"]
+        kept, differences, left_out = report.pdf_trade_rows(rows, 1, 2, limit)
+        self.assertEqual((len(kept), differences, left_out), (50, 80, 5030))
+        self.assertEqual(kept[0][0], "T79")
+
+    def test_the_note_says_what_is_shown_and_how_many_rows_are_left_out(self) -> None:
+        self.assertEqual(report.differences_note(3, 3, 0), "")
+        self.assertEqual(report.differences_note(50, 80, 5030),
+                         "The 50 rows with the result DIFFERENCE and the largest absolute difference are shown, of 80; "
+                         "the other 5030 rows are left out, counted by result above; "
+                         "the workbook version of the report has every row.")
+        self.assertEqual(report.differences_note(2, 2, 1),
+                         "The 2 rows with the result DIFFERENCE are shown; the other 1 row is left out, counted by "
+                         "result above; the workbook version of the report has every row.")
+        self.assertEqual(report.differences_note(1, 1, 4),
+                         "The row with the result DIFFERENCE is shown; the other 4 rows are left out, counted by "
+                         "result above; the workbook version of the report has every row.")
+        self.assertEqual(report.differences_note(0, 0, 7),
+                         "No row has the result DIFFERENCE; the other 7 rows are left out, counted by result above; "
+                         "the workbook version of the report has every row.")
+
+
+class ChecksPdfTests(unittest.TestCase):
+    def test_the_pdf_keeps_at_most_ten_rows_of_each_code(self) -> None:
+        rows = [("WARNING", "", "", "", "", "", "W-1")] * 12 + [("ERROR", "", "", "", "", "", "E-1")] * 3
+        per_code = report.load_spec()["checks_by_code"]["pdf_rows_per_code"]
+        kept, left_out = report.pdf_checks_rows(rows, per_code)
+        self.assertEqual([row[6] for row in kept], ["E-1"] * 3 + ["W-1"] * 10)
+        self.assertEqual(left_out, 2)
+        self.assertEqual(report.checks_note(10, 2), "At most 10 rows of each code are shown; 2 rows are left out; "
+                                                    "the workbook version of the report has every row.")
+        self.assertEqual(report.checks_note(10, 0), "")
+
+
+class MeasureTests(unittest.TestCase):
+    def test_a_ratio_measure_is_formatted_as_a_ratio_and_an_amount_measure_as_an_amount(self) -> None:
+        ratios = ["Multiplier"]
+        self.assertEqual(report.measure_kind("Multiplier", ratios), "ratio")
+        self.assertEqual(report.measure_kind("EAD", ratios), "amount")
+        # A multiplier of 0.958585 against 0.958586 must not both read 0.96: the difference stays visible.
+        kind = report.measure_kind("Multiplier", ratios)
+        self.assertEqual(report.cell_text(kind, 0.958585), "0.958585")
+        self.assertEqual(report.cell_text(kind, 0.958586), "0.958586")
+        self.assertEqual(report.cell_text(kind, 0.000001), "0.000001")
+        self.assertEqual(report.cell_text(report.measure_kind("EAD", ratios), 0.958585), "0.96")
+
+    def test_the_trade_measures_that_are_not_amounts(self) -> None:
+        ratios = next(s for s in report.load_spec()["sections"] if s["id"] == "trade_reconciliation")["measure_ratios"]
+        for measure in ("M", "Supervisory duration", "Supervisory delta", "MF unmargined", "MF margined"):
+            self.assertEqual(report.measure_kind(measure, ratios), "ratio", measure)
+        for measure in ("Notional", "MtM", "Adjusted notional d", "Effective notional unmargined",
+                        "Effective notional margined", "Stand-alone add-on"):
+            self.assertEqual(report.measure_kind(measure, ratios), "amount", measure)
+
+
+class SpecificationTests(unittest.TestCase):
+    def test_the_specification_is_sound(self) -> None:
+        self.assertEqual(report.check_spec(report.load_spec()), [])
+
+    def test_a_broken_specification_is_reported(self) -> None:
+        spec = report.load_spec()
+        spec["sections"][3]["columns"][0]["kind"] = "percent"
+        spec["sections"][4]["sheet"] = "Results"
+        spec["formats"]["examples"][0]["text"] = "1234567.89"
+        del spec["sections"][-2]["measure_ratios"]
+        problems = report.check_spec(spec)
+        self.assertEqual(len(problems), 4, problems)
+
+
+if __name__ == "__main__":
+    unittest.main()

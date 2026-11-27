@@ -97,6 +97,54 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Give the K-SACCR Ribbon tab icons of its own, as the owner asked and approved (#803): a navy
+  rounded tile, the header fill `1F3864` of the workbook's tables, with a white glyph, for Run,
+  Validate inputs, Clear outputs, Import CSV, Validate staging, Commit import, Templates, Export
+  evidence, Export report, Restore parameters, Go to and the Navigation bar toggle, in place of the
+  built-in Office icons, and for every entry of the Import CSV, Templates and Go to menus, one
+  glyph for each kind of file or sheet. `tools/ribbon_icons.py` draws them at twice their size on the Ribbon; the
+  template carries them as images of its Ribbon part (`tools/ribbon_template.py`), and the
+  `ribbon-icons` and `ribbon-template` gates check them.
+- Add **Export report** to the K-SACCR Ribbon tab (#259), the last of three parts: a button
+  beside Export evidence in the Evidence group runs `ExportReport`, enabled in the same cases as
+  Export evidence, while Results is current. `TEST_MainState` checks its enabled states (724
+  checks). README, INSTALLATION, SECURITY and the Ribbon contract document the command, and the
+  Home and README sheets name it. After the owner's verification in Excel, the PDF's charts are
+  pictured with the Dashboard shown, as Excel exported them empty from a sheet it did not show, and
+  the report takes the font, header fill, tab colors and hidden gridlines of the K-SACCR sheets.
+- Finish the formatted run report after the owner's verification in Excel (#259): the PDF's charts
+  are pictured with the Dashboard zoomed to 300%, at three times the screen's resolution, and laid
+  out in rows that never cross a page (the Charts sheet is printed at a computed zoom, with a page
+  break before a row that would cross one; every report sheet gets the same margins). The report
+  no longer has a Limitations sheet, which the owner found of no use: the limitations stay in the
+  evidence CSV. `TEST_Report` checks that no such sheet is written (still 54 checks).
+- Keep the PDF of a real portfolio short (#259): a real portfolio gave 163 pages. The PDF now shows
+  of the reconciliation of trade legs only the 50 rows with the result `DIFFERENCE` and the largest
+  absolute difference, under the summary that counts every row by result, and of Checks at most 10
+  rows of each code, under the summary by code; a line says what is left out each time, and the
+  XLSX keeps every row (`report.json`: `pdf_trade_limit`, `pdf_rows_per_code`; `tools/report.py`;
+  `CORE_Export.ReportDifferencesNote` and `ReportChecksNote`).
+- Write the formatted run report (#259), the second of three parts: `ExportReport` and
+  `ExportReport_Silent` write a report of the last run as a PDF or an XLSX, chosen by the file's
+  extension, in the order and formats of `docs/workbook/report.json`. The report is built in a new
+  workbook, so the K-SACCR workbook, its names and its results are left as they are; it refuses in
+  the cases of Export evidence and replaces an older file only once the new one is saved. The XLSX
+  holds values only; the PDF writes its numbers as text that does not depend on the regional
+  settings, pictures the Dashboard's ten charts and shows the reconciliation rows that are not
+  `MATCH`. `CORE_Export` writes the text, groups Checks by code and gives the report's
+  limitations; `TEST_Report` (5 cases, 54 checks) checks them, an XLSX read back from its file, a
+  PDF and three failures. The Ribbon command follows.
+- Specify the formatted run report of the Export report command (#259), the first of three parts.
+  `docs/workbook/REPORT.md` and `docs/workbook/report.json` define a report of the last run as a PDF or
+  an XLSX: the run, the Dashboard (with its ten charts in the PDF), the totals and status per regime,
+  Results per netting set, Checks by code and then by row, both reconciliations and the limitations.
+  The command will refuse in the same cases as Export evidence and leave the workbook unchanged. The
+  PDF shows the rows of a reconciliation that are not `MATCH` and says how many it leaves out; the
+  XLSX has every row. A PDF writes its numbers as text that does not depend on the regional settings
+  of the machine. `tools/report.py` holds these rules, `tools/test_report.py` pins them and
+  `tools/test_report_spec.py` checks the specification against the template. No VBA, no template and
+  no result changes; the writer and the Ribbon command follow.
+
 - **The benchmark on the self-hosted runner** (#771). A run of the Excel quick check started by
   hand may give benchmark sizes (`1000,10000`, for example): the quick check then also runs
   `TEST_Benchmark.RunBenchmark` after the sheet review, through the new `TEST_Suite.Benchmark`,
@@ -653,6 +701,23 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Run a smoke check of every pull request in Excel instead of the quick check, as the owner asked
+  (#801): the build, the compile and the calculation suites (`TEST_Suite.Smoke`: the harness,
+  `TEST_Formulas`, `TEST_Cases`, `TEST_Aggregation` and `TEST_Invariants`), a few minutes instead
+  of 8 to 16. The full quick check (every suite, the sheet review and the protection checks) runs
+  by hand, mode `full` of the workflow, and before a release with the certification
+  (`tools/Verify-SACCR-Branch.ps1 -Smoke`, `tools/Run-SACCR-QuickCheck.ps1`,
+  `.github/workflows/excel-quick.yml`).
+- Put Home at the top of the navigation bar of every sheet, above Inputs, as the owner asked (#798): the
+  Start and Inputs sections form the bar's top block, within the frozen rows, which hold it without
+  a taller row; the other sections follow below in the order of the Go to menu
+  (`tools/navigation_bar.py`, `docs/workbook/RIBBON.md`).
+- Count issues and pull requests apart when the label sync refuses to delete a label in use (#787).
+  The refusal and the run summary gave one combined count, such as "12 issue/PR records"; they now
+  say "9 issues, 3 pull requests", a zero count included, followed by the lowest ten numbers as
+  before. The guard itself does not change: any use still refuses every change. The usage record
+  of each label, which the drift report also carries, gains `issues` and `pulls` next to `count`.
+
 - **The target date is required on every issue.** The issue audit
   (`tools/check_issues.py`) reports an open issue without a target date, as it already did for one
   without a start date, and the three issue forms make the **Target date** field required. The date
@@ -818,6 +883,16 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Refuse a formatted report whose Dashboard was changed after the run, and hold the operation guard
+  while a report is written (#259, Codex on #805): the run now records the fingerprint of the
+  Dashboard's data table (`SACCR_RunDashboard`), which the report checks besides the rules of
+  Export evidence (`ReportProblem`); and the export, which yields to Excel while it pictures the
+  charts, no longer lets a Run or Clear outputs start in the middle. `TEST_Report` checks the
+  refusal (55 checks).
+- Complete the report of an Excel check run by hand on a branch with no open pull request, such as
+  the release branch: Windows PowerShell 5.1 turns the empty list of pull requests into an empty
+  string, and the report stopped on reading its number, with the warning "The report could not be
+  completed" (`Select-QuickPullNumber` in `tools/QuickCheck-Report.ps1`).
 - Refresh the K-SACCR tab only while its workbook is active (#773). A refresh scheduled with
   `OnTime` (`ScheduleRefresh`) invalidated the Ribbon whenever Excel was next idle; with another
   workbook active, Excel looked for the tab's callbacks there and stopped on "Cannot run the

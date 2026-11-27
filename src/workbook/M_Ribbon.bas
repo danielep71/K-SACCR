@@ -243,26 +243,68 @@ End Sub
 Public Sub RibbonAction( _
     ByVal Control As IRibbonControl)
 '
-'==============================================================================
-'                                RibbonAction
+'------------------------------------------------------------------------------
+'                      RUN THE MACRO OF A COMMAND CONTROL
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Run the M_Main macro mapped to a command control (RibbonMacro), then
-'   schedule a refresh of the tab so that the Status labels follow.
+'   Runs the M_Main macro mapped to a command control of the K-SACCR tab
+'   (RibbonMacro), then schedules a refresh of the tab
+'
+' WHY THIS EXISTS
+'   The Ribbon reaches the existing macros and holds no business logic:
+'   each macro keeps its protection, busy guard, error handling and every
+'   gate (docs/workbook/RIBBON.md). The refresh lets the Status labels and
+'   the enabled states follow the operation
+'
+' INPUTS
+'   Control
+'     The control Excel passes to the onAction callback
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Finds the macro mapped to the control (RibbonMacro)
+'   - Calls it by name, one Case per macro, so that the compiler checks
+'     every call and tools/test_ribbon_contract.py can read the calls
+'   - Schedules the refresh of the tab once Excel is idle (ScheduleRefresh)
 '
 ' ERROR POLICY
-'   The macros report their own outcome and never raise. An unknown control
-'   or a mapped macro this procedure does not call is reported in a
-'   message box, and nothing runs.
+'   The macros report their own outcome and never raise. A control mapped
+'   to no macro, a mapped macro this procedure does not call, and an error
+'   are reported in a message box, and nothing runs. Never raises to Excel
+'
+' DEPENDENCIES
+'   RibbonMacro, ScheduleRefresh; the M_Main macros of the command table
+'   of docs/workbook/RIBBON.md
+'
+' NOTES
+'   Export report (#259) runs M_Main.ExportReport, the macro of the
+'   formatted run report
 '
 ' UPDATED
-'   2026-11-06
-'==============================================================================
-'
-    Dim Macro       As String    'The macro mapped to the control
+'   2026-11-26
+'------------------------------------------------------------------------------
 
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME     As String = "M_Ribbon.RibbonAction"
+
+    Dim Macro           As String    'The macro mapped to the control
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'Report any error in a message box, never to Excel
         On Error GoTo Failed
+
+'------------------------------------------------------------------------------
+' RUN THE MACRO
+'------------------------------------------------------------------------------
+    'Find the macro mapped to the control
         Macro = RibbonMacro(Control.Id)
+    'Call it by name
         Select Case Macro
             Case "RunSACCR"
                 M_Main.RunSACCR
@@ -294,19 +336,35 @@ Public Sub RibbonAction( _
                 M_Main.ExportImportSpecification
             Case "ExportEvidence"
                 M_Main.ExportEvidence
+            Case "ExportReport"
+                M_Main.ExportReport
             Case "RestoreRegulatoryParameters"
                 M_Main.RestoreRegulatoryParameters
-            Case ""
-                MsgBox "The Ribbon control " & Control.Id & " runs no command.", vbExclamation, MSG_TITLE
+            Case vbNullString
+                VBA.MsgBox "The Ribbon control " & Control.Id & " runs no command.", vbExclamation, MSG_TITLE
             Case Else
-                'Mapped, but not a macro this module calls: a contract error.
-                MsgBox "This command is not available in this workbook.", vbInformation, MSG_TITLE
+                'Mapped, but not a macro this module calls: a contract error
+                VBA.MsgBox "This command is not available in this workbook.", vbInformation, MSG_TITLE
         End Select
+
+'------------------------------------------------------------------------------
+' REFRESH THE TAB
+'------------------------------------------------------------------------------
+    'Let the Status labels and the enabled states follow the operation
         ScheduleRefresh
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+    'Leave before the error handler
         Exit Sub
 
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
 Failed:
-        MsgBox "The Ribbon command could not be run: " & Err.Description, vbExclamation, MSG_TITLE
+    'Report the failure in a message box
+        VBA.MsgBox "The Ribbon command could not be run: " & Err.Description, vbExclamation, MSG_TITLE
 
 End Sub
 
@@ -519,18 +577,45 @@ Public Function RibbonMacro( _
     ByVal ControlId As String) _
     As String
 '
-'==============================================================================
-'                                 RibbonMacro
+'------------------------------------------------------------------------------
+'                        FIND THE MACRO OF A COMMAND
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   The M_Main macro of a command control, as the command table of
-'   docs/workbook/RIBBON.md gives it; "" for any other control.
-'   tools/test_ribbon_contract.py checks this map against the contract.
+'   Gives the M_Main macro of a command control, as the command table of
+'   docs/workbook/RIBBON.md gives it
+'
+' WHY THIS EXISTS
+'   RibbonAction runs it, and tests check it: IRibbonControl cannot be
+'   created from VBA, so the map is a pure function.
+'   tools/test_ribbon_contract.py checks it against the contract
+'
+' INPUTS
+'   ControlId
+'     The id of a control of src/workbook/customUI14.xml
+'
+' RETURNS
+'   The name of the macro; "" for any other control
+'
+' BEHAVIOR
+'   One Case per control, in the order of the command table
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   None
+'
+' NOTES
+'   ksExportReport runs ExportReport, the formatted run report (#259)
 '
 ' UPDATED
-'   2026-11-05
-'==============================================================================
-'
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' MAP THE CONTROL
+'------------------------------------------------------------------------------
+    'The macro of each command control; none for any other control
         Select Case ControlId
             Case "ksRun"
                 RibbonMacro = "RunSACCR"
@@ -564,6 +649,8 @@ Public Function RibbonMacro( _
                 RibbonMacro = "ExportImportSpecification"
             Case "ksExportEvidence"
                 RibbonMacro = "ExportEvidence"
+            Case "ksExportReport"
+                RibbonMacro = "ExportReport"
             Case "ksRestoreParameters"
                 RibbonMacro = "RestoreRegulatoryParameters"
             Case Else
@@ -678,37 +765,85 @@ Public Function EnabledFor( _
     ByVal TradesStatus As String) _
     As Boolean
 '
-'==============================================================================
-'                                  EnabledFor
+'------------------------------------------------------------------------------
+'                     DECIDE WHETHER A CONTROL CAN BE CLICKED
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   The state table of docs/workbook/RIBBON.md (#216): whether a control
-'   can be clicked, from the busy flag, the Results state as
-'   ResultsLabelFor gives it and the two staging statuses.
+'   Gives the state table of docs/workbook/RIBBON.md (#216): whether a
+'   control can be clicked, from the busy flag, the Results state and the
+'   two staging statuses
 '
-' RULES
-'   While an operation runs, no control is enabled. Validate staging needs
-'   a staging sheet that holds rows: a status other than EMPTY. Commit
-'   import needs a staging sheet that reads VALID. Export evidence needs
-'   Results CURRENT. A status that could not be read ("unavailable",
-'   "UNKNOWN") enables the control: the macro decides. Every other
-'   control, and an unknown one, is enabled.
+' WHY THIS EXISTS
+'   RibbonGetEnabled answers Excel with it, and TEST_MainState checks it:
+'   IRibbonControl cannot be created from VBA, so the table is a pure
+'   function. The states help the user; the macros enforce the same rules
+'   again, whatever the Ribbon shows
+'
+' INPUTS
+'   ControlId
+'     The id of a control of src/workbook/customUI14.xml
+'
+'   Busy
+'     True while an operation of M_Main runs (OperationRunning)
+'
+'   ResultsState
+'     The Results state as ResultsLabelFor gives it: CURRENT, OUT OF DATE,
+'     NONE or UNKNOWN
+'
+'   NettingSetsStatus
+'     The status of Import_NettingSets, or "unavailable"
+'
+'   TradesStatus
+'     The status of Import_Trades, or "unavailable"
+'
+' RETURNS
+'   True when the control can be clicked
+'
+' BEHAVIOR
+'   - While an operation runs, no control is enabled
+'   - Validate staging needs a staging sheet that holds rows: a status
+'     other than EMPTY
+'   - Commit import needs a staging sheet that reads VALID
+'   - Export evidence and Export report (#259) need Results CURRENT: not
+'     OUT OF DATE and not NONE
+'   - Every other control, and an unknown one, is enabled
+'
+' ERROR POLICY
+'   None. A status that could not be read ("unavailable", "UNKNOWN")
+'   enables the control: a control is never disabled on a guess, and the
+'   macro decides
+'
+' DEPENDENCIES
+'   CORE_Config.STAGING_EMPTY, CORE_Config.STAGING_VALID
+'
+' NOTES
+'   The two exports refuse in the same cases (M_Main.EvidenceProblem), so
+'   they share one rule
 '
 ' UPDATED
-'   2026-11-06
-'==============================================================================
-'
+'   2026-11-26
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' WHILE AN OPERATION RUNS
+'------------------------------------------------------------------------------
+    'Enable nothing while an operation runs
         If Busy Then
             EnabledFor = False
             Exit Function
         End If
+
+'------------------------------------------------------------------------------
+' APPLY THE STATE TABLE
+'------------------------------------------------------------------------------
+    'Decide by the control
         Select Case ControlId
             Case "ksValidateStaging"
                 EnabledFor = NettingSetsStatus <> STAGING_EMPTY Or TradesStatus <> STAGING_EMPTY
             Case "ksCommitImport"
                 EnabledFor = NettingSetsStatus = STAGING_VALID Or TradesStatus = STAGING_VALID Or _
                              NettingSetsStatus = "unavailable" Or TradesStatus = "unavailable"
-            Case "ksExportEvidence"
+            Case "ksExportEvidence", "ksExportReport"
                 EnabledFor = ResultsState <> "OUT OF DATE" And ResultsState <> "NONE"
             Case Else
                 EnabledFor = True

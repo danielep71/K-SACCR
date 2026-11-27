@@ -19,8 +19,20 @@ the user. They never replace those gates.
 - **Host:** Microsoft 365 or Excel 2016 and later, Windows 64-bit; 32-bit is
   best effort. The source uses the `customUI14` namespace
   (`http://schemas.microsoft.com/office/2009/07/customui`), which those hosts
-  read. Icons are built-in Office icons (`imageMso`), so the workbook ships no
-  image file.
+  read. The icons are the workbook's own (#803): a navy rounded tile, the
+  header fill `1F3864` of the tables, with a white glyph, the style the owner
+  chose on 2026-11-26. The source names each with `image="ksiGlyphSize"`,
+  `Large` for a large button and `Small` for a menu entry or a normal button;
+  `tools/ribbon_icons.py` draws them into `src/workbook/ribbon-icons/` at twice
+  their size on the Ribbon (64 and 32 px), so that they stay sharp on a display
+  scaled up, and Office scales them to the control. The entries of the
+  menus have small icons too (the owner's verification of 2026-11-26): the
+  files of Import CSV and Templates, and the sheets of Go to, one glyph for each
+  kind of sheet. Netting sets are a stack of cards and trades a single card, on
+  NettingSets and Trades, their staging sheets, files and templates; a bank's
+  figures have the same cards under a roof. The others: Home, the parameters,
+  the Dashboard, a table of outputs, Checks, a comparison, a test, a reference
+  and the README.
 - **Packaging:** the macro-free template carries the source as its
   `customUI/customUI14.xml` part (#214). The build's `SaveAs .xlsm` keeps
   it, and so do ordinary saves; the owner's spike of 2026-11-05 checked
@@ -42,7 +54,7 @@ the user. They never replace those gates.
 | --- | --- |
 | Calculation | Split button **Run**: the primary click runs SA-CCR; the menu holds Run SA-CCR and Validate inputs · **Clear outputs**, a button of its own beside it (#719) |
 | CSV import | Menu **Import CSV** (NettingSets file, Trades file) · **Validate staging** · **Commit import** · menu **Templates** (NettingSets template, Trades template, Import specification) |
-| Evidence | **Export evidence** |
+| Evidence | **Export evidence** · **Export report**, the formatted report of the run as a PDF or an XLSX (#259) |
 | Parameters | **Restore parameters**, which puts the reference parameters and the factor table back to the regulatory set (#357) |
 | Status | Three read-only labels: Results, NettingSets staging, Trades staging |
 | Navigate | Split button **Go to**: the primary click opens Home; the menu lists every sheet in six titled sections, in the order of the sheet tabs (#329) · toggle **Navigation bar**, which shows or hides the bar of sheet links on every sheet (#620) |
@@ -82,6 +94,7 @@ Each command calls `RibbonAction`, which runs the macro named here.
 | `ksTemplateBankTrades` | BankTrades template... | P, L | `ExportBankTradesCsvTemplate` |
 | `ksImportSpecification` | Import specification... | P, S | `ExportImportSpecification` |
 | `ksExportEvidence` | Export evidence | E | `ExportEvidence` |
+| `ksExportReport` | Export report | O | `ExportReport` |
 | `ksRestoreParameters` | Restore parameters | A | `RestoreRegulatoryParameters` |
 
 A completed run leaves the user on Results; a run that stops, and Validate
@@ -115,7 +128,9 @@ set, the one every run is compared with:
 `ksRunSplit`, `ksImportMenu` and `ksTemplatesMenu` hold the controls above
 and call no macro themselves. The Templates menu writes blank CSV templates
 or the import specification; **Export evidence** writes the evidence CSV of a
-run. They are different operations.
+run, and **Export report** a formatted report of the same run, as a PDF or an
+XLSX workbook, for a reviewer who reads results ([`REPORT.md`](REPORT.md)).
+They are different operations.
 
 ## 🗺️ Navigation
 
@@ -157,13 +172,15 @@ another sheet or workbook.
 **Navigation bar (#615).** Every sheet of the template also carries this
 menu as a bar of linked shapes in column A, which is frozen, so the bar works
 with macros disabled. Its sections, their order, the sheet labels and the
-tooltips come from this menu, with two placements:
+tooltips come from this menu, in its order, with two placements:
 
-- **Inputs** is the bar's top block, in rows 1 to 3, which are frozen on every
-  sheet: it stays in view when the sheet scrolls in either direction.
-- The other sections follow from the first row below the frozen rows, in the
-  menu's order except **Start** (Home), which comes last; that block scrolls
-  with the rows.
+- **Start** (Home) and **Inputs** are the bar's top block, from row 1, within
+  the frozen rows: Home is at the top of the bar, and the block stays in view
+  when the sheet scrolls in either direction. Every sheet freezes at least its
+  first four rows, which hold the block as they are: no row is made taller for
+  it (#798, the owner's request of 2026-11-26).
+- The other sections follow from the first row below the frozen rows; that
+  block scrolls with the rows.
 
 The current sheet is highlighted and not linked, and the bar is not printed.
 
@@ -247,7 +264,7 @@ enforce the same rules again, whatever the Ribbon shows.
 | Every command and toggle | No operation is running |
 | `ksValidateStaging` | A staging sheet holds rows: its status is not `EMPTY` |
 | `ksCommitImport` | A staging sheet reads `VALID` |
-| `ksExportEvidence` | Results C5 says the inputs are unchanged since the last run: not `OUT OF DATE` and not `NONE` |
+| `ksExportEvidence`, `ksExportReport` | Results C5 says the inputs are unchanged since the last run: not `OUT OF DATE` and not `NONE`. The two exports refuse in the same cases, so they share the rule |
 | Every other control, `ksNavigationBar` included | Always, apart from a running operation |
 
 A status that cannot be read enables its control, and so does an error or a
