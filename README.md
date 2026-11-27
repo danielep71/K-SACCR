@@ -987,12 +987,13 @@ scale (#659); the FX notional rule in the CSV checks (#678); and repository
 checks of VBA identifiers, dependency direction and ASCII source (#538),
 issue planning dates (#539), labels and pull-request milestones (#540,
 #541, #591), workflow pins and runtimes (#542), local and external
-documentation links (#592, #649) and the traffic workflow (#593). Still
-open: the counterparty sector (#674), randomised FormulaTest inputs (#165),
+documentation links (#592, #649) and the traffic workflow (#593). Delivered
+since: the counterparty sector (#674), randomised FormulaTest inputs (#165),
 the measured differences of the accuracy contracts (#537), a Dashboard sheet
-(#675), a formatted run report (#259), the rest of the independent
-cross-check (#100), new screenshots (#616) and the user manual (#686). The
-engine separation (#220) moved to v1.4.0. One calculation rule changed:
+(#675), a formatted run report (#259) and the rest of the independent
+cross-check (#100). Still open: new screenshots (#616), whose wiki page
+follows the integration into `main`, and the user manual (#686). The engine
+separation (#220) moved to v1.4.0. One calculation rule changed:
 since #659, a single-name credit trade on the other regime's scale is
 rejected.
 

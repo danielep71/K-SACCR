@@ -145,8 +145,8 @@ negative `number` or `integer` is a value, not a formula.
 | --- | --- |
 | NettingSets | 10,000 |
 | Trades | 100,000 |
-| BankNettingSets | 200 |
-| BankTrades | 500 |
+| BankNettingSets | 10,000 |
+| BankTrades | 50,000 |
 
 A file of more than 128 MiB (134,217,728 bytes, a byte-order mark included)
 is rejected from its size alone, before any of it is read
