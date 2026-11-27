@@ -49,13 +49,13 @@
             <button id="ksImportTrades" label="Trades file..." image="ksiTradesSmall" keytip="T"
                     supertip="Load a Trades CSV file onto Import_Trades."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+            <menuSeparator id="ksImportSepBank" title="Bank figures"/>
             <button id="ksImportBankNettingSets" label="BankNettingSets file..." image="ksiBankNettingSetsSmall" keytip="B"
                     supertip="Replace the figures on BankNettingSets with those of a CSV file that follows the contract; nothing changes if it does not."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
             <button id="ksImportBankTrades" label="BankTrades file..." image="ksiBankTradesSmall" keytip="L"
                     supertip="Replace the figures on BankTrades with those of a CSV file that follows the contract; nothing changes if it does not."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
-            <menuSeparator id="ksImportSepClear" title="Bank figures"/>
             <button id="ksClearBankNettingSets" label="Clear BankNettingSets..." image="ksiClearSmall" keytip="C"
                     supertip="Clear every bank figure and comment of BankNettingSets, after a confirmation; the amount scale and the tolerances stay."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
