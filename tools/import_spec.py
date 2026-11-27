@@ -223,8 +223,8 @@ def overview(contract: dict[str, Any]) -> str:
         "record of <code>Trades</code> one leg. <strong>Import CSV</strong> on the staging sheet "
         "<code>Import_NettingSets</code> or <code>Import_Trades</code> reads a file; <strong>Validate staging</strong> "
         "checks the staged rows of both against each other and against Params; <strong>Commit import</strong> then "
-        "replaces the input sheet. <strong>Export CSV template</strong> on <code>NettingSets</code> and "
-        "<code>Trades</code> writes the blank template, the header alone.</p>",
+        "replaces the input sheet. The <strong>Templates</strong> menu of the K-SACCR tab writes the blank "
+        "template of each file, the header alone.</p>",
         "<p>The two bank files carry a bank's own figures, one record per netting set or per leg, for the sheets "
         "<code>BankNettingSets</code> and <code>BankTrades</code>, which <code>Reconciliation</code> and "
         "<code>TradeReconciliation</code> compare with the workbook's results. They have no staging sheet: "

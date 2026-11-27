@@ -1072,6 +1072,13 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Bring two stale statements of the workbook up to date (#827). The Home sheet says what the
+  evidence of each regime is: the published CRE99 examples for Basel; an independent implementation
+  and a bank's production reconciliation for CRR where they cover a rule, illustrative values
+  elsewhere. Its row is taller for the longer text. The import specification page names the
+  Templates menu of the K-SACCR tab for the blank templates, instead of the Export CSV template
+  buttons that 1.2.0 removed from NettingSets and Trades.
+
 - Add the user manual for 1.3.0, `docs/user-manual/v1.3.0/` (#686), written from the 1.2.0
   manual, which stays as released. It describes every change of 1.3.0 that a user sees: the
   navigation bar of every sheet, with `Home` at its top and the rest scrolling with the rows, and
