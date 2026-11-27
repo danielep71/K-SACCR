@@ -170,7 +170,7 @@ function Set-ScreenshotState {
             }
             $eadValue = [double]$ead
             $ids = [string[]]@("BCBS-EX1", "BCBS-EX3", "BANK-ONLY-1")
-            $figures = [double[]]@($eadValue, 5300.0, 100.0)
+            $figures = [double[]]@($eadValue, 5400.0, 100.0)
             $comments = [string[]]@("As on Results: MATCH", "5,300 against 5,405: DIFFERENCE",
                                     "Not on NettingSets: MISSING IN CALCULATOR")
             for ($i = 0; $i -lt 3; $i++) {
