@@ -9902,40 +9902,52 @@ Private Function CommitStaging( _
     ByRef Message As String) _
     As String
 '
-'==============================================================================
-'                                CommitStaging
+'------------------------------------------------------------------------------
+'                 REPLACE THE INPUT SHEETS WITH THE STAGED ROWS
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Replace the input sheets with the staged rows (#211): NettingSets with
-'   the rows of Import_NettingSets when it holds any, Trades with those of
-'   Import_Trades when it holds any. A staging sheet without rows leaves
-'   its input sheet as it is: nothing is ever erased for lack of staged
-'   rows. Each replacement is whole: the staged rows are written from the
-'   first data row, and the input cells of the rows below them that held
-'   a value are cleared.
+'   Replaces the input sheets with the staged rows (#211): NettingSets
+'   with the rows of Import_NettingSets when it holds any, Trades with
+'   those of Import_Trades when it holds any
 '
-' METHOD
-'   1. Recalculate the workbook, as a run does, and refuse when Excel does
-'      not finish (#519); then refuse unless StagingValidationCurrent is
-'      True: the last staging validation was VALID and nothing it judged,
-'      staging blocks, input sheets and Params, has changed since, also
-'      with events off or in a formula's result. The status text is never
-'      read.
-'   2. Convert each staged value as a value typed by hand would be:
+' WHY THIS EXISTS
+'   A staging sheet without rows leaves its input sheet as it is: nothing
+'   is ever erased for lack of staged rows. Each replacement is whole: the
+'   staged rows are written from the first data row, and the input cells
+'   of the rows below them that held a value are cleared
+'
+' INPUTS
+'   Message
+'     Receives the message for the user
+'
+' RETURNS
+'   The result line of CommitStaging_Silent
+'
+' BEHAVIOR
+'   1. Recalculates the workbook, as a run does, and refuses when Excel
+'      does not finish (#519); then refuses unless
+'      StagingValidationCurrent is True: the last staging validation was
+'      VALID and nothing it judged, staging blocks, input sheets and
+'      Params, has changed since, also with events off or in a formula's
+'      result. The status text is never read.
+'   2. Converts each staged value as a value typed by hand would be:
 '      numbers and integers to numbers, as the reader reads them (Val),
 '      dates to Excel dates, every other type to text written with a
 '      leading apostrophe, so that leading zeros and text that looks like
 '      a number, a date or a formula stay as staged. Blank stays blank.
-'   3. Keep the values and formulas of every input cell the commit may
+'   3. Keeps the values and formulas of every input cell the commit may
 '      touch, down to the last row with a value or a formula, whatever
 '      the formula returns (LastInputRow, #512), a formula cell found as
-'      one (FormulasOnly), then write and read back each sheet; a value
+'      one (FormulasOnly), then writes and reads back each sheet; a value
 '      read back that differs from the one written, or a value or formula
 '      left below the committed rows, is a failure.
-'   4. On any failure, write back the kept cells of every input sheet the
-'      commit touched and read them back; the result tells whether that
+'   4. Gives every written row the format of the first data row
+'      (FormatInputRows, #811), so that a portfolio longer than the
+'      template's formatted rows looks the same to its last row.
+'   5. On any failure, writes back the kept cells of every input sheet the
+'      commit touched and reads them back; the result tells whether that
 '      was verified, apart from the error itself.
-'   5. On success each committed staging sheet reads COMMITTED and the
+'   6. On success each committed staging sheet reads COMMITTED and the
 '      stored VALID validation is emptied, so that the same rows are not
 '      committed twice without a new validation. Results, Checks and the
 '      run and reconciliation fingerprints are left as they are: Results
@@ -9945,20 +9957,32 @@ Private Function CommitStaging( _
 '   See CommitStaging_Silent. gTestFault = "commit-write" raises
 '   ERR_INJECTED_FAULT once the first input sheet is written;
 '   "commit-verify" makes the read-back fail; "commit-rollback" raises it
-'   there too and makes the write-back fail as well.
+'   there too and makes the write-back fail as well
+'
+' DEPENDENCIES
+'   InputsRecalculated, RecalcRefusedText, StagingValidationCurrent,
+'   CommitRefusedText, ProtectWorkbook, ReadStaging, TypedBlock, GetSheet,
+'   TableFirstRow, LastInputRow, TableRange, FormulasOnly,
+'   FormatInputRows, CheckWritten, StagingMetaCell, RestoreSettings,
+'   CountText, PutLiveBack, PutStatusesBack
+'
+' NOTES
+'   The formats a failed commit gave to new rows are not taken back: a
+'   format holds no input
 '
 ' UPDATED
-'   2026-11-03
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
+    Const PROC_NAME         As String = "M_Main.CommitStaging"
+
     Dim Kinds(1 To 2)       As String           'NettingSets, Trades
     Dim LiveSheet(1 To 2)   As Worksheet        'The input sheets
     Dim LiveFirst(1 To 2)   As Long             'Their first data rows
-    Dim InputWidth(1 To 2)       As Long             'Their input columns
+    Dim InputWidth(1 To 2)  As Long             'Their input columns
     Dim NewRows(1 To 2)     As Long             'Staged rows to write; 0 leaves the sheet
     Dim OldLast(1 To 2)     As Long             'Last row with a value before the commit
     Dim KeptLast(1 To 2)    As Long             'Last row of the kept cells
@@ -9986,11 +10010,12 @@ Private Function CommitStaging( _
 '------------------------------------------------------------------------------
 ' REFUSE A COMMIT THAT NO CURRENT VALIDATION ALLOWS
 '------------------------------------------------------------------------------
+    'One operation at a time
         If mRunning Then
-            Err.Raise ERR_RUN_ACTIVE, "M_Main.CommitStaging", "An SA-CCR operation is already running."
+            Err.Raise ERR_RUN_ACTIVE, PROC_NAME, "An SA-CCR operation is already running."
         End If
     'A formula input whose precedents changed since the validation must
-    'show its new result before the fingerprints are compared (#519).
+    'show its new result before the fingerprints are compared (#519)
         If Not InputsRecalculated() Then
             CommitStaging = "RESULT=REFUSED; reason=Excel did not finish recalculating"
             Message = RecalcRefusedText()
@@ -10003,13 +10028,19 @@ Private Function CommitStaging( _
         End If
 
 '------------------------------------------------------------------------------
-' PLAN: TYPED VALUES AND THE CELLS TO KEEP
+' INITIALIZE
 '------------------------------------------------------------------------------
+    'Hold the guard
         Kinds(1) = "NettingSets"
         Kinds(2) = "Trades"
         mRunning = True
         ProtectWorkbook
-        On Error GoTo Failed
+        On Error GoTo ErrorHandler
+
+'------------------------------------------------------------------------------
+' PLAN: TYPED VALUES AND THE CELLS TO KEEP
+'------------------------------------------------------------------------------
+    'The typed rows of each staging sheet, and the input cells they may touch
         For k = 1 To 2
             NewRows(k) = ReadStaging(Kinds(k), StagedSheet, StagedFirst, Values, Lines)
             If NewRows(k) > 0 Then
@@ -10028,6 +10059,7 @@ Private Function CommitStaging( _
                 End With
             End If
         Next k
+    'Nothing staged, nothing to commit
         If NewRows(1) = 0 And NewRows(2) = 0 Then
             mRunning = False
             CommitStaging = "RESULT=REFUSED; reason=nothing is staged"
@@ -10038,6 +10070,7 @@ Private Function CommitStaging( _
 '------------------------------------------------------------------------------
 ' WRITE AND READ BACK
 '------------------------------------------------------------------------------
+    'Capture and prepare Excel
         SavedCalculation = Application.Calculation
         SavedEvents = Application.EnableEvents
         SavedScreen = Application.ScreenUpdating
@@ -10045,6 +10078,7 @@ Private Function CommitStaging( _
         Application.ScreenUpdating = False
         Application.EnableEvents = False
         Application.Calculation = xlCalculationManual
+    'Write each sheet, clear the rows below, and format the rows written
         For k = 1 To 2
             If NewRows(k) > 0 Then
                 Touched(k) = True
@@ -10053,15 +10087,18 @@ Private Function CommitStaging( _
                     TableRange(LiveSheet(k), LiveFirst(k) + NewRows(k), 1, OldLast(k), InputWidth(k)).ClearContents
                 End If
                 If gTestFault = "commit-write" Or gTestFault = "commit-rollback" Then
-                    Err.Raise ERR_INJECTED_FAULT, "M_Main.CommitStaging", "Injected commit write failure."
+                    Err.Raise ERR_INJECTED_FAULT, PROC_NAME, "Injected commit write failure."
                 End If
+                FormatInputRows LiveSheet(k), LiveFirst(k), LiveFirst(k) + NewRows(k) - 1, InputWidth(k)
             End If
         Next k
+    'Read every sheet back
         For k = 1 To 2
             If NewRows(k) > 0 Then
                 CheckWritten LiveSheet(k), LiveFirst(k), InputWidth(k), NewBlock(k), NewRows(k), OldLast(k)
             End If
         Next k
+    'Empty the stored validation and mark each committed staging sheet
         ThisWorkbook.Names.Add Name:=STAGING_VALIDATED_NAME, RefersTo:="=""""", Visible:=False
         For k = 1 To 2
             If NewRows(k) > 0 Then
@@ -10073,14 +10110,17 @@ Private Function CommitStaging( _
         Committed = True
 
 '------------------------------------------------------------------------------
-' RESTORE EXCEL AND REPORT
+' EXIT PROCEDURE
 '------------------------------------------------------------------------------
+    'Reached on success and, through the handler, after an error: restore
+    'Excel and give the guard back first
 CleanUp:
         On Error GoTo 0
         If StateCaptured Then
             CleanupDetails = RestoreSettings(SavedCalculation, SavedEvents, SavedScreen)
         End If
         mRunning = False
+    'A failed commit: what failed and whether the sheets were put back
         If Not Committed Then
             CommitStaging = "RESULT=FAILED; error=" & ErrorDescription & "; rollback=" & Rollback
             Message = "Nothing was committed." & vbLf & vbLf & ErrorDescription & " (error " & ErrorNumber & ")."
@@ -10095,10 +10135,12 @@ CleanUp:
             End If
             Exit Function
         End If
+    'A setting not restored after a commit
         If Len(CleanupDetails) > 0 Then
-            Err.Raise ERR_CLEANUP_FAILED, "M_Main.CommitStaging", _
+            Err.Raise ERR_CLEANUP_FAILED, PROC_NAME, _
                       "The staged rows were committed, but Excel settings were not restored: " & CleanupDetails
         End If
+    'The result line and the message
         CommitStaging = "RESULT=COMMITTED; nettingsets=" & NewRows(1) & "; trades=" & NewRows(2)
         Message = "Committed." & vbLf & vbLf & SH_NS & ": " & _
                   IIf(NewRows(1) > 0, CountText(NewRows(1), "row") & " written", "unchanged") & vbLf & SH_TRADES & ": " & _
@@ -10106,9 +10148,14 @@ CleanUp:
                   "Results reads OUT OF DATE until the next Run SA-CCR."
         Exit Function
 
-Failed:
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+ErrorHandler:
+    'Capture the error
         ErrorNumber = Err.Number
         ErrorDescription = Err.Description
+    'Put back the sheets the commit may have changed, and their statuses
         Rollback = "NONE"
         For k = 1 To 2
             If Touched(k) Then
@@ -10122,6 +10169,109 @@ Failed:
         Resume CleanUp
 
 End Function
+
+
+Private Sub FormatInputRows( _
+    ByVal Sheet As Worksheet, _
+    ByVal FirstRow As Long, _
+    ByVal LastRow As Long, _
+    ByVal Width As Long)
+'
+'------------------------------------------------------------------------------
+'               GIVE THE WRITTEN ROWS THE FORMAT OF THE FIRST ROW
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Gives the rows below the first data row of an input table, down to
+'   LastRow, the format of the first data row, column by column: number
+'   format, alignment, fill, font and borders (#811)
+'
+' WHY THIS EXISTS
+'   The template formats a few hundred input rows, to keep the file light,
+'   while Commit import writes up to the contract's limits; the rows below
+'   the formatted ones would be left plain
+'
+' INPUTS
+'   Sheet
+'     NettingSets or Trades
+'   FirstRow
+'     The first data row, whose format is copied
+'   LastRow
+'     The last row written
+'   Width
+'     The input columns, from the table's first column
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Does nothing for a single row
+'   - Sets each property on the whole column of rows at once, without the
+'     clipboard; the validation and the conditional format are range rules
+'     of the template and cover the contract's limit already
+'   - A horizontal border between the rows takes the first row's bottom
+'     border
+'
+' ERROR POLICY
+'   An error of Excel propagates to CommitStaging, which puts the sheets
+'   back
+'
+' DEPENDENCIES
+'   TableCell, TableRange
+'
+' NOTES
+'   The sheets are protected for the user interface only, so the macro
+'   may format them
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Source          As Range       'The cell of the first data row
+    Dim Target          As Range       'The cells below it, down to LastRow
+    Dim Edge            As Variant     'A border of the cell
+    Dim c               As Long        'Column
+
+'------------------------------------------------------------------------------
+' FORMAT EACH COLUMN
+'------------------------------------------------------------------------------
+    'Nothing below the first row
+        If LastRow <= FirstRow Then Exit Sub
+        For c = 1 To Width
+        'The number format, the alignment, the fill and the font
+            Set Source = TableCell(Sheet, FirstRow, c)
+            Set Target = TableRange(Sheet, FirstRow + 1, c, LastRow, c)
+            Target.NumberFormat = Source.NumberFormat
+            Target.HorizontalAlignment = Source.HorizontalAlignment
+            Target.VerticalAlignment = Source.VerticalAlignment
+            Target.WrapText = Source.WrapText
+            If Source.Interior.Pattern = xlNone Then
+                Target.Interior.Pattern = xlNone
+            Else
+                Target.Interior.Color = Source.Interior.Color
+            End If
+            Target.Font.Name = Source.Font.Name
+            Target.Font.Size = Source.Font.Size
+            Target.Font.Bold = Source.Font.Bold
+            Target.Font.Italic = Source.Font.Italic
+            Target.Font.Color = Source.Font.Color
+        'The borders, the bottom one also between the rows
+            For Each Edge In Array(xlEdgeLeft, xlEdgeRight, xlEdgeBottom, xlInsideHorizontal)
+                With Source.Borders(IIf(Edge = xlInsideHorizontal, xlEdgeBottom, Edge))
+                    If .LineStyle = xlNone Then
+                        Target.Borders(Edge).LineStyle = xlNone
+                    Else
+                        Target.Borders(Edge).LineStyle = .LineStyle
+                        Target.Borders(Edge).Weight = .Weight
+                        Target.Borders(Edge).Color = .Color
+                    End If
+                End With
+            Next Edge
+        Next c
+
+End Sub
 
 
 Private Function TypedBlock( _

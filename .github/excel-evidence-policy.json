@@ -61,8 +61,8 @@
     },
     {
       "entry_point": "TEST_Import.RunImportTests",
-      "cases": 39,
-      "checks": {"32-bit": 236, "64-bit": 236}
+      "cases": 40,
+      "checks": {"32-bit": 242, "64-bit": 242}
     },
     {
       "entry_point": "TEST_FormulaRandom.RunFormulaRandomTests",

@@ -894,6 +894,14 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Keep the column headers of NettingSets and Trades in view, and format every committed row, as the
+  owner reported with a real portfolio of 920 netting sets (#811). The header is now on row 4, the
+  last of the frozen rows, and the data starts on row 5: the empty row 4 is gone, the frozen rows
+  and their heights and the navigation bar are as they were (#798). Commit import gives every row
+  it writes the format of the first data row (`FormatInputRows`): the template formats 200
+  netting sets and 5,000 trade legs, the contract allows 10,000 and 100,000. The data validation
+  and the duplicate-ID highlight of both sheets now cover the contract's limit. `TEST_Import`
+  checks the format of 233 committed netting sets (`commit.format`, 40 cases, 242 checks).
 - Refuse a formatted report whose Dashboard was changed after the run, and hold the operation guard
   while a report is written (#259, Codex on #805): the run now records the fingerprint of the
   Dashboard's data table (`SACCR_RunDashboard`), which the report checks besides the rules of
