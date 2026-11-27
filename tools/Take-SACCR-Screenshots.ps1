@@ -110,6 +110,17 @@ function Save-Screenshot {
     return ("{0} {1}: FAIL, no picture" -f $Shot.State, $Shot.File)
 }
 
+function Write-ScreenshotTrace {
+    # Append a line to screenshots.txt as the work goes on, so that a run the
+    # watchdog of Verify-SACCR-Branch.ps1 stops still shows its last step; the
+    # finished report replaces the file.
+    param([string]$Text)
+    if (-not [string]::IsNullOrEmpty($script:screenshotTraceFile)) {
+        [System.IO.File]::AppendAllText($script:screenshotTraceFile,
+            ((Get-Date).ToString("HH:mm:ss") + "  " + $Text + [Environment]::NewLine), (New-Object System.Text.UTF8Encoding($false)))
+    }
+}
+
 function Set-ScreenshotState {
     # Prepare a state through the workbook's silent entry points; returns the
     # lines for the report, the last of which starts with OK or FAIL.
@@ -159,6 +170,7 @@ function Set-ScreenshotState {
                     $ead = $results.Cells.Item($r, $eadColumn).Value2
                 }
             }
+            Write-ScreenshotTrace "bank: ClearBank_Silent"
             $outcome = [string]$Excel.Run($qualified + "M_Main.ClearBank_Silent", "BankNettingSets")
             $lines.Add("bank: ClearBank_Silent: " + $outcome)
             $bank = $Workbook.Worksheets.Item("BankNettingSets")
@@ -173,15 +185,27 @@ function Set-ScreenshotState {
             $figures = [double[]]@($eadValue, 5300.0, 100.0)
             $comments = [string[]]@("As on Results: MATCH", "5,300 against 5,405: DIFFERENCE",
                                     "Not on NettingSets: MISSING IN CALCULATOR")
-            for ($i = 0; $i -lt 3; $i++) {
-                $row = [int]($first + $i)
-                $bank.Cells.Item($row, 3).Value2 = [string]$ids[$i]
-                $bank.Cells.Item($row, 4).Value2 = [string]"BCBS"
-                $bank.Cells.Item($row, 5).Value2 = [double]$figures[$i]
-                $bank.Cells.Item($row, 16).Value2 = [string]$comments[$i]
+            Write-ScreenshotTrace "bank: writing the bank figures"
+            # Without events: each edit would schedule a refresh of the Ribbon (Workbook_SheetChange,
+            # RibbonStateChanged) that Excel then runs while the automation runs a macro, and Excel stops
+            # on "Cannot run the macro RibbonGetEnabled" until someone closes the message.
+            $events = [bool]$Excel.EnableEvents
+            $Excel.EnableEvents = $false
+            try {
+                for ($i = 0; $i -lt 3; $i++) {
+                    $row = [int]($first + $i)
+                    $bank.Cells.Item($row, 3).Value2 = [string]$ids[$i]
+                    $bank.Cells.Item($row, 4).Value2 = [string]"BCBS"
+                    $bank.Cells.Item($row, 5).Value2 = [double]$figures[$i]
+                    $bank.Cells.Item($row, 16).Value2 = [string]$comments[$i]
+                }
+            }
+            finally {
+                $Excel.EnableEvents = $events
             }
             $lines.Add([string]("bank: BCBS-EX1 EAD " + $eadValue.ToString([System.Globalization.CultureInfo]::InvariantCulture) +
                                 " from Results, BCBS-EX3 5300, BANK-ONLY-1 100"))
+            Write-ScreenshotTrace "bank: RunSACCR_Silent"
             $outcome = [string]$Excel.Run($qualified + "M_Main.RunSACCR_Silent")
             $lines.Add("bank: RunSACCR_Silent: " + $outcome)
             $ok = ($null -ne $ead) -and $outcome.StartsWith("RESULT=OK;") -and $outcome.Contains("; reconciliation=DONE;")
@@ -209,6 +233,8 @@ function Invoke-DocumentationScreenshots {
     New-Item -ItemType Directory -Path $folder -Force | Out-Null
     $report = New-Object System.Collections.Generic.List[string]
     $report.Add("Documentation screenshots (#616), tools\Take-SACCR-Screenshots.ps1")
+    $script:screenshotTraceFile = Join-Path $Bundle "screenshots.txt"
+    [System.IO.File]::WriteAllText($script:screenshotTraceFile, "", (New-Object System.Text.UTF8Encoding($false)))
     $plan = @(Get-ScreenshotPlan)
     $taken = 0
     $failed = 0
@@ -219,6 +245,7 @@ function Invoke-DocumentationScreenshots {
         $pictureSheet = $pictureBook.Worksheets.Item(1)
         foreach ($state in @("template", "staging", "run", "bank")) {
             [void]$Workbook.Activate()
+            Write-ScreenshotTrace ("preparing the state " + $state)
             try {
                 $lines = @(Set-ScreenshotState $Excel $Workbook $state $Bundle)
             }
@@ -228,12 +255,14 @@ function Invoke-DocumentationScreenshots {
             }
             foreach ($line in $lines) {
                 $report.Add($line)
+                Write-ScreenshotTrace $line
             }
             if (-not $lines[-1].StartsWith("OK ")) {
                 $failed++
                 continue
             }
             foreach ($shot in @($plan | Where-Object { $_.State -eq $state })) {
+                Write-ScreenshotTrace ("picturing " + $shot.File)
                 try {
                     $line = Save-Screenshot $Workbook $shot $pictureSheet $folder
                 }
@@ -273,6 +302,7 @@ function Invoke-DocumentationScreenshots {
         $verdict = "FAIL"
     }
     $report.Add(("RESULT={0}; pictures={1}/{2}; failed={3}" -f $verdict, $taken, $plan.Count, $failed))
+    $script:screenshotTraceFile = ""
     [System.IO.File]::WriteAllText((Join-Path $Bundle "screenshots.txt"),
         (($report -join [Environment]::NewLine) + [Environment]::NewLine), (New-Object System.Text.UTF8Encoding($false)))
     return $report[$report.Count - 1]
