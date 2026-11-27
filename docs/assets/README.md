@@ -18,7 +18,8 @@ taken in Excel for Windows on 2026-11-27 by
 `screenshots` on the self-hosted runner, except `SACCR_Ribbon.png`, taken by hand
 the same day, and `SACCR_Evidence_CSV.png`, taken on 2026-10-16. They were taken
 from commit `07b68e3` (run 46035197674); `SACCR_Reconciliation.png` was retaken
-from `bb24522` (run 46039677982) after the tiles were corrected (#819, #821).
+from `bb24522` (run 46039677982), merged as `21fe642`, after the tiles were
+corrected (#819, #821).
 
 | Image | Shows |
 | --- | --- |
