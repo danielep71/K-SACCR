@@ -283,7 +283,7 @@ Public Sub RibbonAction( _
 '   formatted run report
 '
 ' UPDATED
-'   2026-11-26
+'   2026-11-27
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -320,6 +320,10 @@ Public Sub RibbonAction( _
                 M_Main.ImportBankNettingSetsCsv
             Case "ImportBankTradesCsv"
                 M_Main.ImportBankTradesCsv
+            Case "ClearBankNettingSets"
+                M_Main.ClearBankNettingSets
+            Case "ClearBankTrades"
+                M_Main.ClearBankTrades
             Case "ValidateStaging"
                 M_Main.ValidateStaging
             Case "CommitImport"
@@ -609,7 +613,7 @@ Public Function RibbonMacro( _
 '   ksExportReport runs ExportReport, the formatted run report (#259)
 '
 ' UPDATED
-'   2026-11-26
+'   2026-11-27
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -633,6 +637,10 @@ Public Function RibbonMacro( _
                 RibbonMacro = "ImportBankNettingSetsCsv"
             Case "ksImportBankTrades"
                 RibbonMacro = "ImportBankTradesCsv"
+            Case "ksClearBankNettingSets"
+                RibbonMacro = "ClearBankNettingSets"
+            Case "ksClearBankTrades"
+                RibbonMacro = "ClearBankTrades"
             Case "ksValidateStaging"
                 RibbonMacro = "ValidateStaging"
             Case "ksCommitImport"

@@ -292,7 +292,7 @@ The layout and file conventions are defined in
    | 9 | `src/core/CORE_Util.bas` | `CORE_Util` | Internal; value conversions, keyed lookups and sheet helpers |
    | 10 | `src/modules/SACCR_Formulas.bas` | `SACCR_Formulas` | Public worksheet functions `SACCR_*` (`docs/PUBLIC_API.txt`) |
    | 11 | `src/workbook/M_FormulaTest.bas` | `M_FormulaTest` | The macros of the Randomize inputs and Restore defaults buttons of the FormulaTest sheet and the generator behind them: reproducible random inputs within the sheet's range table, and the shipped inputs back (#165) |
-   | 12 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `DownloadClosingPrices`, `RestoreRegulatoryParameters` and `ExportReport` (#259, the formatted run report, Export report on the Ribbon); `Auto_Open`, which protects the workbook again when a user opens it and gives every visible sheet a zoom of 100% (`ApplyOpeningView`, #726), and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportReport_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `DownloadClosingPrices_Silent`, `RebaseFxTable_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
+   | 12 | `src/workbook/M_Main.bas` | `M_Main` | Command macros `RunSACCR`, `ValidateInputs`, `ClearOutputs`, `ExportEvidence`, `ExportTradesCsvTemplate`, `ExportNettingSetsCsvTemplate`, `ImportTradesCsv`, `ImportNettingSetsCsv`, `ValidateStaging`, `CommitImport`, `ExportImportSpecification` and `DownloadClosingPrices`, `RestoreRegulatoryParameters` and `ExportReport` (#259, the formatted run report, Export report on the Ribbon), and `ClearBankNettingSets` and `ClearBankTrades` (#815); `Auto_Open`, which protects the workbook again when a user opens it and gives every visible sheet a zoom of 100% (`ApplyOpeningView`, #726), and `ProtectWorkbook`, which does the same from the Macros dialog after maintenance; the navigation bar macros `ShowNavigationBar`, `ToggleNavigationBar` and `NavigationBarShown`, with the save handlers `NavigationBarBeforeSave` and `NavigationBarAfterSave`; the CSV check macros `CheckTradesCsv` and `CheckNettingSetsCsv`; the [automation entry points](#automation-entry-points) `RunSACCR_Silent`, `ValidateInputs_Silent`, `ClearOutputs_Silent`, `ExportEvidence_Silent`, `ExportReport_Silent`, `ExportCsvTemplate_Silent`, `ExportImportSpecification_Silent`, `ReadCsv_Silent`, `ImportCsv_Silent`, `ClearBank_Silent`, `ValidateStaging_Silent`, `CommitStaging_Silent`, `DownloadClosingPrices_Silent`, `RebaseFxTable_Silent`, `RestoreRegulatoryParameters_Silent`, `SetNavigationBar_Silent`, `ResultsStatus` and `StagingValidationCurrent`; the status-cell worksheet functions `ResultsStatusText`, `ReconciliationStatusText` and `TradeReconciliationStatusText`; the change handler of the staging sheets; reads and writes the reconciliation and staging sheets |
    | 13 | `src/workbook/M_Ribbon.bas` | `M_Ribbon` | The callbacks of the K-SACCR Ribbon tab ([contract](docs/workbook/RIBBON.md)): `RibbonOnLoad` keeps the Ribbon object and selects the K-SACCR tab, once more 3 seconds later for an add-in that took it (`ActivateRibbonTab`, #726), `RibbonAction` runs the `M_Main` macro of a command, `RibbonGoTo` opens a sheet, `RibbonToggle` answers the Navigation bar toggle, `RibbonGetEnabled`, `RibbonGetLabel` and `RibbonGetPressed` give the state of the controls; keeps the Ribbon's pointer in a hidden name and recovers it after a VBA state reset with `RtlMoveMemory` of `kernel32` (#216) |
    | 14 | `tests/modules/TEST_Aggregation.bas` | `TEST_Aggregation` | Test suite; row-order independence and offsets; development workbook only |
    | 15 | `tests/modules/TEST_Benchmark.bas` | `TEST_Benchmark` | Benchmark of the engine on large synthetic portfolios; not a suite; development workbook only |
@@ -754,7 +754,8 @@ Ribbon or the staging buttons, such as a script or a test. None of them shows a 
 `RunSACCR_Silent` runs **Run SA-CCR**, writes its messages to the Immediate
 window and raises any failure to the caller. It returns a result line; for the
 demonstration portfolio with the bank figures of the reconciliation
-screenshot:
+screenshot, entered on the bank sheets, which the template ships empty
+(#815):
 
 ```text
 RESULT=OK; operation=run; errors=6; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=48595558.4974488; total_ead_bcbs=40784020.3398879; inputs=73055FCB; run_class=REGULATORY; reconciliation=DONE; trade_reconciliation=NONE; year_convention=365; calendar=TABLE; holiday_table=empty; fx_source=Manual; codes=TR-SHIFTED-PRICE,TR-OTHER-REGIME,TR-FACTOR-REGIME,TR-MATURED,NS-TRADE-INCOMPLETE; cleanup=PASS
@@ -931,6 +932,17 @@ holds raise `ERR_STAGING_WRITE` before the sheet changes; while an operation
 is running it raises `ERR_RUN_ACTIVE`. The buttons **Import CSV** on the two
 bank sheets do the same for a file chosen in a dialog, list the findings and
 ask before they replace figures.
+
+### ClearBank_Silent
+
+`ClearBank_Silent(kind)` clears every bank figure and comment of the sheet of
+`kind`, `BankNettingSets` or `BankTrades`, without a dialog (#815), and
+returns `RESULT=CLEARED; sheet=...; rows=N`, N being the rows that held an
+entry. The amount scale and the tolerances are not changed. An unknown kind
+raises `ERR_CSV_READ`, a missing bank header `ERR_STAGING_WRITE`, and while an
+operation is running it raises `ERR_RUN_ACTIVE`. The **Clear bank figures**
+buttons on the two bank sheets and the Clear entries of the Import CSV menu
+do the same after a confirmation, No being the default.
 
 ### ValidateStaging_Silent
 

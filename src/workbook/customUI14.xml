@@ -55,6 +55,13 @@
             <button id="ksImportBankTrades" label="BankTrades file..." image="ksiBankTradesSmall" keytip="L"
                     supertip="Replace the figures on BankTrades with those of a CSV file that follows the contract; nothing changes if it does not."
                     onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+            <menuSeparator id="ksImportSepClear" title="Bank figures"/>
+            <button id="ksClearBankNettingSets" label="Clear BankNettingSets..." image="ksiClearSmall" keytip="C"
+                    supertip="Clear every bank figure and comment of BankNettingSets, after a confirmation; the amount scale and the tolerances stay."
+                    onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
+            <button id="ksClearBankTrades" label="Clear BankTrades..." image="ksiClearSmall" keytip="R"
+                    supertip="Clear every bank figure and comment of BankTrades, after a confirmation; the amount scale and the tolerances stay."
+                    onAction="RibbonAction" getEnabled="RibbonGetEnabled"/>
           </menu>
           <button id="ksValidateStaging" label="Validate staging" image="ksiStagingSmall" keytip="V"
                   supertip="Check the staged rows of both staging sheets against the CSV contract, each other, the input sheets and Params; the findings are listed on Checks."

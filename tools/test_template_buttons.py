@@ -30,6 +30,7 @@ STAGING = (("btn_ImportCsv", "{import}", "Import CSV", NAVY),
            ("btn_ExportImportSpecification", "ExportImportSpecification", "Export import specifications", BLUE))
 BANK_IMPORT = ("btn_ImportCsv", "{import}", "Import CSV", NAVY)
 BANK_TEMPLATE = ("btn_ExportCsvTemplate", "{export}", "Export CSV template", BLUE)
+BANK_CLEAR = ("btn_ClearBank", "{clear}", "Clear bank figures", BLUE)  # #815
 # Sheet: (name, macro, label, fill) of each shape, in order from the left.
 EXPECTED = {
     "Results": CLEAR, "HedgingSets": CLEAR, "Buckets": CLEAR, "TradeCalc": CLEAR, "Checks": CLEAR,
@@ -40,9 +41,11 @@ EXPECTED = {
     "Import_NettingSets": tuple((a, b.replace("{import}", "ImportNettingSetsCsv"), c, d) for a, b, c, d in STAGING),
     "Import_Trades": tuple((a, b.replace("{import}", "ImportTradesCsv"), c, d) for a, b, c, d in STAGING),
     "BankNettingSets": tuple((a, b.replace("{import}", "ImportBankNettingSetsCsv").replace(
-        "{export}", "ExportBankNettingSetsCsvTemplate"), c, d) for a, b, c, d in (BANK_IMPORT, BANK_TEMPLATE)),
+        "{export}", "ExportBankNettingSetsCsvTemplate").replace("{clear}", "ClearBankNettingSets"), c, d)
+        for a, b, c, d in (BANK_IMPORT, BANK_TEMPLATE, BANK_CLEAR)),
     "BankTrades": tuple((a, b.replace("{import}", "ImportBankTradesCsv").replace(
-        "{export}", "ExportBankTradesCsvTemplate"), c, d) for a, b, c, d in (BANK_IMPORT, BANK_TEMPLATE)),
+        "{export}", "ExportBankTradesCsvTemplate").replace("{clear}", "ClearBankTrades"), c, d)
+        for a, b, c, d in (BANK_IMPORT, BANK_TEMPLATE, BANK_CLEAR)),
 }
 # The shapes start no further than this right of the left edge of column C, and clear of the title (Params
 # is the exception: its Download prices button sits beside the FX table).

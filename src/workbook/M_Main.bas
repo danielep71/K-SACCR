@@ -46,7 +46,10 @@ Attribute VB_Name = "M_Main"
 '   ImportNettingSetsCsv and ImportTradesCsv: load a CSV file into the
 '   staging sheet Import_NettingSets or Import_Trades, as text, for
 '   checking and correction before it replaces the inputs (#208);
-'   ImportCsv_Silent: the same for a given file. StagingEdited: the
+'   ImportCsv_Silent: the same for a given file. ClearBankNettingSets and
+'   ClearBankTrades: clear the bank figures of a bank sheet after a
+'   confirmation (#815); ClearBank_Silent: the same without one.
+'   StagingEdited: the
 '   change handler of the staging sheets. StagingFormulaCell: the first
 '   formula in a staging block, for staging validation and commit.
 '   ValidateStaging: check the rows of both staging sheets against the
@@ -7270,6 +7273,426 @@ Public Function ImportBankCsv_Silent( _
         End If
         LoadBank ReconKind, Result, Values
         ImportBankCsv_Silent = "RESULT=LOADED; records=" & Result.RecordCount & "; file=" & FilePath
+
+End Function
+
+
+Public Sub ClearBankNettingSets()
+
+'
+'------------------------------------------------------------------------------
+'                    CLEAR THE BANK FIGURES OF BANKNETTINGSETS
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Clears the bank figures and comments of BankNettingSets, after a
+'   confirmation (#815)
+'
+' WHY THIS EXISTS
+'   The figures of another portfolio would spoil the reconciliation of the
+'   current one, and a protected sheet gave no clear way to remove them
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - As ClearBankCommand, for BankNettingSets
+'
+' ERROR POLICY
+'   As ClearBankCommand: reported, never raised
+'
+' DEPENDENCIES
+'   ClearBankCommand
+'
+' NOTES
+'   The Clear bank figures button of BankNettingSets, the Import CSV menu
+'   of the K-SACCR Ribbon tab, or the Macros dialog
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' CLEAR
+'------------------------------------------------------------------------------
+    'Ask, clear and say so
+        ClearBankCommand "BankNettingSets"
+
+End Sub
+
+
+Public Sub ClearBankTrades()
+
+'
+'------------------------------------------------------------------------------
+'                      CLEAR THE BANK FIGURES OF BANKTRADES
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Clears the bank figures and comments of BankTrades, after a
+'   confirmation (#815)
+'
+' WHY THIS EXISTS
+'   The figures of another portfolio would spoil the trade reconciliation
+'   of the current one, and a protected sheet gave no clear way to remove
+'   them
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - As ClearBankCommand, for BankTrades
+'
+' ERROR POLICY
+'   As ClearBankCommand: reported, never raised
+'
+' DEPENDENCIES
+'   ClearBankCommand
+'
+' NOTES
+'   The Clear bank figures button of BankTrades, the Import CSV menu of
+'   the K-SACCR Ribbon tab, or the Macros dialog
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' CLEAR
+'------------------------------------------------------------------------------
+    'Ask, clear and say so
+        ClearBankCommand "BankTrades"
+
+End Sub
+
+
+Public Function ClearBank_Silent( _
+    ByVal Kind As String) _
+    As String
+'
+'------------------------------------------------------------------------------
+'                 CLEAR THE BANK FIGURES OF A SHEET, WITHOUT A DIALOG
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The automation entry point of Clear bank figures (#815): clears the
+'   bank figures and comments of the sheet of Kind and says how many rows
+'   held any
+'
+' WHY THIS EXISTS
+'   The tests and the checks on the runner clear a bank sheet without the
+'   confirmation the command asks for
+'
+' INPUTS
+'   Kind
+'     BankNettingSets or BankTrades
+'
+' RETURNS
+'   "RESULT=CLEARED; sheet=<name>; rows=<n>"
+'
+' BEHAVIOR
+'   - As ClearBankFigures; asks nothing
+'
+' ERROR POLICY
+'   Raises ERR_CSV_READ for another kind, ERR_RUN_ACTIVE while an
+'   operation runs, and the errors of ClearBankFigures
+'
+' DEPENDENCIES
+'   BankReconKind, BankSheetOf, ClearBankFigures
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim ReconKind       As Long       'The reconciliation of the sheet
+    Dim ClearedRows     As Long       'Rows that held an entry
+
+'------------------------------------------------------------------------------
+' CLEAR
+'------------------------------------------------------------------------------
+    'Clear and say how many rows held an entry
+        ReconKind = BankReconKind(Kind)
+        ClearedRows = ClearBankFigures(ReconKind)
+        ClearBank_Silent = "RESULT=CLEARED; sheet=" & BankSheetOf(ReconKind) & "; rows=" & ClearedRows
+
+End Function
+
+
+Private Sub ClearBankCommand( _
+    ByVal Kind As String)
+'
+'------------------------------------------------------------------------------
+'               ASK, THEN CLEAR THE BANK FIGURES OF A SHEET
+'------------------------------------------------------------------------------
+' PURPOSE
+'   The interactive Clear bank figures (#815): asks whether to clear the
+'   bank figures and comments of the sheet of Kind, clears them and says
+'   so
+'
+' WHY THIS EXISTS
+'   One path for the two buttons and the two Ribbon entries
+'
+' INPUTS
+'   Kind
+'     BankNettingSets or BankTrades
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Refuses while an operation runs
+'   - A sheet without figures is left as it is, with a message
+'   - Asks first, with No as the default; silent mode, which shows no
+'     question, clears nothing (automation calls ClearBank_Silent)
+'   - The amount scale and the tolerances are not changed; the next Run
+'     SA-CCR reconciles nothing on this sheet
+'
+' ERROR POLICY
+'   Reports an error in a message, or in the Immediate window in silent
+'   mode; never raises
+'
+' DEPENDENCIES
+'   BankReconKind, BankSheetOf, BankRowsEntered, ClearBankFigures,
+'   RibbonStateChanged, CountText, Notify
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME     As String = "M_Main.ClearBankCommand"
+
+    Dim ReconKind       As Long       'The reconciliation of the sheet
+    Dim SheetName       As String     'The bank sheet
+    Dim ClearedRows     As Long       'Rows that held an entry
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+        On Error GoTo ErrorHandler
+        ReconKind = BankReconKind(Kind)
+        SheetName = BankSheetOf(ReconKind)
+
+'------------------------------------------------------------------------------
+' REFUSE OR ASK
+'------------------------------------------------------------------------------
+    'One operation at a time
+        If mRunning Then
+            Notify "An SA-CCR operation is already running.", vbExclamation
+            Exit Sub
+        End If
+    'A sheet without figures is left as it is
+        If Not BankRowsEntered(ReconKind) Then
+            Notify SheetName & " holds no bank figures: nothing to clear.", vbInformation
+            Exit Sub
+        End If
+    'Silent mode cannot ask
+        If gSilent Then
+            Notify "Nothing was cleared." & vbLf & vbLf & "Clear bank figures asks first, which silent mode does " & _
+                   "not show. Automation calls ClearBank_Silent.", vbExclamation
+            Exit Sub
+        End If
+    'No is the default
+        If MsgBox("Clear every bank figure and comment of " & SheetName & "?" & vbLf & vbLf & _
+                  "The amount scale and the tolerances stay. The next Run SA-CCR reconciles nothing on " & _
+                  SheetName & " until figures are entered or imported again.", _
+                  vbYesNo + vbExclamation + vbDefaultButton2, MSG_TITLE) <> vbYes Then
+            Exit Sub
+        End If
+
+'------------------------------------------------------------------------------
+' CLEAR AND REPORT
+'------------------------------------------------------------------------------
+    'Clear, then say how many rows were cleared
+        ClearedRows = ClearBankFigures(ReconKind)
+        RibbonStateChanged
+        Notify SheetName & ": " & CountText(ClearedRows, "row") & " of bank figures cleared." & vbLf & vbLf & _
+               "Press Run SA-CCR to refresh the reconciliation.", vbInformation
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+ErrorHandler:
+    'Say what failed
+        Notify "Clear bank figures: " & Err.Description, vbCritical
+
+End Sub
+
+
+Private Function ClearBankFigures( _
+    ByVal ReconKind As Long) _
+    As Long
+'
+'------------------------------------------------------------------------------
+'                   CLEAR THE FIGURES AND COMMENTS OF A BANK SHEET
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Clears every cell of the bank table of a reconciliation, below its
+'   header (#815), and returns how many rows held an entry
+'
+' WHY THIS EXISTS
+'   The figures of the bank table are the user's to remove; the formats,
+'   the amount scale and the tolerances stay
+'
+' INPUTS
+'   ReconKind
+'     RECON_NS or RECON_TR
+'
+' RETURNS
+'   The rows below the header that held an entry before the clear
+'
+' BEHAVIOR
+'   - Holds the operation guard while it writes
+'   - Turns off screen updating, events and calculation while it writes,
+'     and puts them back on every path
+'
+' ERROR POLICY
+'   Raises ERR_RUN_ACTIVE while an operation runs and ERR_STAGING_WRITE
+'   for a missing bank header, before the sheet changes; an error while
+'   clearing is raised after the settings are put back, with the settings
+'   not restored
+'
+' DEPENDENCIES
+'   BankHeaderRow, HeaderNameOf, GetSheet, BankSheetOf, BankColsOf,
+'   UsedLastRow and TableRange (CORE_Util), ProtectWorkbook,
+'   RestoreSettings
+'
+' NOTES
+'   The stored reconciliation fingerprint is left as it is: the evidence
+'   export refuses a reconciliation whose bank figures changed until the
+'   next run
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Const PROC_NAME         As String = "M_Main.ClearBankFigures"
+
+    Dim Sheet               As Worksheet       'The bank sheet
+    Dim HeaderRow           As Long            'Its header row
+    Dim FirstRow            As Long            'First row below the header
+    Dim LastRow             As Long            'Last used row
+    Dim Width               As Long            'Columns of the table
+    Dim Block               As Variant         'The table before the clear
+    Dim Entered             As Long            'Rows that held an entry
+    Dim SavedCalculation    As XlCalculation   'Calculation mode before the clear
+    Dim SavedEvents         As Boolean         'EnableEvents before the clear
+    Dim SavedScreen         As Boolean         'ScreenUpdating before the clear
+    Dim StateCaptured       As Boolean         'True once all three were read
+    Dim ErrorNumber         As Long            'First error number; 0 for none
+    Dim ErrorSource         As String          'Its source
+    Dim ErrorDescription    As String          'Its description
+    Dim CleanupDetails      As String          'Settings not restored
+    Dim r                   As Long            'Row of the block
+    Dim c                   As Long            'Column of the block
+
+'------------------------------------------------------------------------------
+' VALIDATE INPUTS
+'------------------------------------------------------------------------------
+    'One operation at a time, and a bank table to clear
+        If mRunning Then
+            Err.Raise ERR_RUN_ACTIVE, PROC_NAME, "An SA-CCR operation is already running."
+        End If
+        HeaderRow = BankHeaderRow(ReconKind)
+        If HeaderRow = 0 Then
+            Err.Raise ERR_STAGING_WRITE, PROC_NAME, _
+                      "The name " & HeaderNameOf(ReconKind) & " is missing: build the workbook from the current template."
+        End If
+        Set Sheet = GetSheet(BankSheetOf(ReconKind))
+        FirstRow = HeaderRow + 1
+        Width = BankColsOf(ReconKind)
+        LastRow = UsedLastRow(Sheet)
+        If LastRow < FirstRow Then Exit Function
+
+'------------------------------------------------------------------------------
+' COUNT THE ROWS WITH AN ENTRY
+'------------------------------------------------------------------------------
+    'A row with any cell that is not blank
+        Block = TableRange(Sheet, FirstRow, 1, LastRow, Width).Value2
+        For r = 1 To UBound(Block, 1)
+            For c = 1 To UBound(Block, 2)
+                If VBA.Len(VBA.Trim$(CORE_Util.SafeStr(Block(r, c)))) > 0 Then
+                    Entered = Entered + 1
+                    Exit For
+                End If
+            Next c
+        Next r
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'Hold the guard, then capture and prepare Excel
+        mRunning = True
+        ProtectWorkbook
+        On Error GoTo ErrorHandler
+        SavedCalculation = Application.Calculation
+        SavedEvents = Application.EnableEvents
+        SavedScreen = Application.ScreenUpdating
+        StateCaptured = True
+        Application.ScreenUpdating = False
+        Application.EnableEvents = False
+        Application.Calculation = xlCalculationManual
+
+'------------------------------------------------------------------------------
+' CLEAR
+'------------------------------------------------------------------------------
+    'Every figure and comment; the formats stay
+        TableRange(Sheet, FirstRow, 1, LastRow, Width).ClearContents
+        ClearBankFigures = Entered
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+    'Reached on success and, through the handler, after an error
+CleanUp:
+        On Error GoTo 0
+        If StateCaptured Then
+            CleanupDetails = RestoreSettings(SavedCalculation, SavedEvents, SavedScreen)
+        End If
+        mRunning = False
+        If ErrorNumber <> 0 Then
+            If VBA.Len(CleanupDetails) > 0 Then
+                ErrorDescription = ErrorDescription & " Excel settings not restored: " & CleanupDetails
+            End If
+            Err.Raise ErrorNumber, ErrorSource, ErrorDescription
+        End If
+        If VBA.Len(CleanupDetails) > 0 Then
+            Err.Raise ERR_CLEANUP_FAILED, PROC_NAME, _
+                      "The bank figures were cleared, but Excel settings were not restored: " & CleanupDetails
+        End If
+        Exit Function
+
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+ErrorHandler:
+    'Keep the first error for the caller
+        ErrorNumber = Err.Number
+        ErrorSource = Err.Source
+        ErrorDescription = Err.Description
+        Resume CleanUp
 
 End Function
 

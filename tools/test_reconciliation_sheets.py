@@ -356,31 +356,16 @@ class SampleBankFigureTests(unittest.TestCase):
         """The first data row of a sheet: the row below the header its workbook name locates."""
         return named_cell(self.package, name).row + 1
 
-    def test_the_sample_bank_rows_name_netting_sets_and_trades_of_the_sample_inputs(self) -> None:
-        first = self.first_row("NettingSets_Header")
-        sets = {name for name in self.column("NettingSets", "C", first, first + 53) if name}
-        ids = [name for name in self.column("BankNettingSets", "C", 9, 30) if name]
-        self.assertGreaterEqual(len(ids), 6)
-        self.assertEqual(len(ids), len(set(ids)))
-        self.assertEqual([name for name in ids if name not in sets], ["BANK-ONLY-1"])
-        regimes = [value for value in self.column("BankNettingSets", "D", 9, 30) if value]
-        self.assertEqual(len(regimes), len(ids))
-        self.assertTrue(set(regimes) <= {"BCBS", "CRR"})
-        first = self.first_row("Trades_Header")
-        trades = {name for name in self.column("Trades", "C", first, first + 395) if name}
-        bank = [name for name in self.column("BankTrades", "C", 9, 30) if name]
-        self.assertGreaterEqual(len(bank), 3)
-        self.assertEqual([name for name in bank if name not in trades], ["BANK-ONLY-T1"])
-
-    def test_the_sample_bank_figures_are_published_values_or_marked_as_changed(self) -> None:
-        ead = dict(zip(self.column("BankNettingSets", "C", 9, 15), self.column("BankNettingSets", "E", 9, 15)))
-        self.assertEqual(ead["BCBS-EX1"], "569")  # CRE99 example 1 prints an EAD of 569 thousand
-        self.assertEqual(ead["BCBS-EX2"], "381")
-        self.assertEqual(ead["BCBS-EX4"], "936")
-        self.assertEqual(ead["BCBS-EX5"], "1879")
-        comments = dict(zip(self.column("BankNettingSets", "C", 9, 15), self.column("BankNettingSets", "P", 9, 15)))
-        self.assertIn("on purpose", comments["BCBS-EX3"])
-
+    def test_the_bank_sheets_ship_without_figures(self) -> None:
+        # The figures of the sample portfolio spoiled the reconciliation of a real one (#815): the
+        # template ships both bank tables empty, below their header, with their settings.
+        for sheet, header, last in (("BankNettingSets", "BankNettingSets_Header", "P"),
+                                    ("BankTrades", "BankTrades_Header", "O")):
+            first = self.first_row(header)
+            for letter in "CDEFGHIJKLMNOP"[: "CDEFGHIJKLMNOP".index(last) + 1]:
+                self.assertEqual([v for v in self.column(sheet, letter, first, first + 60) if v], [],
+                                 f"{sheet} column {letter}")
+            self.assertEqual(self.column(sheet, "D", 4, 6), ["1", "1", "0.01"], sheet)
 
 if __name__ == "__main__":
     unittest.main()
