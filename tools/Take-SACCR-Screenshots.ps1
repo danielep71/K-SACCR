@@ -186,22 +186,12 @@ function Set-ScreenshotState {
             $comments = [string[]]@("As on Results: MATCH", "5,300 against 5,405: DIFFERENCE",
                                     "Not on NettingSets: MISSING IN CALCULATOR")
             Write-ScreenshotTrace "bank: writing the bank figures"
-            # Without events: each edit would schedule a refresh of the Ribbon (Workbook_SheetChange,
-            # RibbonStateChanged) that Excel then runs while the automation runs a macro, and Excel stops
-            # on "Cannot run the macro RibbonGetEnabled" until someone closes the message.
-            $events = [bool]$Excel.EnableEvents
-            $Excel.EnableEvents = $false
-            try {
-                for ($i = 0; $i -lt 3; $i++) {
-                    $row = [int]($first + $i)
-                    $bank.Cells.Item($row, 3).Value2 = [string]$ids[$i]
-                    $bank.Cells.Item($row, 4).Value2 = [string]"BCBS"
-                    $bank.Cells.Item($row, 5).Value2 = [double]$figures[$i]
-                    $bank.Cells.Item($row, 16).Value2 = [string]$comments[$i]
-                }
-            }
-            finally {
-                $Excel.EnableEvents = $events
+            for ($i = 0; $i -lt 3; $i++) {
+                $row = [int]($first + $i)
+                $bank.Cells.Item($row, 3).Value2 = [string]$ids[$i]
+                $bank.Cells.Item($row, 4).Value2 = [string]"BCBS"
+                $bank.Cells.Item($row, 5).Value2 = [double]$figures[$i]
+                $bank.Cells.Item($row, 16).Value2 = [string]$comments[$i]
             }
             $lines.Add([string]("bank: BCBS-EX1 EAD " + $eadValue.ToString([System.Globalization.CultureInfo]::InvariantCulture) +
                                 " from Results, BCBS-EX3 5300, BANK-ONLY-1 100"))
@@ -239,7 +229,13 @@ function Invoke-DocumentationScreenshots {
     $taken = 0
     $failed = 0
     $pictureBook = $null
+    # Without events for the whole session: activating the workbook or a sheet, or editing a cell, makes
+    # the workbook refresh its Ribbon (Workbook_Activate, Workbook_SheetActivate, Workbook_SheetChange);
+    # Excel then asks for the callbacks once the picture workbook is the active one, does not find them
+    # there and stops on "Cannot run the macro 'RibbonGetEnabled'" until someone closes the message.
+    $events = [bool]$Excel.EnableEvents
     try {
+        $Excel.EnableEvents = $false
         [void]$Workbook.Activate()
         $pictureBook = $Excel.Workbooks.Add()
         $pictureSheet = $pictureBook.Worksheets.Item(1)
@@ -293,6 +289,11 @@ function Invoke-DocumentationScreenshots {
         }
         try {
             [void]$Workbook.Activate()
+        }
+        catch {
+        }
+        try {
+            $Excel.EnableEvents = $events
         }
         catch {
         }
