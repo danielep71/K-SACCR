@@ -13,7 +13,7 @@ Usage::
 
     python tools/dashboard.py --check
 
-checks the specification: block and row names, kinds and the scale steps.
+checks the specification: block and row names, kinds and the one scale step, 1 (#810).
 """
 
 from __future__ import annotations
@@ -128,8 +128,8 @@ def check_spec(spec: dict[str, Any]) -> list[str]:
     if spec.get("regimes") != list(REGIMES):
         findings.append(f"regimes must be {list(REGIMES)}")
     factors = [s.get("factor") for s in spec.get("scales", {}).get("steps", [])]
-    if factors != [1, 1000, 1000000, 1000000000]:
-        findings.append("scale steps must be 1, thousand, million and billion")
+    if factors != [1]:
+        findings.append("the one scale step must be 1: amounts in units (#810)")
     names: set[str] = set()
     for block in spec.get("blocks", []):
         findings += check_block(block, names)
@@ -173,16 +173,6 @@ def check_block(block: dict[str, Any], names: set[str]) -> list[str]:
 # ---------------------------------------------------------------------------
 # Rules
 # ---------------------------------------------------------------------------
-
-def scale_step(amounts: list[float]) -> int:
-    """k of the scale: the largest k of 0 to 3 with 1000**k <= max |amount|; 0 below 1,000.
-
-    This is floor(log10(amount) / 3) held between 0 and 3, compared without a logarithm, whose
-    rounding would put 1,000 below its own step.
-    """
-    largest = max((abs(a) for a in amounts), default=0.0)
-    return sum(largest >= 1000 ** k for k in (1, 2, 3))
-
 
 def percent_text(fraction: float) -> str:
     """A fraction as a percentage with one decimal, halves away from zero: 0.3846 -> 38.5%."""
@@ -265,7 +255,7 @@ def recon(results: list[str] | None) -> list[Cell]:
 # ---------------------------------------------------------------------------
 
 def compute(run: Run, spec: dict[str, Any] | None = None) -> dict[str, Block]:
-    """Every block of the data table, values as written: amounts divided by their family's scale."""
+    """Every block of the data table, values as written: amounts in units of the reporting currency (#810)."""
     spec = spec or load_spec()
     valid = {g: [r for r in run.results if r.regime == g and r.status == VALID] for g in REGIMES}
     every = {g: [r for r in run.results if r.regime == g] for g in REGIMES}
@@ -309,20 +299,15 @@ def compute(run: Run, spec: dict[str, Any] | None = None) -> dict[str, Block]:
     notional["path"] = [path[g]["notional"] for g in REGIMES]
     exposure["path"] = [path[g][k] for g in REGIMES for k in ("gross_positive", "netted", "rc", "pfe", "ead")]
 
-    steps = spec["scales"]["steps"]
-    k_exposure = scale_step([a for values in exposure.values() for a in values])
-    k_notional = scale_step([a for values in notional.values() for a in values])
-    fx, fn = steps[k_exposure]["factor"], steps[k_notional]["factor"]
-
-    def unit(k: int) -> str:
-        word = steps[k]["word"]
-        return f"{run.info.reporting_currency} {word}".strip()
+    # Amounts in units of the reporting currency (#810): the one step of the specification.
+    fx = fn = spec["scales"]["steps"][0]["factor"]
+    unit_text = run.info.reporting_currency.strip()
 
     blocks: dict[str, Block] = {}
     i = run.info
     blocks["Dashboard_Run"] = [[i.reporting_date], [i.run_time], [i.reporting_currency], [i.default_regime],
                                [i.parameter_set], [i.inputs]]
-    blocks["Dashboard_Scale"] = [[fx, unit(k_exposure)], [fn, unit(k_notional)]]
+    blocks["Dashboard_Scale"] = [[fx, unit_text], [fn, unit_text]]
 
     def counterparties(rows: list[NettingSetResult]) -> int:
         return len({r.counterparty.strip().upper() for r in rows if r.counterparty.strip()})

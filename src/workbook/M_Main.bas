@@ -3165,7 +3165,7 @@ Private Function WriteReportDashboard( _
 '   No formula is copied: the title's unit is the value its formula shows
 '
 ' UPDATED
-'   2026-11-26
+'   2026-11-27
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -3191,7 +3191,7 @@ Private Function WriteReportDashboard( _
     'A title, then each block with a blank row after it
         ReportSheet.Cells(1, 1).Value2 = "Dashboard"
         ReportSheet.Cells(1, 1).Font.Bold = True
-        ReportSheet.Cells(2, 1).Value2 = "Amounts on the scale named in each table's title"
+        ReportSheet.Cells(2, 1).Value2 = "Amounts in units of the reporting currency, as each table's title names"
         ReportSheet.Cells(2, 1).Font.Italic = True
         TopRow = 4
         Set SourceSheet = GetSheet(SH_DASHBOARD)
@@ -5220,56 +5220,119 @@ End Sub
 '
 
 Public Sub ExportEvidence()
+
 '
-'==============================================================================
-'                                ExportEvidence
+'------------------------------------------------------------------------------
+'                     EXPORT THE EVIDENCE OF THE LAST RUN
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Write the evidence report of the last run to a CSV file chosen by the
-'   user (#45): run identity, parameters, Results, both reconciliations,
-'   Checks and the report's limitations (CORE_Export). Refused when the
-'   results or a reconciliation with bank figures are not current, or when
-'   an output cell was edited after the run.
+'   Writes the evidence CSV of the last run to a file the user chooses
 '
-' USAGE
-'   Export evidence on the K-SACCR Ribbon tab, or the Macros dialog.
+' WHY THIS EXISTS
+'   The machine-readable record of a run, refused unless the results are
+'   those of the current inputs (EvidenceProblem)
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Checks the run, then asks for the file, then writes it, and says how
+'     many lines were written
+'   - Turns off screen updating while it checks and writes, so that the
+'     sheets it reads do not flicker (#814); puts it back before the
+'     dialog and the message, and after a failure
+'   - Shows its two steps in the status bar (#807)
 '
 ' ERROR POLICY
-'   Reports a refusal or a write failure in a message, or in the Immediate
-'   window in silent mode; never raises.
+'   Reports a refusal or a failure in a message, or in the Immediate
+'   window in silent mode; never raises
+'
+' DEPENDENCIES
+'   EvidenceProblem, DefaultEvidenceName, WriteEvidence, ProgressStart,
+'   ProgressShow, ProgressEnd, Notify
+'
+' NOTES
+'   Export evidence on the K-SACCR Ribbon tab, or the Macros dialog;
+'   automation calls ExportEvidence_Silent
 '
 ' UPDATED
-'   2026-10-17
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim Problem      As String     'Why the report cannot be written; "" when it can
-    Dim ChosenFile   As Variant    'Chosen file, or False when cancelled
-    Dim LineCount    As Long       'Lines written
+    Const PROC_NAME     As String = "M_Main.ExportEvidence"
+
+    Dim Problem         As String     'Why the evidence cannot be written; "" when it can
+    Dim ChosenFile      As Variant    'Chosen file, or False when cancelled
+    Dim LineCount       As Long       'Lines written
+    Dim SavedScreen     As Boolean    'ScreenUpdating before the command
+    Dim ScreenCaptured  As Boolean    'True while the command holds ScreenUpdating off
 
 '------------------------------------------------------------------------------
-' CHECK, ASK AND WRITE
+' INITIALIZE
 '------------------------------------------------------------------------------
-        On Error GoTo Failed
+        On Error GoTo ErrorHandler
+        SavedScreen = Application.ScreenUpdating
+
+'------------------------------------------------------------------------------
+' CHECK THE RUN
+'------------------------------------------------------------------------------
+    'Check, with the screen still, its progress in the status bar
+        ProgressStart "Export evidence"
+        ScreenCaptured = True
+        Application.ScreenUpdating = False
+        ProgressShow 0, 2, "checking the run"
         Problem = EvidenceProblem()
-        If Len(Problem) > 0 Then
+        Application.ScreenUpdating = SavedScreen
+        ScreenCaptured = False
+        If VBA.Len(Problem) > 0 Then
             Notify "Evidence not exported: " & Problem & ".", vbExclamation
             Exit Sub
         End If
+
+'------------------------------------------------------------------------------
+' ASK FOR THE FILE
+'------------------------------------------------------------------------------
+    'The dialog takes the keyboard and the mouse back
+        ProgressEnd
         ChosenFile = Application.GetSaveAsFilename(InitialFileName:=DefaultEvidenceName(), _
-                                               FileFilter:="CSV files (*.csv), *.csv", _
-                                               Title:="Export evidence")
+                                                   FileFilter:="CSV files (*.csv), *.csv", _
+                                                   Title:="Export evidence")
         If VarType(ChosenFile) = vbBoolean Then
             Exit Sub
         End If
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+    'Write, with the screen still, and say where
+        ProgressStart "Export evidence"
+        ScreenCaptured = True
+        Application.ScreenUpdating = False
+        ProgressShow 1, 2, "writing the evidence"
         LineCount = WriteEvidence(CStr(ChosenFile))
+        Application.ScreenUpdating = SavedScreen
+        ScreenCaptured = False
+        ProgressShow 2, 2, "done"
         Notify "Evidence exported, " & LineCount & " lines:" & vbLf & vbLf & CStr(ChosenFile), vbInformation
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
         Exit Sub
 
-Failed:
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+ErrorHandler:
+    'Put the screen back, then say what failed; the message gives the
+    'status bar back
+        If ScreenCaptured Then Application.ScreenUpdating = SavedScreen
         Notify "Evidence not exported: " & Err.Description, vbCritical
 
 End Sub
@@ -10148,45 +10211,75 @@ End Function
 
 
 Public Sub CommitImport()
+
 '
-'==============================================================================
-'                                 CommitImport
+'------------------------------------------------------------------------------
+'               REPLACE THE INPUT SHEETS WITH THE VALIDATED ROWS
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Replace NettingSets and Trades with the staged rows of a VALID staging
+'   Replaces NettingSets and Trades with the staged rows of a VALID staging
 '   validation (#211), after a confirmation that names each input sheet
 '   with its rows now and the staged rows that replace them, or says it is
-'   left as it is.
+'   left as it is
 '
-' USAGE
-'   Commit import on the K-SACCR Ribbon tab, the Commit import button on
-'   Import_NettingSets and Import_Trades, or the Macros dialog. Automation
-'   calls CommitStaging_Silent.
+' WHY THIS EXISTS
+'   The command behind Commit import: CommitStaging commits, this asks and
+'   shows the outcome
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Refuses while an operation runs, when Excel did not finish
+'     recalculating, and without a current VALID validation
+'   - In silent mode, where no confirmation can be given, commits nothing
+'   - Shows the progress of the commit in the status bar once confirmed
+'     (#814): the staged rows read, each input sheet written, the rows
+'     formatted, and read back
 '
 ' ERROR POLICY
 '   Reports an error in a message, or in the Immediate window in silent
-'   mode; never raises. Without a current VALID validation, or in silent
-'   mode, where no confirmation can be given, nothing is committed.
+'   mode; never raises
+'
+' DEPENDENCIES
+'   InputsRecalculated, RecalcRefusedText, StagingValidationCurrent,
+'   CommitRefusedText, CommitQuestion, CommitStaging, RibbonStateChanged,
+'   ProgressStart, Notify
+'
+' NOTES
+'   Commit import on the K-SACCR Ribbon tab, the Commit import button on
+'   Import_NettingSets and Import_Trades, or the Macros dialog. Automation
+'   calls CommitStaging_Silent
 '
 ' UPDATED
-'   2026-11-03
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ResultLine  As String    'What the commit returned
-    Dim Message     As String    'Its message
+    Const PROC_NAME     As String = "M_Main.CommitImport"
+
+    Dim ResultLine      As String    'What the commit returned
+    Dim Message         As String    'Its message
 
 '------------------------------------------------------------------------------
-' CONFIRM, COMMIT AND REPORT
+' INITIALIZE
 '------------------------------------------------------------------------------
-        On Error GoTo Failed
+        On Error GoTo ErrorHandler
+
+'------------------------------------------------------------------------------
+' REFUSE
+'------------------------------------------------------------------------------
+    'One operation at a time
         If mRunning Then
             Notify "An SA-CCR operation is already running.", vbExclamation
             Exit Sub
         End If
+    'Only a current VALID validation, judged on recalculated inputs
         If Not InputsRecalculated() Then
             Notify RecalcRefusedText(), vbExclamation
             Exit Sub
@@ -10195,16 +10288,25 @@ Public Sub CommitImport()
             Notify CommitRefusedText(), vbExclamation
             Exit Sub
         End If
+    'Silent mode cannot confirm
         If gSilent Then
             Notify "Nothing was committed." & vbLf & vbLf & "A commit is confirmed in a dialog, which silent mode " & _
                    "does not show. Automation calls CommitStaging_Silent.", vbExclamation
             Exit Sub
         End If
+
+'------------------------------------------------------------------------------
+' CONFIRM, COMMIT AND REPORT
+'------------------------------------------------------------------------------
+    'Ask, with Cancel as the default
         If MsgBox(CommitQuestion(), vbOKCancel + vbExclamation + vbDefaultButton2, MSG_TITLE) <> vbOK Then
             Exit Sub
         End If
+    'Commit, its progress in the status bar
+        ProgressStart "Commit import"
         ResultLine = CommitStaging(Message)
         RibbonStateChanged
+    'Say what happened; the message gives the status bar back
         If Left$(ResultLine, Len("RESULT=COMMITTED")) = "RESULT=COMMITTED" Then
             Notify Message, vbInformation
         ElseIf InStr(1, ResultLine, "rollback=FAILED", vbBinaryCompare) > 0 Then
@@ -10212,9 +10314,17 @@ Public Sub CommitImport()
         Else
             Notify Message, vbExclamation
         End If
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
         Exit Sub
 
-Failed:
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+ErrorHandler:
+    'Say what failed; the message gives the status bar back
         Notify "Commit import: " & Err.Description, vbCritical
 
 End Sub
@@ -10436,6 +10546,8 @@ Private Function CommitStaging( _
 '   4. Gives every written row the format of the first data row
 '      (FormatInputRows, #811), so that a portfolio longer than the
 '      template's formatted rows looks the same to its last row.
+'   The status bar shows each step when the caller started a progress
+'   (#814), the formatting column by column.
 '   5. On any failure, writes back the kept cells of every input sheet the
 '      commit touched and reads them back; the result tells whether that
 '      was verified, apart from the error itself.
@@ -10456,7 +10568,7 @@ Private Function CommitStaging( _
 '   CommitRefusedText, ProtectWorkbook, ReadStaging, TypedBlock, GetSheet,
 '   TableFirstRow, LastInputRow, TableRange, FormulasOnly,
 '   FormatInputRows, CheckWritten, StagingMetaCell, RestoreSettings,
-'   CountText, PutLiveBack, PutStatusesBack
+'   CountText, PutLiveBack, PutStatusesBack, ProgressShow
 '
 ' NOTES
 '   The formats a failed commit gave to new rows are not taken back: a
@@ -10533,6 +10645,7 @@ Private Function CommitStaging( _
 ' PLAN: TYPED VALUES AND THE CELLS TO KEEP
 '------------------------------------------------------------------------------
     'The typed rows of each staging sheet, and the input cells they may touch
+        ProgressShow 0, 10, "reading the staged rows"
         For k = 1 To 2
             NewRows(k) = ReadStaging(Kinds(k), StagedSheet, StagedFirst, Values, Lines)
             If NewRows(k) > 0 Then
@@ -10574,6 +10687,7 @@ Private Function CommitStaging( _
         For k = 1 To 2
             If NewRows(k) > 0 Then
                 Touched(k) = True
+                ProgressShow 4 * k - 3, 10, "writing " & NewRows(k) & " rows to " & LiveSheet(k).Name, 2
                 TableRange(LiveSheet(k), LiveFirst(k), 1, LiveFirst(k) + NewRows(k) - 1, InputWidth(k)).Value = NewBlock(k)
                 If OldLast(k) >= LiveFirst(k) + NewRows(k) Then
                     TableRange(LiveSheet(k), LiveFirst(k) + NewRows(k), 1, OldLast(k), InputWidth(k)).ClearContents
@@ -10581,10 +10695,12 @@ Private Function CommitStaging( _
                 If gTestFault = "commit-write" Or gTestFault = "commit-rollback" Then
                     Err.Raise ERR_INJECTED_FAULT, PROC_NAME, "Injected commit write failure."
                 End If
+                ProgressShow 4 * k - 1, 10, "formatting the rows of " & LiveSheet(k).Name, 2
                 FormatInputRows LiveSheet(k), LiveFirst(k), LiveFirst(k) + NewRows(k) - 1, InputWidth(k)
             End If
         Next k
     'Read every sheet back
+        ProgressShow 9, 10, "reading the rows back"
         For k = 1 To 2
             If NewRows(k) > 0 Then
                 CheckWritten LiveSheet(k), LiveFirst(k), InputWidth(k), NewBlock(k), NewRows(k), OldLast(k)
@@ -10600,6 +10716,7 @@ Private Function CommitStaging( _
             End If
         Next k
         Committed = True
+        ProgressShow 10, 10, "done"
 
 '------------------------------------------------------------------------------
 ' EXIT PROCEDURE
@@ -10702,13 +10819,15 @@ Private Sub FormatInputRows( _
 '     of the template and cover the contract's limit already
 '   - A horizontal border between the rows takes the first row's bottom
 '     border
+'   - Says how far it is, column by column, in the status bar
+'     (ProgressReport, #814)
 '
 ' ERROR POLICY
 '   An error of Excel propagates to CommitStaging, which puts the sheets
 '   back
 '
 ' DEPENDENCIES
-'   TableCell, TableRange
+'   TableCell, TableRange, ProgressReport
 '
 ' NOTES
 '   The sheets are protected for the user interface only, so the macro
@@ -10732,6 +10851,8 @@ Private Sub FormatInputRows( _
     'Nothing below the first row
         If LastRow <= FirstRow Then Exit Sub
         For c = 1 To Width
+        'Say how far the formatting is
+            ProgressReport (c - 1) / Width, "column " & c & " of " & Width
         'The number format, the alignment, the fill and the font
             Set Source = TableCell(Sheet, FirstRow, c)
             Set Target = TableRange(Sheet, FirstRow + 1, c, LastRow, c)

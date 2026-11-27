@@ -72,10 +72,6 @@ class SpecificationTest(unittest.TestCase):
 
 
 class RuleTest(unittest.TestCase):
-    def test_scale_steps(self) -> None:
-        self.assertEqual([db.scale_step(a) for a in ([0.0], [999.0], [1000.0], [-2.5e6], [7e9], [1e15])],
-                         [0, 0, 1, 2, 3, 3])
-
     def test_percent_rounds_halves_away_from_zero(self) -> None:
         self.assertEqual(db.percent_text(0.38455), "38.5%")
         self.assertEqual(db.percent_text(0.0045), "0.5%")  # 0.0045 * 100 is 0.44999... in binary
@@ -105,11 +101,11 @@ class FigureTest(unittest.TestCase):
         self.assertEqual(db.shape_problems(self.blocks, self.spec), [])
 
     def test_scales(self) -> None:
-        # Largest exposure amount 2800 -> thousand; largest notional 5000 -> thousand.
-        self.assertEqual(self.blocks["Dashboard_Scale"], [[1000, "EUR thousand"], [1000, "EUR thousand"]])
+        # Amounts in units of the reporting currency, whatever their size (#810).
+        self.assertEqual(self.blocks["Dashboard_Scale"], [[1, "EUR"], [1, "EUR"]])
 
     def test_key_figures_keep_regimes_apart(self) -> None:
-        self.assertEqual(self.row("Dashboard_KeyFigures", "ead"), [1.96, 2.8])
+        self.assertEqual(self.row("Dashboard_KeyFigures", "ead"), [1960.0, 2800.0])
         self.assertEqual(self.row("Dashboard_KeyFigures", "netting_sets"), [3, 2])
         self.assertEqual(self.row("Dashboard_KeyFigures", "valid"), [2, 1])
         self.assertEqual(self.row("Dashboard_KeyFigures", "invalid"), [1, 0])
@@ -132,17 +128,17 @@ class FigureTest(unittest.TestCase):
         self.assertEqual(self.blocks["Dashboard_Codes"][3], [None, None, None])
 
     def test_breakdowns_take_valid_netting_sets_only(self) -> None:
-        self.assertEqual(self.row("Dashboard_Sector", "CI"), [1.4, 0.0])
-        self.assertEqual(self.row("Dashboard_Sector", "NC"), [0.56, 0.0])
+        self.assertEqual(self.row("Dashboard_Sector", "CI"), [1400.0, 0.0])
+        self.assertEqual(self.row("Dashboard_Sector", "NC"), [560.0, 0.0])
         self.assertEqual(self.row("Dashboard_Sector", "NFC"), [0.0, 0.0])
-        self.assertEqual(self.row("Dashboard_ClearingRole", "CM"), [0.56, 0.0])
-        self.assertEqual(self.row("Dashboard_ClearingRole", "CCP_Q"), [0.0, 2.8])
-        self.assertEqual(self.row("Dashboard_AddOn", "EQ"), [0.4, 0.0])
-        self.assertEqual(self.blocks["Dashboard_Composition"], [[0.3, 1.0], [1.1, 1.0], [1.4, 0.0], [0.56, 2.8]])
+        self.assertEqual(self.row("Dashboard_ClearingRole", "CM"), [560.0, 0.0])
+        self.assertEqual(self.row("Dashboard_ClearingRole", "CCP_Q"), [0.0, 2800.0])
+        self.assertEqual(self.row("Dashboard_AddOn", "EQ"), [400.0, 0.0])
+        self.assertEqual(self.blocks["Dashboard_Composition"], [[300.0, 1000.0], [1100.0, 1000.0], [1400.0, 0.0], [560.0, 2800.0]])
 
     def test_ranking_and_concentration(self) -> None:
         top = self.blocks["Dashboard_TopCRR"]
-        self.assertEqual(top[0][:3], ["A1", "Bank X", 1.4])
+        self.assertEqual(top[0][:3], ["A1", "Bank X", 1400.0])
         self.assertAlmostEqual(top[0][3], 1400 / 1960)
         self.assertEqual(top[2], [None] * 4)
         share, herfindahl = self.row("Dashboard_Concentration", "top10_share"), \
@@ -152,17 +148,17 @@ class FigureTest(unittest.TestCase):
         self.assertEqual(herfindahl[1], 1.0)
 
     def test_maturity_and_asset_classes(self) -> None:
-        self.assertEqual(self.blocks["Dashboard_Maturity"], [[1.0, 0.0], [3.0, 5.0], [2.0, 0.0]])
+        self.assertEqual(self.blocks["Dashboard_Maturity"], [[1000.0, 0.0], [3000.0, 5000.0], [2000.0, 0.0]])
         ir = self.blocks["Dashboard_AssetClass"][0]
-        self.assertEqual(ir, [1, 1.0, 0, 0.0])
+        self.assertEqual(ir, [1, 1000.0, 0, 0.0])
 
     def test_notional_to_ead(self) -> None:
         path = {key: self.row("Dashboard_NotionalToEAD", key)
                 for key in ("notional", "gross_positive", "netted", "rc", "pfe", "ead")}
-        self.assertEqual(path["notional"][::2], [6.0, 5.0])
-        self.assertEqual(path["gross_positive"][::2], [0.7, 1.0])
-        self.assertEqual(path["netted"][::2], [0.5, 1.0])
-        self.assertEqual(path["rc"][::2], [0.3, 1.0])
+        self.assertEqual(path["notional"][::2], [6000.0, 5000.0])
+        self.assertEqual(path["gross_positive"][::2], [700.0, 1000.0])
+        self.assertEqual(path["netted"][::2], [500.0, 1000.0])
+        self.assertEqual(path["rc"][::2], [300.0, 1000.0])
         self.assertAlmostEqual(path["ead"][1], 1960 / 6000)
         self.assertEqual(self.blocks["Dashboard_Reading"][0],
                          ["Netting removes 28.6% of gross positive value; collateral a further 28.6%."])
