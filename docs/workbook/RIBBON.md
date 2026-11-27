@@ -262,6 +262,8 @@ step, for example `K-SACCR - Import Trades  ███████░░░░░
 | --- | --- |
 | **Run** (and Validate inputs) | Withdrawing the previous outputs; the engine, 80% of the bar: loading the inputs, each trade, the hedging sets, the netting sets, Buckets and HedgingSets, Checks; then the reconciliations and the Dashboard |
 | **Import CSV** (all four files) | Reading and checking the file, 90% of the bar, record by record; then writing its records to the sheet |
+| **Commit import** | Reading the staged rows; writing each input sheet; formatting its rows, column by column (#811); reading them back (#814) |
+| **Export evidence** | Checking the run, then writing the evidence, with screen updating off so that the sheets do not flicker (#814) |
 | **Validate staging** | The rows of Import_NettingSets, then of Import_Trades, row by row; the legs against their netting sets; Params; writing Checks and marking the cells |
 | **Export report** | One step per section of the report (Run, Dashboard, Charts for a PDF, Totals, Results, Checks, each reconciliation made) and the save; the Charts step names the chart being pictured |
 | The Check macros (`CheckTradesCsv`, ...) | Reading and checking the file, record by record |

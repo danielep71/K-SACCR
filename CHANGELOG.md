@@ -712,6 +712,10 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Stop Export evidence from flickering, and show the progress of Commit import, as the owner
+  reported (#814): Export evidence checks the run and writes the CSV with screen updating off, and
+  says its two steps in the status bar; Commit import shows the staged rows read, each input sheet
+  written and formatted, column by column, and the rows read back (#807, #811).
 - Run a smoke check of every pull request in Excel instead of the quick check, as the owner asked
   (#801): the build, the compile and the calculation suites (`TEST_Suite.Smoke`: the harness,
   `TEST_Formulas`, `TEST_Cases`, `TEST_Aggregation` and `TEST_Invariants`), a few minutes instead
