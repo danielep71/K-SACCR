@@ -365,7 +365,8 @@ one tile for the other results. The tiles are rounded shapes linked to cells, so
 their counts follow the filter and need no macro to refresh. A fourth row gives the sums of the bank
 and calculator figures and of the absolute differences, and the largest absolute
 difference, of the measure the filter shows: filter the `Measure` column to one measure
-to read them.
+to read them. Like ReconSummary, they count only the rows compared, `MATCH` and
+`DIFFERENCE`, so that both sums cover the same rows (#821).
 
 **Export evidence** then writes the run to one CSV file, separated by `;`
 with a `.` decimal point and UTF-8, whatever Excel's regional settings: the
@@ -598,7 +599,7 @@ netting set whose EAD is withheld as a result:
 
 <p align="center">
   <img width="100%"
-       alt="Reconciliation sheet: tiles with the counts of each result, the measure shown (EAD) and its sums; the bank's EAD for BCBS-EX1 is a MATCH, for BCBS-EX3 a DIFFERENCE of 104.62 (1.9740%, beyond the relative tolerance of 1%), an unknown bank netting set is MISSING IN CALCULATOR, and every other netting set is NOT IN BANK FILE, each with its note"
+       alt="Reconciliation sheet: tiles with the counts of each result, the measure shown (EAD) and the sums of the two rows compared, 5,869.47 for the bank and 5,974.09 for the calculator; the bank's EAD for BCBS-EX1 is a MATCH, for BCBS-EX3 a DIFFERENCE of 104.62 (1.9740%, beyond the relative tolerance of 1%), an unknown bank netting set is MISSING IN CALCULATOR, and every other netting set is NOT IN BANK FILE, each with its note"
        src="docs/assets/SACCR_Reconciliation.png">
 </p>
 
