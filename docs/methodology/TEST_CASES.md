@@ -12,7 +12,7 @@ the suite counts as complete. Sources and rule IDs come from the
 > ([consumption](#consumption)). Which rules they validate, and for which
 > regime, is in the [traceability](README.md#traceability) table. The mapping
 > is in [`tests/README.md`](../../tests/README.md#ported-prototype-catalogue).
-> Since v1.3.0 (unreleased), eight `independent` CRR cases, `rsaccr-portfolio-*`,
+> Since v1.3.0, eight `independent` CRR cases, `rsaccr-portfolio-*`,
 > carry values from the R package `SACCR` (`IMPL-R-SACCR`, #100); two of them
 > run on 250 business days of the TARGET calendar (#721). Six of the 14
 > catalogue checks, T15, T19, T21, T24, T25 and T28, are `independent` since
@@ -428,10 +428,10 @@ Each fixture declares one `category`:
   ([evidence for v1.2.0](README.md#assumptions-and-scope)); `independent` values
   can come only from an external implementation registered as a source, such
   as the R package SACCR of #352, not from a reviewer.
-- Since v1.3.0 (unreleased), the CRR rules that the production reconciliation
+- Since v1.3.0, the CRR rules that the production reconciliation
   of #667 exercises are validated by it: a real portfolio at 30 June 2026, about
   900 netting sets and 4,300 trades, against a bank's production SA-CCR engine.
-- Since v1.3.0 (unreleased), the CRR rules named by the outputs of the eight
+- Since v1.3.0, the CRR rules named by the outputs of the eight
   `independent` cases `rsaccr-portfolio-*` (source `IMPL-R-SACCR`, #100) are
   validated by them, two of them on 250 business days of the TARGET calendar
   (#721).

@@ -11,7 +11,7 @@
 [![Excel VBA](https://img.shields.io/badge/Excel_VBA-64--bit-217346?style=for-the-badge&logo=microsoft-excel&logoColor=white)](#requirements)
 [![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#requirements)
 [![Regimes](https://img.shields.io/badge/Regimes-EU_CRR_%C2%B7_Basel_CRE52-1f3a5f?style=for-the-badge)](#regimes)
-[![Release](https://img.shields.io/badge/Release-1.2.0-2ea44f?style=for-the-badge)](#status)
+[![Release](https://img.shields.io/badge/Release-1.3.0-2ea44f?style=for-the-badge)](#status)
 [![Excel suites](https://img.shields.io/badge/Excel_suites-13%2F13_PASS-2ea44f?style=for-the-badge)](#validation)
 [![Regression](https://img.shields.io/badge/Regression-558_cases_%C2%B7_2566_checks-2ea44f?style=for-the-badge)](#test-suites)
 [![License](https://img.shields.io/badge/License-MPL_2.0-2ea44f?style=for-the-badge)](LICENSE)
@@ -66,17 +66,17 @@ Part of a broader framework, [K-Risk Engines](https://danielep71.github.io/K-Ris
 </div>
 
 > [!IMPORTANT]
-> **Version 1.2.0** is the current release: the
-> [1.2.0 GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0)
+> **Version 1.3.0** is the current release: the
+> [1.3.0 GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.3.0)
 > carries the workbook and the user manual. The engine
-> implements EU CRR and Basel CRE52, but only Basel rules are **validated** in
-> v1.2.0, by the published CRE99 examples. CRR rules are implemented and tested
-> against illustrative values, not validated ([methodology](docs/methodology/README.md#assumptions-and-scope)).
-> Since then, on the active release branch, the CRR calculation has been
-> validated against a bank's production SA-CCR engine on a real portfolio
-> ([#667](https://github.com/danielep71/K-SACCR/issues/667)) and by an
+> implements EU CRR and Basel CRE52. Basel rules are **validated** by the
+> published CRE99 examples. The CRR rules that two sources exercise are
+> validated: a bank's production SA-CCR engine on a real portfolio
+> ([#667](https://github.com/danielep71/K-SACCR/issues/667)) and an
 > independent implementation, the R package `SACCR`
-> ([#100](https://github.com/danielep71/K-SACCR/issues/100)): see [Validation](#validation).
+> ([#100](https://github.com/danielep71/K-SACCR/issues/100)). The other CRR
+> rules are tested against illustrative values, not validated: see
+> [Validation](#validation) and the [methodology](docs/methodology/README.md#assumptions-and-scope).
 
 > [!NOTE]
 > The workbook is **not stored in the repository as a macro-enabled file**. It
@@ -189,8 +189,8 @@ supported, what the user must enter in a given form, and what is out of scope.
 # ⚡ Quick start
 
 To use the released workbook without building it, download
-`K-SACCR_1.2.0.xlsm` from the
-[1.2.0 release](https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0)
+`K-SACCR_1.3.0.xlsm` from the
+[1.3.0 release](https://github.com/danielep71/K-SACCR/releases/tag/v1.3.0)
 and check it as in [INSTALLATION.md › Released workbook](INSTALLATION.md#released-workbook),
 then go to [section 3](#3-run). The steps below build the workbook from source.
 
@@ -199,11 +199,11 @@ then go to [section 3](#3-run). The steps below build the workbook from source.
 ```sh
 git clone https://github.com/danielep71/K-SACCR.git
 cd K-SACCR
-git switch --detach v1.2.0
+git switch --detach v1.3.0
 python tools/check.py
 ```
 
-`v1.2.0` is the released source; for current development, switch to the
+`v1.3.0` is the released source; for current development, switch to the
 [active release branch](docs/GOVERNANCE.md#branches) instead.
 
 Use a clone, not **Download ZIP** or GitHub's **Raw** view: a clone checks the
@@ -866,7 +866,7 @@ and the VBA references are listed in `INSTALLATION.md`.
 
 - **Released versions only are stable.** Behaviour on the
   [active release branch](docs/GOVERNANCE.md#branches) can change until the
-  next release; use the `v1.2.0` tag or its workbook for stable results.
+  next release; use the `v1.3.0` tag or its workbook for stable results.
 - **CRR validation covers what two sources exercise.** The only published
   reference values are Basel examples. The CRR calculation is validated by a
   production reconciliation on a real bank portfolio (#667) and by an
@@ -927,13 +927,13 @@ produces it.
 The plan below shows each released version on its release date and each
 planned one up to its
 [milestone](https://github.com/danielep71/K-SACCR/milestones)'s due date as
-of 2026-10-28; a planned bar starts the day after the previous version's
+of 2026-11-27; a planned bar starts the day after the previous version's
 release or due date. The due dates are planning targets, not release
 commitments.
 
 ```mermaid
 gantt
-    title K-SACCR release plan (release dates; planned due dates as of 2026-11-11)
+    title K-SACCR release plan (release dates; planned due dates as of 2026-11-27)
     dateFormat YYYY-MM-DD
     axisFormat %b %Y
     todayMarker on
@@ -943,13 +943,14 @@ gantt
     v1.0.2 Clearing coverage and CCPs        :done, 2026-10-23, 1d
     v1.1.0 CSV import, staging, protection   :done, v11, 2026-11-05, 1d
     v1.2.0 Excel Ribbon interface            :done, v12, 2026-11-07, 1d
+    v1.3.0 Diagnostics, independent validation :done, v13, 2026-11-28, 1d
     section Planned
-    v1.3.0 Diagnostics, independent validation :v13, after v12, 2027-03-07
-    v1.3.5 COREP C 34 templates              :v135, after v13, 2027-03-21
-    v1.4.0 Advanced products, FX provenance  :v14, after v135, 2027-04-18
-    v1.5.0 Simplified SA-CCR                 :v15, after v14, 2027-05-23
-    v1.6.0 Original exposure method          :v16, after v15, 2027-06-20
-    v1.7.0 Python desktop app and engine     :v17, after v16, 2027-09-12
+    v1.3.5 COREP C 34 templates              :v135, 2027-03-08, 2027-03-21
+    v1.3.6 Limits and report views           :v136, after v135, 2027-04-18
+    v1.4.0 Advanced products, FX provenance  :v14, after v136, 2027-05-16
+    v1.5.0 Simplified SA-CCR                 :v15, after v14, 2027-06-20
+    v1.6.0 Original exposure method          :v16, after v15, 2027-07-18
+    v1.7.0 Python desktop app and engine     :v17, 2027-06-21, 2027-09-12
 ```
 
 | Milestone | Scope |
@@ -961,6 +962,7 @@ gantt
 | v1.2.0 | Excel Ribbon interface (#213–#218), Home landing page (#330), sheet navigation from the Ribbon (#329) and a Restore regulatory parameters command (#357) |
 | v1.3.0 | Diagnostics and independent validation: stable Checks codes (#81), independent cross-check (#100, #352), production reconciliation evidence (#667, #668), randomised FormulaTest inputs (#165), counterparty sector (#674), a Dashboard sheet (#675), formatted run report next to the CSV evidence (#259), one shared harness for the suites (#536), accuracy contracts for derived expected values (#537), each regime's credit scale (#659), the FX notional rule in the CSV checks (#678), a navigation bar on every sheet (#615, #620, #664), new screenshots (#616) and the user manual (#686) |
 | v1.3.5 | COREP C 34 templates fed by the SA-CCR results (#666) |
+| v1.3.6 | Limits and report views: a counterparty input with identifier, category, intragroup flag and internal EAD limit (#831), a history of recorded run totals (#832), and a Reports sheet with five views behind a button bar: Summary, Counterparty type, Top 10, Limits and Netting set (#833–#839) |
 | v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157), engine separated from Excel I/O (#220), TARGET holiday calendar (#328) |
 | v1.5.0 | Simplified SA-CCR (#107) |
 | v1.6.0 | Original exposure method (#111) |
@@ -973,8 +975,7 @@ risk are outside K-SACCR and on no milestone of its roadmap.
 
 ### v1.3.0 — Diagnostics and independent validation
 
-In development on `release/1.3.0`; nothing of it is released. Delivered so
-far: a stable code and field on every Checks line, reported by the silent
+Released on 2026-11-28. Delivered: a stable code and field on every Checks line, reported by the silent
 entry points (#81); a navigation bar on every sheet that works without
 macros (#615), with a Ribbon toggle that hides it for the session (#620)
 and its description on the README sheet (#664); a quick, unattended branch
@@ -991,8 +992,8 @@ documentation links (#592, #649) and the traffic workflow (#593). Delivered
 since: the counterparty sector (#674), randomised FormulaTest inputs (#165),
 the measured differences of the accuracy contracts (#537), a Dashboard sheet
 (#675), a formatted run report (#259) and the rest of the independent
-cross-check (#100). Still open: new screenshots (#616), whose wiki page
-follows the integration into `main`, and the user manual (#686). The engine
+cross-check (#100); then new screenshots (#616), whose wiki page follows
+the integration into `main`, and the user manual (#686). The engine
 separation (#220) moved to v1.4.0. One calculation rule changed:
 since #659, a single-name credit trade on the other regime's scale is
 rejected.
@@ -1010,8 +1011,7 @@ rejected.
 | [`tests/README.md`](tests/README.md) | Test catalogue and suites |
 | [`INSTALLATION.md`](INSTALLATION.md) | Developer setup, checks, Excel import, test suites, automation entry points, upgrade and removal |
 | [`docs/workbook/`](docs/workbook/RIBBON.md) | The [Ribbon contract](docs/workbook/RIBBON.md), the K-SACCR tab's controls, states and callbacks, and the [workbook protection](docs/workbook/WORKBOOK_PROTECTION.md) |
-| [`docs/user-manual/v1.3.0/`](docs/user-manual/v1.3.0/README.md) | Source of the user manual prepared for 1.3.0, not yet released: the [manual](docs/user-manual/v1.3.0/K-SACCR_v1.3.0_User_Manual.md) of the navigation bar, the Dashboard, the run report, the diagnostic codes, the day count, the FX rates, the bank files and the reconciliation sheets (#686) |
-| [`docs/user-manual/v1.2.0/`](docs/user-manual/v1.2.0/README.md) | Source of the user manual for 1.2.0; its PDF is attached to the [1.2.0 release](https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0). The 1.0.0, 1.0.1, 1.0.2 and 1.1.0 manuals stay in [`docs/user-manual/v1.0.0/`](docs/user-manual/v1.0.0/README.md), [`docs/user-manual/v1.0.1/`](docs/user-manual/v1.0.1/README.md), [`docs/user-manual/v1.0.2/`](docs/user-manual/v1.0.2/README.md) and [`docs/user-manual/v1.1.0/`](docs/user-manual/v1.1.0/README.md) |
+| [`docs/user-manual/v1.3.0/`](docs/user-manual/v1.3.0/README.md) | Source of the user manual for 1.3.0; its PDF is attached to the [1.3.0 release](https://github.com/danielep71/K-SACCR/releases/tag/v1.3.0): the [manual](docs/user-manual/v1.3.0/K-SACCR_v1.3.0_User_Manual.md) of the navigation bar, the Dashboard, the run report, the diagnostic codes, the day count, the FX rates, the bank files and the reconciliation sheets (#686). The 1.0.0, 1.0.1, 1.0.2, 1.1.0 and 1.2.0 manuals stay in [`docs/user-manual/v1.0.0/`](docs/user-manual/v1.0.0/README.md), [`docs/user-manual/v1.0.1/`](docs/user-manual/v1.0.1/README.md), [`docs/user-manual/v1.0.2/`](docs/user-manual/v1.0.2/README.md), [`docs/user-manual/v1.1.0/`](docs/user-manual/v1.1.0/README.md) and [`docs/user-manual/v1.2.0/`](docs/user-manual/v1.2.0/README.md) |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, commit messages, evidence and pull requests; the review checklist is in the [pull-request template](.github/PULL_REQUEST_TEMPLATE.md) |
 | [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) | Profile decision, source layout, public API boundary |
 | [`docs/VBA_HOUSE_STYLE.md`](docs/VBA_HOUSE_STYLE.md) | VBA naming, contracts, errors, Excel-state cleanup, export rules |
@@ -1030,11 +1030,11 @@ rejected.
 
 ## 📌 Status
 
-**Version 1.2.0**, released on 2026-11-07 and tagged `v1.2.0`, after 1.1.0
-on 2026-11-05, 1.0.2 on 2026-10-23, 1.0.1 on 2026-10-18 and 1.0.0 on
-2026-10-17. Its
-[GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0)
-carries the production workbook `K-SACCR_1.2.0.xlsm`, the user manual PDF,
+**Version 1.3.0**, released on 2026-11-28 and tagged `v1.3.0`, after 1.2.0
+on 2026-11-07, 1.1.0 on 2026-11-05, 1.0.2 on 2026-10-23, 1.0.1 on 2026-10-18
+and 1.0.0 on 2026-10-17. Its
+[GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.3.0)
+carries the production workbook `K-SACCR_1.3.0.xlsm`, the user manual PDF,
 their SHA-256 sums and a Sigstore signature of each. The release notes and the tag message record the Excel
 certification of the tagged source: compile, the harness and the nine suites
 each run on its own, the evidence validator and the 14 protection checks.

@@ -1,6 +1,6 @@
 # K-SACCR user manual, version 1.3.0
 
-The source of the user manual for K-SACCR 1.3.0. The PDF built from it will be
+The source of the user manual for K-SACCR 1.3.0. The PDF built from it is
 attached to the
 [1.3.0 GitHub Release](https://github.com/danielep71/K-SACCR/releases/tag/v1.3.0);
 it is not stored in this repository.
@@ -21,8 +21,8 @@ appear as plain text when the file is viewed on GitHub. Read the PDF.
 
 ## Status
 
-Prepared for 1.3.0, not yet released. Started from the 1.2.0 manual and
-updated for the changes of 1.3.0:
+Released with 1.3.0 (tag `v1.3.0`, 28 November 2026). Started from the 1.2.0
+manual and updated for the changes of 1.3.0:
 
 - the **navigation bar** of every sheet, in a new section: its sections in
   the order of **Go to**, `Home` and the inputs at the top in the frozen rows,
