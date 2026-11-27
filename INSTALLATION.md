@@ -758,7 +758,7 @@ screenshot, entered on the bank sheets, which the template ships empty
 (#815):
 
 ```text
-RESULT=OK; operation=run; errors=6; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=48595558.4974488; total_ead_bcbs=40784020.3398879; inputs=73055FCB; run_class=REGULATORY; reconciliation=DONE; trade_reconciliation=NONE; year_convention=365; calendar=TABLE; holiday_table=empty; fx_source=Manual; codes=TR-SHIFTED-PRICE,TR-OTHER-REGIME,TR-FACTOR-REGIME,TR-MATURED,NS-TRADE-INCOMPLETE; cleanup=PASS
+RESULT=OK; operation=run; errors=6; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=48696280.320911; total_ead_bcbs=40784020.3398879; inputs=4FE7BF7E; run_class=REGULATORY; reconciliation=DONE; trade_reconciliation=NONE; year_convention=365; calendar=TABLE; holiday_table=empty; fx_source=Manual; codes=TR-SHIFTED-PRICE,TR-OTHER-REGIME,TR-FACTOR-REGIME,TR-MATURED,NS-TRADE-INCOMPLETE; cleanup=PASS
 ```
 
 `RESULT=STOPPED` means the inputs could not be loaded; see Checks. `errors`

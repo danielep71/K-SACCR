@@ -987,12 +987,13 @@ scale (#659); the FX notional rule in the CSV checks (#678); and repository
 checks of VBA identifiers, dependency direction and ASCII source (#538),
 issue planning dates (#539), labels and pull-request milestones (#540,
 #541, #591), workflow pins and runtimes (#542), local and external
-documentation links (#592, #649) and the traffic workflow (#593). Still
-open: the counterparty sector (#674), randomised FormulaTest inputs (#165),
+documentation links (#592, #649) and the traffic workflow (#593). Delivered
+since: the counterparty sector (#674), randomised FormulaTest inputs (#165),
 the measured differences of the accuracy contracts (#537), a Dashboard sheet
-(#675), a formatted run report (#259), the rest of the independent
-cross-check (#100), new screenshots (#616) and the user manual (#686). The
-engine separation (#220) moved to v1.4.0. One calculation rule changed:
+(#675), a formatted run report (#259) and the rest of the independent
+cross-check (#100). Still open: new screenshots (#616), whose wiki page
+follows the integration into `main`, and the user manual (#686). The engine
+separation (#220) moved to v1.4.0. One calculation rule changed:
 since #659, a single-name credit trade on the other regime's scale is
 rejected.
 
@@ -1009,6 +1010,7 @@ rejected.
 | [`tests/README.md`](tests/README.md) | Test catalogue and suites |
 | [`INSTALLATION.md`](INSTALLATION.md) | Developer setup, checks, Excel import, test suites, automation entry points, upgrade and removal |
 | [`docs/workbook/`](docs/workbook/RIBBON.md) | The [Ribbon contract](docs/workbook/RIBBON.md), the K-SACCR tab's controls, states and callbacks, and the [workbook protection](docs/workbook/WORKBOOK_PROTECTION.md) |
+| [`docs/user-manual/v1.3.0/`](docs/user-manual/v1.3.0/README.md) | Source of the user manual prepared for 1.3.0, not yet released: the [manual](docs/user-manual/v1.3.0/K-SACCR_v1.3.0_User_Manual.md) of the navigation bar, the Dashboard, the run report, the diagnostic codes, the day count, the FX rates, the bank files and the reconciliation sheets (#686) |
 | [`docs/user-manual/v1.2.0/`](docs/user-manual/v1.2.0/README.md) | Source of the user manual for 1.2.0; its PDF is attached to the [1.2.0 release](https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0). The 1.0.0, 1.0.1, 1.0.2 and 1.1.0 manuals stay in [`docs/user-manual/v1.0.0/`](docs/user-manual/v1.0.0/README.md), [`docs/user-manual/v1.0.1/`](docs/user-manual/v1.0.1/README.md), [`docs/user-manual/v1.0.2/`](docs/user-manual/v1.0.2/README.md) and [`docs/user-manual/v1.1.0/`](docs/user-manual/v1.1.0/README.md) |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, commit messages, evidence and pull requests; the review checklist is in the [pull-request template](.github/PULL_REQUEST_TEMPLATE.md) |
 | [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) | Profile decision, source layout, public API boundary |

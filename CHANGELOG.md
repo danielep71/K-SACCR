@@ -1079,6 +1079,24 @@ Use only the categories needed by a release.
   Templates menu of the K-SACCR tab for the blank templates, instead of the Export CSV template
   buttons that 1.2.0 removed from NettingSets and Trades.
 
+- Add the user manual for 1.3.0, `docs/user-manual/v1.3.0/` (#686), written from the 1.2.0
+  manual, which stays as released. It describes every change of 1.3.0 that a user sees: the
+  navigation bar of every sheet, with `Home` at its top and the rest scrolling with the rows, and
+  its two toggles (#615, #620, #777, #798); the Ribbon's icons, **Clear outputs** and **Export
+  report**, the opening view and the progress in the status bar (#719, #726, #803, #807, #814);
+  the 21 sheets and the protection matrix; the day count, the FX rates quoted the market way, the
+  rebase and **Download prices** (#721, #725, #745); each regime's credit scale (#659); the short
+  input headers, the header on row 4 and the formatted committed rows (#756, #811); the
+  counterparty sector and NettingSets CSV version 2 (#674); the FX notional rule (#678); the Code
+  and Field columns of Checks (#81); the Dashboard and its amounts in units (#675, #810); the
+  formatted run report (#259); the bank files, **Clear bank figures** and the empty bank sheets,
+  the default tolerances, the reconciliation tiles and ReconSummary, whose sums count only the rows
+  compared (#718, #720, #815, #819, #821); the independent implementation and the production
+  reconciliation as validation evidence (#100, #667, #668); and *Moving inputs from 1.2.0*. It
+  uses copies of the screenshots of #616. The README lists its source and the website links it;
+  the website's download buttons move to 1.3.0 when the release is published, as for every
+  release. No workbook, code or test changes.
+
 - Record the maintenance audit of 2026-11-27 for v1.3.0 in `docs/release-audits/`, a new folder for
   the dated report of the audit that opens every release. `RELEASING.md` says where the report goes
   and that an actionable issue is assigned to the maintainer. `docs/assets/README.md` names the
