@@ -202,8 +202,11 @@ class ReconciliationSheetTests(unittest.TestCase):
         for name in SHEETS:
             formulas = self.helper_formulas(name)
             visible = f"SUBTOTAL(103,OFFSET($M${FIRST},ROW(OFFSET($M${FIRST},0,0,$R$1,1))-ROW($M${FIRST}),0))"
-            # The first visible measure, and whether the filter leaves that measure alone.
-            self.assertIn(f"MATCH(1,{visible},0)", formulas["X1"], name)
+            # The first visible measure, and whether the filter leaves that measure alone. The SUBTOTAL is
+            # multiplied by a condition, so that Excel evaluates it row by row inside MATCH: alone as the
+            # lookup array it gave #N/A, and every tile of the measure with it (#819).
+            self.assertIn(f'MATCH(1,{visible}*(OFFSET($M${FIRST},0,0,$R$1,1)<>""),0)', formulas["X1"], name)
+            self.assertNotIn(f"MATCH(1,{visible},0)", formulas["X1"], name)
             self.assertIn(f"SUMPRODUCT({visible}*(OFFSET($H${FIRST},0,0,$R$1,1)=$X$1))=$R$2", formulas["X2"], name)
             for measure in FACTORS[name]:
                 self.assertIn(f'$X$1="{measure}"', formulas["X3"], (name, measure))

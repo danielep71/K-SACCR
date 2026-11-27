@@ -598,7 +598,7 @@ netting set whose EAD is withheld as a result:
 
 <p align="center">
   <img width="100%"
-       alt="Reconciliation sheet: the bank's EAD for BCBS-EX1 is a MATCH, for BCBS-EX3 a DIFFERENCE of 104.62 (1.9740%, beyond the relative tolerance of 1%), an unknown bank netting set is MISSING IN CALCULATOR, and every other netting set is NOT IN BANK FILE, each with its note"
+       alt="Reconciliation sheet: tiles with the counts of each result, the measure shown (EAD) and its sums; the bank's EAD for BCBS-EX1 is a MATCH, for BCBS-EX3 a DIFFERENCE of 104.62 (1.9740%, beyond the relative tolerance of 1%), an unknown bank netting set is MISSING IN CALCULATOR, and every other netting set is NOT IN BANK FILE, each with its note"
        src="docs/assets/SACCR_Reconciliation.png">
 </p>
 
