@@ -913,6 +913,13 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Sum only the rows compared in the tiles of Reconciliation and TradeReconciliation, as ReconSummary
+  does (#821), as the owner asked: Sum of bank figures, Sum of calc. figures and Sum of abs. diff.
+  counted every row shown of the measure, also those with a figure on one side only, so that the
+  two sums covered different rows (5,969.47 for the bank against 89,480,300.66 for the calculator
+  in the documentation example, which holds 15 netting sets the bank file does not have). They now
+  count MATCH and DIFFERENCE only: 5,869.47 and 5,974.09, 104.62 apart.
+
 - Show the measure and its figures in the tiles of Reconciliation and TradeReconciliation (#819).
   Measure shown, Sum of bank figures, Sum of calc. figures, Sum of abs. diff. and Largest abs. diff.
   read `#N/A` after every reconciliation: the hidden cell X1, which finds the first visible row,
