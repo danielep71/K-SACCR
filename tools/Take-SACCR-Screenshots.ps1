@@ -36,7 +36,7 @@ function Get-ScreenshotPlan {
         @{ State = "template"; File = "SACCR_Home"; Sheet = "Home"; First = 1; Last = 0; Column = "S"; Hide = "" },
         @{ State = "template"; File = "SACCR_NettingSets"; Sheet = "NettingSets"; First = 1; Last = 26; Column = "T"; Hide = "" },
         @{ State = "template"; File = "SACCR_Trades"; Sheet = "Trades"; First = 1; Last = 34; Column = "R"; Hide = "" },
-        @{ State = "template"; File = "SACCR_Params"; Sheet = "Params"; First = 1; Last = 29; Column = "H"; Hide = "" },
+        @{ State = "template"; File = "SACCR_Params"; Sheet = "Params"; First = 1; Last = 29; Column = "G"; Hide = "" },
         @{ State = "template"; File = "SACCR_Params_Supervisory"; Sheet = "Params"; First = 30; Last = 57; Column = "K"; Hide = "" },
         @{ State = "template"; File = "SACCR_README_sheet"; Sheet = "README"; First = 1; Last = 45; Column = "S"; Hide = "" },
         @{ State = "template"; File = "SACCR_TestCatalogue"; Sheet = "TestCatalogue"; First = 1; Last = 40; Column = "P"; Hide = "" },
@@ -55,7 +55,7 @@ function Get-ScreenshotPlan {
         @{ State = "run"; File = "SACCR_Basel_vs_CRR"; Sheet = "Basel_vs_CRR"; First = 1; Last = 16; Column = "K"; Hide = "" },
         @{ State = "bank"; File = "SACCR_BankNettingSets"; Sheet = "BankNettingSets"; First = 1; Last = 14; Column = "P"; Hide = "" },
         @{ State = "bank"; File = "SACCR_Reconciliation"; Sheet = "Reconciliation"; First = 1; Last = 0; Column = "N"; Hide = "" },
-        @{ State = "bank"; File = "SACCR_ReconSummary"; Sheet = "ReconSummary"; First = 1; Last = 0; Column = "M"; Hide = "" }
+        @{ State = "bank"; File = "SACCR_ReconSummary"; Sheet = "ReconSummary"; First = 1; Last = 0; Column = "L"; Hide = "" }
     )
 }
 
@@ -170,7 +170,7 @@ function Set-ScreenshotState {
             }
             $eadValue = [double]$ead
             $ids = [string[]]@("BCBS-EX1", "BCBS-EX3", "BANK-ONLY-1")
-            $figures = [double[]]@($eadValue, 5400.0, 100.0)
+            $figures = [double[]]@($eadValue, 5300.0, 100.0)
             $comments = [string[]]@("As on Results: MATCH", "5,300 against 5,405: DIFFERENCE",
                                     "Not on NettingSets: MISSING IN CALCULATOR")
             for ($i = 0; $i -lt 3; $i++) {
