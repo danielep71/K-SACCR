@@ -162,16 +162,25 @@ function Set-ScreenshotState {
             $lines.Add("bank: ClearBank_Silent: " + $outcome)
             $bank = $Workbook.Worksheets.Item("BankNettingSets")
             $first = (Get-NamedRow $Workbook "BankNettingSets_Header") + 1
-            $rows = @(@("BCBS-EX1", "BCBS", $ead, "As on Results: MATCH"),
-                      @("BCBS-EX3", "BCBS", 5400, "5,400 against 5,405: DIFFERENCE"),
-                      @("BANK-ONLY-1", "BCBS", 100, "Not on NettingSets: MISSING IN CALCULATOR"))
-            for ($i = 0; $i -lt $rows.Count; $i++) {
-                $bank.Cells.Item($first + $i, 3).Value2 = $rows[$i][0]
-                $bank.Cells.Item($first + $i, 4).Value2 = $rows[$i][1]
-                $bank.Cells.Item($first + $i, 5).Value2 = $rows[$i][2]
-                $bank.Cells.Item($first + $i, 16).Value2 = $rows[$i][3]
+            if ($null -eq $ead) {
+                $lines.Add("bank: no EAD for BCBS-EX1 on Results")
+                $lines.Add("FAIL " + $State)
+                return $lines.ToArray()
             }
-            $lines.Add(("bank: BCBS-EX1 EAD {0} from Results, BCBS-EX3 5400, BANK-ONLY-1 100" -f $ead))
+            $eadValue = [double]$ead
+            $ids = [string[]]@("BCBS-EX1", "BCBS-EX3", "BANK-ONLY-1")
+            $figures = [double[]]@($eadValue, 5400.0, 100.0)
+            $comments = [string[]]@("As on Results: MATCH", "5,400 against 5,405: DIFFERENCE",
+                                    "Not on NettingSets: MISSING IN CALCULATOR")
+            for ($i = 0; $i -lt 3; $i++) {
+                $row = [int]($first + $i)
+                $bank.Cells.Item($row, 3).Value2 = [string]$ids[$i]
+                $bank.Cells.Item($row, 4).Value2 = [string]"BCBS"
+                $bank.Cells.Item($row, 5).Value2 = [double]$figures[$i]
+                $bank.Cells.Item($row, 16).Value2 = [string]$comments[$i]
+            }
+            $lines.Add([string]("bank: BCBS-EX1 EAD " + $eadValue.ToString([System.Globalization.CultureInfo]::InvariantCulture) +
+                                " from Results, BCBS-EX3 5400, BANK-ONLY-1 100"))
             $outcome = [string]$Excel.Run($qualified + "M_Main.RunSACCR_Silent")
             $lines.Add("bank: RunSACCR_Silent: " + $outcome)
             $ok = ($null -ne $ead) -and $outcome.StartsWith("RESULT=OK;") -and $outcome.Contains("; reconciliation=DONE;")
@@ -209,7 +218,13 @@ function Invoke-DocumentationScreenshots {
         $pictureSheet = $pictureBook.Worksheets.Item(1)
         foreach ($state in @("template", "staging", "run", "bank")) {
             [void]$Workbook.Activate()
-            $lines = @(Set-ScreenshotState $Excel $Workbook $state $Bundle)
+            try {
+                $lines = @(Set-ScreenshotState $Excel $Workbook $state $Bundle)
+            }
+            catch {
+                $lines = @(("{0}: stopped at line {1}: {2} ({3})" -f $state, $_.InvocationInfo.ScriptLineNumber,
+                            $_.Exception.Message, $_.InvocationInfo.Line.Trim()), ("FAIL " + $state))
+            }
             foreach ($line in $lines) {
                 $report.Add($line)
             }
@@ -235,7 +250,7 @@ function Invoke-DocumentationScreenshots {
         }
     }
     catch {
-        $report.Add(("Stopped: " + $_.Exception.Message))
+        $report.Add(("Stopped at line {0}: {1}" -f $_.InvocationInfo.ScriptLineNumber, $_.Exception.Message))
         $failed++
     }
     finally {
