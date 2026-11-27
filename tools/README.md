@@ -123,7 +123,11 @@ implies `-Smoke`, then takes the documentation screenshots (#616) with
 `Take-SACCR-Screenshots.ps1`: the sheets of `docs/assets` in four states (the
 template, the staged example files, a run, bank figures and a run), each cut
 to its rows and columns, into `screenshots\` with the list `screenshots.txt`;
-its exit code also needs every picture. `screenshots.py` then reduces them to
+its exit code also needs every picture. It then takes two release checks, named
+`check-*.png` so that they never reach `docs/assets`: TradeReconciliation with
+bank figures per leg, unfiltered and filtered to the Notional measure (#819,
+#821), and the Dashboard of the demonstration portfolio with every notional and
+MtM times 70, an EAD near a billion (#810). `screenshots.py` then reduces them to
 the palette of `docs/assets` and writes them there
 ([screenshots](../docs/assets/README.md#screenshots)). Either way
 the script never pushes or discards changes, and checks made by eye, such

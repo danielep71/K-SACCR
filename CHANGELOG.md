@@ -97,6 +97,11 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Take two release checks with the documentation screenshots (#616), named `check-*.png` so that
+  they never reach `docs/assets`: TradeReconciliation with bank figures per leg loaded through
+  `ImportBankCsv_Silent`, unfiltered and filtered to the Notional measure (#819, #821), and the
+  Dashboard cards with every notional and MtM on Trades times 70, an EAD near a billion (#810).
+
 - Test when the progress indicator writes the status bar, and the refusal of Clear bank figures
   while an operation runs, as the maintenance audit of 2026-11-27 found missing (#807, #815). The
   rule of `M_Main.WriteProgress` is now the pure function `CORE_Util.ProgressWriteDue`, which

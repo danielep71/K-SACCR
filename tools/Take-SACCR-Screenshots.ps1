@@ -6,8 +6,8 @@ Invoke-DocumentationScreenshots in its own Excel session.
 .DESCRIPTION
 Invoke-DocumentationScreenshots takes the development workbook the run built
 and opened, after the smoke suites, and pictures the sheets of the
-documentation in four states, each prepared through the workbook's own
-silent entry points:
+documentation in four states, then two release checks, each prepared through
+the workbook's own silent entry points:
 1. template: Clear outputs, so that the input sheets show the template's
    content;
 2. staging: the example files of the import specification loaded onto
@@ -15,7 +15,14 @@ silent entry points:
 3. run: a run of the demonstration portfolio (RunSACCR_Silent);
 4. bank: the bank figures of the reconciliation screenshot entered on
    BankNettingSets (BCBS-EX1 as on Results, MATCH; 5,300 for BCBS-EX3,
-   DIFFERENCE; BANK-ONLY-1, MISSING IN CALCULATOR) and a run.
+   DIFFERENCE; BANK-ONLY-1, MISSING IN CALCULATOR), bank figures per leg on
+   BankTrades for the TradeReconciliation check, and a run;
+5. tradefilter: TradeReconciliation filtered to the Notional measure, whose
+   tiles then show the measure and its sums (#819, #821);
+6. large: every notional and MtM on Trades times 70 and a run, so that the
+   EAD is about a billion, for the Dashboard cards (#810).
+The pictures of 5 and 6 are named check-*, not SACCR_*: they are release
+checks, which tools\screenshots.py leaves out of docs\assets.
 Each picture is Range.CopyPicture of rows and columns that the plan below
 names, through the review's Save-SheetPicture (tools\Review-SACCR-Sheets.ps1),
 into BUNDLE\screenshots\NAME.png. A picture that hides columns unprotects
@@ -55,7 +62,13 @@ function Get-ScreenshotPlan {
         @{ State = "run"; File = "SACCR_Basel_vs_CRR"; Sheet = "Basel_vs_CRR"; First = 1; Last = 16; Column = "K"; Hide = "" },
         @{ State = "bank"; File = "SACCR_BankNettingSets"; Sheet = "BankNettingSets"; First = 1; Last = 14; Column = "P"; Hide = "" },
         @{ State = "bank"; File = "SACCR_Reconciliation"; Sheet = "Reconciliation"; First = 1; Last = 0; Column = "N"; Hide = "" },
-        @{ State = "bank"; File = "SACCR_ReconSummary"; Sheet = "ReconSummary"; First = 1; Last = 0; Column = "L"; Hide = "" }
+        @{ State = "bank"; File = "SACCR_ReconSummary"; Sheet = "ReconSummary"; First = 1; Last = 0; Column = "L"; Hide = "" },
+        # Release checks, not documentation images (their names do not start with SACCR_, so
+        # tools\screenshots.py leaves them out): the TradeReconciliation tiles (#819, #821) and the
+        # Dashboard cards on a portfolio of about a billion (#810).
+        @{ State = "bank"; File = "check-TradeReconciliation"; Sheet = "TradeReconciliation"; First = 1; Last = 30; Column = "O"; Hide = "" },
+        @{ State = "tradefilter"; File = "check-TradeReconciliation-Notional"; Sheet = "TradeReconciliation"; First = 1; Last = 0; Column = "O"; Hide = "" },
+        @{ State = "large"; File = "check-Dashboard-large"; Sheet = "Dashboard"; First = 1; Last = 30; Column = "M"; Hide = "" }
     )
 }
 
@@ -195,10 +208,61 @@ function Set-ScreenshotState {
             }
             $lines.Add([string]("bank: BCBS-EX1 EAD " + $eadValue.ToString([System.Globalization.CultureInfo]::InvariantCulture) +
                                 " from Results, BCBS-EX3 5300, BANK-ONLY-1 100"))
+            # Bank figures per trade leg for the TradeReconciliation check: EX1-T1 and EX1-T2 as on Trades
+            # (MATCH), 4,800 for EX1-T3 against 5,000 (DIFFERENCE), and a leg the calculator does not have.
+            Write-ScreenshotTrace "bank: BankTrades"
+            $outcome = [string]$Excel.Run($qualified + "M_Main.ClearBank_Silent", "BankTrades")
+            $lines.Add("bank: ClearBank_Silent BankTrades: " + $outcome)
+            $bankTrades = Join-Path $Bundle "bank-trades-check.csv"
+            $csv = "trade_id;notional;mtm;maturity;supervisory_duration;adjusted_notional;supervisory_delta;" +
+                   "mf_unmargined;mf_margined;effective_notional_unmargined;effective_notional_margined;" +
+                   "standalone_addon;comment`r`n" +
+                   "EX1-T1;10000;30;;;;;;;;;;As on Trades`r`n" +
+                   "EX1-T2;10000;-20;;;;;;;;;;As on Trades`r`n" +
+                   "EX1-T3;4800;;;;;;;;;;;4,800 against 5,000`r`n" +
+                   "BANK-LEG-1;100;;;;;;;;;;;Not on Trades`r`n"
+            [System.IO.File]::WriteAllText($bankTrades, $csv, (New-Object System.Text.UTF8Encoding($false)))
+            $outcome = [string]$Excel.Run($qualified + "M_Main.ImportBankCsv_Silent", "BankTrades", $bankTrades, $true)
+            $lines.Add("bank: ImportBankCsv_Silent BankTrades: " + ($outcome -replace [regex]::Escape($Bundle), "<bundle>"))
             Write-ScreenshotTrace "bank: RunSACCR_Silent"
             $outcome = [string]$Excel.Run($qualified + "M_Main.RunSACCR_Silent")
             $lines.Add("bank: RunSACCR_Silent: " + $outcome)
             $ok = ($null -ne $ead) -and $outcome.StartsWith("RESULT=OK;") -and $outcome.Contains("; reconciliation=DONE;")
+        }
+        "tradefilter" {
+            # TradeReconciliation filtered to the Notional measure: its tiles then read the measure and its sums.
+            $recon = $Workbook.Worksheets.Item("TradeReconciliation")
+            $header = Get-NamedRow $Workbook "TradeReconciliation_Header"
+            [void]$recon.Range($recon.Cells.Item($header, 3), $recon.Cells.Item($header, 15)).AutoFilter(6, "Notional")
+            foreach ($address in @("R2", "X4", "X5", "Z1", "Z2", "Z3")) {
+                $lines.Add(("tradefilter: TradeReconciliation {0} = {1}" -f $address, [string]$recon.Range($address).Text))
+            }
+            $ok = $true
+        }
+        "large" {
+            # The demonstration portfolio with every notional and MtM on Trades times 70, so that the EAD is
+            # about a billion, for the Dashboard cards (#810).
+            $trades = $Workbook.Worksheets.Item("Trades")
+            $header = Get-NamedRow $Workbook "Trades_Header"
+            [void]$trades.Unprotect()
+            $scaled = 0
+            for ($r = $header + 1; $r -le $header + 200; $r++) {
+                if ([string]$trades.Cells.Item($r, 3).Value2 -eq "") {
+                    continue
+                }
+                foreach ($column in @(13, 15)) {
+                    $value = $trades.Cells.Item($r, $column).Value2
+                    if ($value -is [double]) {
+                        $trades.Cells.Item($r, $column).Value2 = [double]$value * 70.0
+                    }
+                }
+                $scaled++
+            }
+            $lines.Add(("large: notional and MtM of {0} legs times 70" -f $scaled))
+            Write-ScreenshotTrace "large: RunSACCR_Silent"
+            $outcome = [string]$Excel.Run($qualified + "M_Main.RunSACCR_Silent")
+            $lines.Add("large: RunSACCR_Silent: " + $outcome)
+            $ok = $outcome.StartsWith("RESULT=OK;")
         }
         default {
             $ok = $false
@@ -239,7 +303,7 @@ function Invoke-DocumentationScreenshots {
         [void]$Workbook.Activate()
         $pictureBook = $Excel.Workbooks.Add()
         $pictureSheet = $pictureBook.Worksheets.Item(1)
-        foreach ($state in @("template", "staging", "run", "bank")) {
+        foreach ($state in @("template", "staging", "run", "bank", "tradefilter", "large")) {
             [void]$Workbook.Activate()
             Write-ScreenshotTrace ("preparing the state " + $state)
             try {
