@@ -188,19 +188,7 @@ function Set-ScreenshotState {
             $recon = $Workbook.Worksheets.Item("Reconciliation")
             foreach ($address in @("R1", "R2", "X1", "X2", "X3", "X4", "X5")) {
                 $cell = $recon.Range($address)
-                $lines.Add(("bank: Reconciliation {0} text={1}; has_array={2}" -f $address, [string]$cell.Text, [string]$cell.HasArray))
-            }
-            $lines.Add("bank: Reconciliation X1 formula2=" + [string]$recon.Range("X1").Formula2)
-            $probes = @("SUBTOTAL(103,OFFSET(`$M`$12,ROW(OFFSET(`$M`$12,0,0,`$R`$1,1))-ROW(`$M`$12),0))",
-                        "SUMPRODUCT(MATCH(1,SUBTOTAL(103,OFFSET(`$M`$12,ROW(OFFSET(`$M`$12,0,0,`$R`$1,1))-ROW(`$M`$12),0)),0))")
-            foreach ($probe in $probes) {
-                try {
-                    $value = $recon.Evaluate($probe)
-                    $lines.Add(("bank: Evaluate {0} = {1}" -f $probe, ((@($value) | ForEach-Object { [string]$_ }) -join ",")))
-                }
-                catch {
-                    $lines.Add(("bank: Evaluate {0} failed: {1}" -f $probe, $_.Exception.Message))
-                }
+                $lines.Add(("bank: Reconciliation {0} text={1}" -f $address, [string]$cell.Text))
             }
             $ok = ($null -ne $ead) -and $outcome.StartsWith("RESULT=OK;") -and $outcome.Contains("; reconciliation=DONE;")
         }
