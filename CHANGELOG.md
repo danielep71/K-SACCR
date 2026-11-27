@@ -1072,6 +1072,13 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- Bring two stale statements of the workbook up to date (#827). The Home sheet says what the
+  evidence of each regime is: the published CRE99 examples for Basel; an independent implementation
+  and a bank's production reconciliation for CRR where they cover a rule, illustrative values
+  elsewhere. Its row is taller for the longer text. The import specification page names the
+  Templates menu of the K-SACCR tab for the blank templates, instead of the Export CSV template
+  buttons that 1.2.0 removed from NettingSets and Trades.
+
 - Record the maintenance audit of 2026-11-27 for v1.3.0 in `docs/release-audits/`, a new folder for
   the dated report of the audit that opens every release. `RELEASING.md` says where the report goes
   and that an actionable issue is assigned to the maintainer. `docs/assets/README.md` names the

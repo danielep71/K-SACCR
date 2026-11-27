@@ -35,7 +35,7 @@ Attribute VB_Name = "CORE_ImportSpec"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Public Const IMPORT_SPEC_FILE   As String = "K-SACCR_Import_Specification_v3.html"    'File name the export offers
-        Public Const IMPORT_SPEC_BYTES  As Long = 46639    'Length of the page in UTF-8 bytes
+        Public Const IMPORT_SPEC_BYTES  As Long = 46618    'Length of the page in UTF-8 bytes
 
 
 Public Function ImportSpecificationText() As String
@@ -166,7 +166,7 @@ Private Sub AppendPart1( _
         Page = Page & "<h2>Files</h2>" & vbLf
         Page = Page & "<p>Each file carries the inputs of one sheet: a record of <code>NettingSets</code> is one netting set, a record of <code>Trades</code> one leg. <strong>Import CSV</strong> on the staging sheet <code>I"
         Page = Page & "mport_NettingSets</code> or <code>Import_Trades</code> reads a file; <strong>Validate staging</strong> checks the staged rows of both against each other and against Params; <strong>Commit import</stro"
-        Page = Page & "ng> then replaces the input sheet. <strong>Export CSV template</strong> on <code>NettingSets</code> and <code>Trades</code> writes the blank template, the header alone.</p>" & vbLf
+        Page = Page & "ng> then replaces the input sheet. The <strong>Templates</strong> menu of the K-SACCR tab writes the blank template of each file, the header alone.</p>" & vbLf
         Page = Page & "<p>The two bank files carry a bank's own figures, one record per netting set or per leg, for the sheets <code>BankNettingSets</code> and <code>BankTrades</code>, which <code>Reconciliation</code> and "
         Page = Page & "<code>TradeReconciliation</code> compare with the workbook's results. They have no staging sheet: <strong>BankNettingSets file...</strong> and <strong>BankTrades file...</strong> in the Import CSV men"
 
