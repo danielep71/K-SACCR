@@ -32,10 +32,11 @@ function Test-QuickRunAllowed {
 
 function Get-QuickCheckMode {
     # The check a run makes (#801): "smoke" on a pull request, and on a run by
-    # hand unless its mode is "full"; the full quick check runs only by hand.
+    # hand unless its mode is "full" or "screenshots" (#616); the full quick
+    # check and the screenshots run only by hand.
     param([string]$EventName, [string]$Mode)
-    if ($EventName -eq "workflow_dispatch" -and $Mode -eq "full") {
-        return "full"
+    if ($EventName -eq "workflow_dispatch" -and ($Mode -eq "full" -or $Mode -eq "screenshots")) {
+        return $Mode
     }
     return "smoke"
 }
@@ -146,21 +147,23 @@ function New-QuickReport {
 
 function Get-QuickArtifactFiles {
     # The files of a bundle that go into the artifact: the text results, the
-    # benchmark's log when one ran (#771), and the sheet pictures, never the
-    # workbooks.
+    # benchmark's log when one ran (#771), the sheet pictures and the
+    # documentation screenshots (#616), never the workbooks.
     param([string]$Bundle)
     $found = New-Object System.Collections.Generic.List[object]
     foreach ($name in @("verify-summary.txt", "verify.log", "summary.log", "sheet-review.txt", "protection-checks.txt",
-                       "benchmark.log")) {
+                       "benchmark.log", "screenshots.txt")) {
         $path = Join-Path $Bundle $name
         if (Test-Path -LiteralPath $path -PathType Leaf) {
             $found.Add([pscustomobject]@{ Source = $path; Relative = $name; Text = $true })
         }
     }
-    $sheets = Join-Path $Bundle "sheets"
-    if (Test-Path -LiteralPath $sheets -PathType Container) {
-        foreach ($file in @(Get-ChildItem -LiteralPath $sheets -Filter "*.png" -File | Sort-Object Name)) {
-            $found.Add([pscustomobject]@{ Source = $file.FullName; Relative = ("sheets\" + $file.Name); Text = $false })
+    foreach ($pictures in @("sheets", "screenshots")) {
+        $folder = Join-Path $Bundle $pictures
+        if (Test-Path -LiteralPath $folder -PathType Container) {
+            foreach ($file in @(Get-ChildItem -LiteralPath $folder -Filter "*.png" -File | Sort-Object Name)) {
+                $found.Add([pscustomobject]@{ Source = $file.FullName; Relative = ($pictures + "\" + $file.Name); Text = $false })
+            }
         }
     }
     return $found.ToArray()

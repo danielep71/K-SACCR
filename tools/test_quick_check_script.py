@@ -128,8 +128,11 @@ New-QuickReport -Summary $s -Sha '0123456789abcdef0123456789abcdef01234567' -Pas
                 "(Get-QuickCheckMode -EventName 'pull_request' -Mode ''), "
                 "(Get-QuickCheckMode -EventName 'workflow_dispatch' -Mode 'full'), "
                 "(Get-QuickCheckMode -EventName 'workflow_dispatch' -Mode 'smoke'), "
-                "(Get-QuickCheckMode -EventName 'workflow_dispatch' -Mode '')) -join ','")
-        self.assertEqual(run(body), "smoke,smoke,full,smoke,smoke")
+                "(Get-QuickCheckMode -EventName 'workflow_dispatch' -Mode ''), "
+                "(Get-QuickCheckMode -EventName 'workflow_dispatch' -Mode 'screenshots'), "
+                "(Get-QuickCheckMode -EventName 'pull_request' -Mode 'screenshots')) -join ','")
+        # #616: the documentation screenshots run only by hand, as the full check does.
+        self.assertEqual(run(body), "smoke,smoke,full,smoke,smoke,screenshots,smoke")
 
     def test_a_failed_report_says_fail_and_a_long_one_is_cut(self) -> None:
         failed = run("New-QuickReport -Summary 'x' -Sha 'abcdef0' -Passed $false -RunUrl 'u' -ArtifactName ''")

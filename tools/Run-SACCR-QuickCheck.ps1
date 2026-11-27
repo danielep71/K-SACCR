@@ -26,7 +26,8 @@ the reporting itself is a warning and does not change it. The report never
 replaces the owner's verification and is not release evidence.
 The environment supplies the event (EVENT_NAME, HEAD_REPO, REPOSITORY, PR_NUMBER,
 RUN_URL, ARTIFACT_NAME) and GITHUB_TOKEN; nothing from the event is put into a
-command line. A run started by hand supplies CHECK_MODE, full or smoke (#801),
+command line. A run started by hand supplies CHECK_MODE, full or smoke (#801)
+or screenshots (#616: the smoke check, then the documentation screenshots),
 and may supply BENCHMARK_SIZES: a full quick check then runs the benchmark too
 (-BenchmarkSizes of Verify-SACCR-Branch.ps1, #771), which checks the sizes; a
 pull request never does.
@@ -117,6 +118,10 @@ try {
     $modeSwitch = "-Quick"
     if ($checkMode -eq "smoke") {
         $modeSwitch = "-Smoke"
+    }
+    elseif ($checkMode -eq "screenshots") {
+        # The smoke check, then the documentation screenshots (#616).
+        $modeSwitch = "-Screenshots"
     }
     Write-Host "Check: $checkMode"
     $verifyArguments = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $verify, "-Branch", $Branch, $modeSwitch,
