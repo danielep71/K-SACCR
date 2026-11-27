@@ -184,12 +184,6 @@ function Set-ScreenshotState {
                                 " from Results, BCBS-EX3 5300, BANK-ONLY-1 100"))
             $outcome = [string]$Excel.Run($qualified + "M_Main.RunSACCR_Silent")
             $lines.Add("bank: RunSACCR_Silent: " + $outcome)
-            # The tiles of Reconciliation that read the measure shown (X1 to X5), for the record
-            $recon = $Workbook.Worksheets.Item("Reconciliation")
-            foreach ($address in @("R1", "R2", "X1", "X2", "X3", "X4", "X5")) {
-                $cell = $recon.Range($address)
-                $lines.Add(("bank: Reconciliation {0} text={1}" -f $address, [string]$cell.Text))
-            }
             $ok = ($null -ne $ead) -and $outcome.StartsWith("RESULT=OK;") -and $outcome.Contains("; reconciliation=DONE;")
         }
         default {
