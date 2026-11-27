@@ -140,7 +140,8 @@ Attribute VB_Name = "M_Main"
 '   gTestFault = "staging-write" raises ERR_INJECTED_FAULT in LoadStaging
 '   once the new staging block has been written (#208).
 '   gTestFault = "bank-write" raises ERR_INJECTED_FAULT in LoadBank once
-'   the bank records have been written (#718).
+'   the bank records have been written (#718). gTestFault = "running"
+'   makes ClearBankFigures act as if an operation were running (#815).
 '   gTestFault = "commit-write" raises ERR_INJECTED_FAULT in
 '   CommitStaging once the first input sheet has been written;
 '   "commit-verify" makes its read-back fail, and "commit-rollback" makes
@@ -293,7 +294,7 @@ Attribute VB_Name = "M_Main"
     'Immediate window.
     'mRunning refuses a second operation while one is in progress.
         Public gSilent      As Boolean    'Silent mode for automation and tests
-        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile", "reconcile-rows", "evidence-*", "staging-write", "commit-*" or "restore-*"
+        Public gTestFault   As String     'Test seam: "", "operation", "cleanup", "recalc", "recalc-error", "reconcile", "reconcile-rows", "evidence-*", "staging-write", "commit-*", "restore-*" or "running"
         Public gQuietLog    As Boolean    'Test seam: silent-mode messages not printed
         Public gLastMessage As String     'Test seam: the last message passed to Notify
         Public gKeepProtection As String  'Test seam: sheets, between bars, ProtectWorkbook leaves as they are
@@ -7631,8 +7632,9 @@ Private Function ClearBankFigures( _
 '     and puts them back on every path
 '
 ' ERROR POLICY
-'   Raises ERR_RUN_ACTIVE while an operation runs and ERR_STAGING_WRITE
-'   for a missing bank header, before the sheet changes; an error while
+'   Raises ERR_RUN_ACTIVE while an operation runs (or with the test seam
+'   gTestFault = "running") and ERR_STAGING_WRITE for a missing bank
+'   header, before the sheet changes; an error while
 '   clearing is raised after the settings are put back, with the settings
 '   not restored
 '
@@ -7673,8 +7675,8 @@ Private Function ClearBankFigures( _
 '------------------------------------------------------------------------------
 ' VALIDATE INPUTS
 '------------------------------------------------------------------------------
-    'One operation at a time, and a bank table to clear
-        If mRunning Then
+    'One operation at a time (gTestFault "running" stands for one), and a bank table to clear
+        If mRunning Or gTestFault = "running" Then
             Err.Raise ERR_RUN_ACTIVE, PROC_NAME, "An SA-CCR operation is already running."
         End If
         HeaderRow = BankHeaderRow(ReconKind)
@@ -17116,7 +17118,8 @@ Private Sub WriteProgress( _
 '   Best effort: a status bar that cannot be written is left as it is
 '
 ' DEPENDENCIES
-'   CORE_Util.ProgressText, Application.StatusBar, DoEvents, Timer
+'   CORE_Util.ProgressText, CORE_Util.ProgressWriteDue (the rule, tested),
+'   Application.StatusBar, DoEvents, Timer
 '
 ' NOTES
 '   Timer restarts at midnight, which only paints once more
@@ -17135,15 +17138,12 @@ Private Sub WriteProgress( _
 '------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
-    'Only a text that changed
+    'A text that changed, when the percentage changes or not too often for a new detail alone
         Text = CORE_Util.ProgressText(mProgressOperation, VBA.Int(Fraction * 1000#), 1000, Detail)
-        If Text = mProgressText Then Exit Sub
-    'Not too often for a new detail alone
         Percent = VBA.Int(Fraction * 100#)
         Elapsed = VBA.Timer - mProgressPainted
-        If Not Force And Percent = mProgressPercent Then
-            If Elapsed >= 0! And Elapsed < PROGRESS_PAINT_SECONDS Then Exit Sub
-        End If
+        If Not CORE_Util.ProgressWriteDue(Text, mProgressText, Percent, mProgressPercent, Elapsed, _
+                                          PROGRESS_PAINT_SECONDS, Force) Then Exit Sub
     'Write it and let Excel paint it
         On Error Resume Next
         Application.StatusBar = Text
