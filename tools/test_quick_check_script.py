@@ -194,6 +194,16 @@ $comments = @(
 """
         self.assertEqual(run(body).splitlines(), ["True", "21", "full", "smoke", "screenshots"])
 
+    def test_a_report_without_a_summary_keeps_the_mode_of_its_run(self) -> None:
+        # Codex on #830: a smoke run that stops before writing its summary must not take the marker of a full one.
+        body = r"""
+$s = "The quick check wrote no summary. The end of its output:`nboom"
+(New-QuickReport -Summary $s -Sha 'abc1234' -Passed $false -RunUrl 'u' -ArtifactName 'a' -Mode 'smoke').Split("`n")[0]
+(New-QuickReport -Summary $s -Sha 'abc1234' -Passed $false -RunUrl 'u' -ArtifactName 'a').Split("`n")[0]
+"""
+        self.assertEqual(run(body).splitlines(), ["<!-- excel-quick-check:abc1234:smoke -->",
+                                                  "<!-- excel-quick-check:abc1234:full -->"])
+
     def test_a_branch_with_no_open_pull_request_has_no_number(self) -> None:
         # A full check run by hand on the release branch, which has no open pull request: Windows PowerShell 5.1
         # returns "" for the empty list, and the report stopped on reading its number (2026-11-26).
@@ -330,8 +340,10 @@ class QuickCheckRunnerTests(unittest.TestCase):
                                                    HEAD_REPO="danielep71/K-SACCR", FAKE_RESULT="PASS", FAKE_CODE="0")
             self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
             report = (folder / "step-summary.md").read_text(encoding="utf-8")
-            self.assertIn("### Excel quick check of `" + sha[:7] + "`: PASS", report)
-            self.assertIn("<!-- excel-quick-check:" + sha + ":full -->", report)
+            # A pull request runs the smoke check; its marker and title follow that mode even when, as with
+            # this fake verification, the summary names none (#828, Codex on #830).
+            self.assertIn("### Excel smoke check of `" + sha[:7] + "`: PASS", report)
+            self.assertIn("<!-- excel-quick-check:" + sha + ":smoke -->", report)
             self.assertNotIn("Bundle:", report)
             self.assertNotIn(str(work), report)
             artifact = work / "K-SACCR" / "quick-run-artifact"
@@ -345,7 +357,7 @@ class QuickCheckRunnerTests(unittest.TestCase):
             completed, _, sha = self.run_runner(folder, "feat/713-x", EVENT_NAME="workflow_dispatch", HEAD_REPO="",
                                                 FAKE_RESULT="FAIL", FAKE_CODE="1", HEAD_SHA="")
             self.assertEqual(completed.returncode, 1, completed.stdout + completed.stderr)
-            self.assertIn("### Excel quick check of `" + sha[:7] + "`: FAIL",
+            self.assertIn("### Excel smoke check of `" + sha[:7] + "`: FAIL",
                           (folder / "step-summary.md").read_text(encoding="utf-8"))
 
     def test_the_branch_of_a_fork_is_refused_and_nothing_runs(self) -> None:

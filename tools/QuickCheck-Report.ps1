@@ -91,7 +91,9 @@ function Get-QuickMarker {
 function New-QuickReport {
     # The pull-request comment of one run: what it checked, its verdict, the
     # first lines of the summary and the rest folded.
-    param([string]$Summary, [string]$Sha, [bool]$Passed, [string]$RunUrl, [string]$ArtifactName)
+    # Mode: the mode the runner chose (full, smoke, screenshots); without it, the mode the summary
+    # names. A run that wrote no summary keeps the mode it was started in (#828, Codex on #830).
+    param([string]$Summary, [string]$Sha, [bool]$Passed, [string]$RunUrl, [string]$ArtifactName, [string]$Mode = "")
     $verdict = "FAIL"
     if ($Passed) {
         $verdict = "PASS"
@@ -100,8 +102,16 @@ function New-QuickReport {
     if ($Sha.Length -ge 7) {
         $short = $Sha.Substring(0, 7)
     }
-    $mode = Get-QuickMode $Summary
-    $smoke = $mode -ne "full"
+    # The title follows the summary when it names its mode; the marker follows the mode of the run.
+    $summaryMode = Get-QuickMode $Summary
+    $markerMode = $Mode
+    if ([string]::IsNullOrEmpty($markerMode)) {
+        $markerMode = $summaryMode
+    }
+    if ($Summary -notmatch '(?m)^Mode: ') {
+        $summaryMode = $markerMode
+    }
+    $smoke = $summaryMode -ne "full"
     $kind = "quick"
     $what = "A pull-request check on the self-hosted Windows runner, not a release certification."
     $folded = "Test_RunAll, protection checks and sheet review"
@@ -126,7 +136,7 @@ function New-QuickReport {
     $head = @($head | Where-Object { $_ -notmatch '^Bundle: ' })
     $fence = '```'
     $out = New-Object System.Collections.Generic.List[string]
-    $out.Add((Get-QuickMarker -Sha $Sha -Mode $mode))
+    $out.Add((Get-QuickMarker -Sha $Sha -Mode $markerMode))
     $out.Add("### Excel $kind check of ``$short``: $verdict")
     $out.Add("")
     $out.Add($what + " It does not replace the maintainer's verification before a VBA or template change is merged, " +
