@@ -105,7 +105,7 @@ Attribute VB_Name = "TEST_MainState"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES   As Long = 49   'Cases in a complete run
+        Private Const EXPECTED_CASES   As Long = 50   'Cases in a complete run
 
 '------------------------------------------------------------------------------
 ' MODULE STATE
@@ -249,6 +249,7 @@ Public Sub RunMainStateTests()
         CaseOutputHeaderNames
         CaseSilentFlagPreserved
         CaseProgressText
+        CaseProgressWrite
         CaseProtectionApplied
         CaseProtectionRelock
         CaseFaultProtectionKept
@@ -3744,6 +3745,48 @@ Private Sub CaseProgressText()
 '------------------------------------------------------------------------------
 Unexpected:
         TEST_Kit.Fail "progress.text", "unexpected error " & Err.Number & ": " & Err.Description
+
+End Sub
+
+
+Private Sub CaseProgressWrite()
+'
+'==============================================================================
+'                              CaseProgressWrite
+'------------------------------------------------------------------------------
+' PURPOSE
+'   CORE_Util.ProgressWriteDue, the rule M_Main.WriteProgress applies
+'   (#807): the status bar is written when the shown percentage changes,
+'   never for the same text, and for a new detail alone at most once per
+'   0.25 seconds, at once when forced or after midnight.
+'
+' UPDATED
+'   2026-11-27
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' RUN CASE
+'------------------------------------------------------------------------------
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "progress.write"
+        TEST_Kit.Check CORE_Util.ProgressWriteDue("a", "", 0, -1, 0!, 0.25!, False), "the first write"
+        TEST_Kit.Check Not CORE_Util.ProgressWriteDue("a", "a", 5, 4, 1!, 0.25!, True), "never the same text"
+        TEST_Kit.Check CORE_Util.ProgressWriteDue("b", "a", 5, 4, 0!, 0.25!, False), "a new percentage at once"
+        TEST_Kit.Check Not CORE_Util.ProgressWriteDue("b", "a", 5, 5, 0.1!, 0.25!, False), _
+                       "a new detail alone waits within 0.25 s"
+        TEST_Kit.Check CORE_Util.ProgressWriteDue("b", "a", 5, 5, 0.3!, 0.25!, False), _
+                       "a new detail alone after 0.25 s"
+        TEST_Kit.Check CORE_Util.ProgressWriteDue("b", "a", 5, 5, 0.1!, 0.25!, True), "a forced write at once"
+        TEST_Kit.Check CORE_Util.ProgressWriteDue("b", "a", 5, 5, -86000!, 0.25!, False), _
+                       "after midnight, when Timer restarts"
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' HANDLE UNEXPECTED ERROR
+'------------------------------------------------------------------------------
+Unexpected:
+        TEST_Kit.Fail "progress.write", "unexpected error " & Err.Number & ": " & Err.Description
 
 End Sub
 

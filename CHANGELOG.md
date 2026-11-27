@@ -97,6 +97,13 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Test when the progress indicator writes the status bar, and the refusal of Clear bank figures
+  while an operation runs, as the maintenance audit of 2026-11-27 found missing (#807, #815). The
+  rule of `M_Main.WriteProgress` is now the pure function `CORE_Util.ProgressWriteDue`, which
+  `TEST_MainState` checks (`progress.write`, 50 cases, 738 checks); `TEST_Reconcile` checks the
+  refusal through the test seam `gTestFault = "running"` (`bank.clear`, 24 cases, 249 checks).
+  The README describes the indicator. 558 cases and 2566 checks in all.
+
 - Add **Clear bank figures** to BankNettingSets and BankTrades, and ship both sheets empty, as the
   owner asked (#815): the bank figures of the demonstration portfolio stayed after a real one was
   committed and spoiled its reconciliation, with no clear way to remove them. A rounded button
