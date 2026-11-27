@@ -422,7 +422,7 @@ function Invoke-QuickRun {
             $screenshotScript = Join-Path $RepoRoot "tools\Take-SACCR-Screenshots.ps1"
             if (Test-Path -LiteralPath $screenshotScript) {
                 . $screenshotScript
-                Write-Log "Taking the documentation screenshots: four states, into screenshots and screenshots.txt"
+                Write-Log "Taking the documentation screenshots and the release checks, into screenshots and screenshots.txt"
                 $watchMarker = Join-Path $Bundle "screenshots.marker"
                 $watchReport = Join-Path $Bundle "screenshots-watchdog.txt"
                 $watchJob = Start-ScreenshotWatchdog -ProcessId $script:excelProcess -Seconds $screenshotSeconds `
