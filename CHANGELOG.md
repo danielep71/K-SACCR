@@ -712,6 +712,10 @@ Use only the categories needed by a release.
 
 ### Changed
 
+- Stop Export evidence from flickering, and show the progress of Commit import, as the owner
+  reported (#814): Export evidence checks the run and writes the CSV with screen updating off, and
+  says its two steps in the status bar; Commit import shows the staged rows read, each input sheet
+  written and formatted, column by column, and the rows read back (#807, #811).
 - Show the Dashboard's amounts in units of the reporting currency, as on the input and output
   sheets, with a thousands separator and no decimals (#810), as the owner asked. Each family of
   amounts used to take a scale of thousands, millions or billions from its largest amount; on a
