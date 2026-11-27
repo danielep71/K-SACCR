@@ -60,3 +60,10 @@ Private Sub Workbook_AfterSave(ByVal Success As Boolean)
         M_Main.NavigationBarAfterSave
 
 End Sub
+
+Public Sub ReportProgress(ByVal Fraction As Double, ByVal Detail As String)
+    'The core modules tell this object, late bound, how far a CSV read, a
+    'staging check or a run is; the status bar shows it (#807).
+        M_Main.ProgressReport Fraction, Detail
+
+End Sub
