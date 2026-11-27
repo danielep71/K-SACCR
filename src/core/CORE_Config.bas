@@ -562,6 +562,10 @@ Attribute VB_Name = "CORE_Config"
     'evidence report exports from the output sheets, taken when a run
     'completes; an output cell edited after the run no longer matches it.
         Public Const RUN_OUTPUTS_NAME As String = "SACCR_RunOutputs"    'Empty when no run completed
+    'RUN_DASHBOARD_NAME holds the fingerprint of the Dashboard's data table,
+    'taken with it; the formatted report refuses a Dashboard changed after
+    'the run (#259).
+        Public Const RUN_DASHBOARD_NAME As String = "SACCR_RunDashboard"    'Empty when no run completed
         Public Const TRC_NS         As Long = 3     'TradeReconciliation: NettingSetID on TradeCalc
         Public Const TRC_AC         As Long = 4     'TradeReconciliation: asset class on TradeCalc
     'TradeReconciliation has one column more, after the Note: the leg's

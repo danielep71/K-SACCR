@@ -638,7 +638,8 @@ TEST_Report.RunReportTests
 
 Checks the formatted run report (#259, [`docs/workbook/REPORT.md`](docs/workbook/REPORT.md)).
 It checks the text a PDF writes for amounts, ratios, counts and dates on the examples
-of `docs/workbook/report.json`, Checks by code and the refusals of Export evidence.
+of `docs/workbook/report.json`, Checks by code, the refusals of Export evidence and a
+Dashboard figure changed after the run.
 It writes an XLSX of the demonstration run through `ExportReport_Silent` and reads it
 back from the file: the sheets in order, values only, no link and no macro, the input
 fingerprint, the reporting date as a date, the EAD of the CRR total, the rows of

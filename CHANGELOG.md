@@ -883,6 +883,16 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Refuse a formatted report whose Dashboard was changed after the run, and hold the operation guard
+  while a report is written (#259, Codex on #805): the run now records the fingerprint of the
+  Dashboard's data table (`SACCR_RunDashboard`), which the report checks besides the rules of
+  Export evidence (`ReportProblem`); and the export, which yields to Excel while it pictures the
+  charts, no longer lets a Run or Clear outputs start in the middle. `TEST_Report` checks the
+  refusal (55 checks).
+- Complete the report of an Excel check run by hand on a branch with no open pull request, such as
+  the release branch: Windows PowerShell 5.1 turns the empty list of pull requests into an empty
+  string, and the report stopped on reading its number, with the warning "The report could not be
+  completed" (`Select-QuickPullNumber` in `tools/QuickCheck-Report.ps1`).
 - Refresh the K-SACCR tab only while its workbook is active (#773). A refresh scheduled with
   `OnTime` (`ScheduleRefresh`) invalidated the Ribbon whenever Excel was next idle; with another
   workbook active, Excel looked for the tab's callbacks there and stopped on "Cannot run the
