@@ -84,7 +84,7 @@ Attribute VB_Name = "TEST_Reconcile"
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
         Private Const EXPECTED_CASES    As Long = 24              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 249              'Checks in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 252              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -818,7 +818,9 @@ Private Sub CaseBankClear()
 '   an entry, leaves the amount scale and the tolerances, clears an empty
 '   table without complaint, counts a comment alone as an entry, refuses
 '   while an operation runs without changing the sheet, and raises for a
-'   kind that is not a bank file. The suite then puts both tables back.
+'   kind that is not a bank file. In manual calculation, a reconciliation
+'   kept after the clear shows OUT OF DATE at once (Codex on #841). The
+'   suite then puts both tables back and the calculation mode.
 '
 ' UPDATED
 '   2026-11-27
@@ -835,9 +837,13 @@ Private Sub CaseBankClear()
     Dim TrSettings      As Variant      'Its settings formulas, (scale, abs, rel)
     Dim ResultLine      As String       'What a call returned
     Dim ErrorNumber     As Long         'Error raised for an unknown kind
+    Dim SavedCalc       As XlCalculation 'Calculation mode before the case
+    Dim ResultsSheet    As Worksheet    'Results
+    Dim Shown           As String       'Reconciliation status after the clear
 
         On Error GoTo Unexpected
         TEST_Kit.BeginCase "bank.clear"
+        SavedCalc = Application.Calculation
         M_Main.gSilent = True
         Set NsSheet = GetSheet(SH_BANK_NS)
         Set TrSheet = GetSheet(SH_BANK_TR)
@@ -896,6 +902,23 @@ Private Sub CaseBankClear()
         On Error GoTo Unexpected
         TEST_Kit.Check ErrorNumber = ERR_CSV_READ, "clear of another kind: error " & ErrorNumber
 
+    'In manual calculation a reconciliation kept after the clear shows OUT
+    'OF DATE at once, without F9 (Codex on #841)
+        TableRange(NsSheet, NsFirst, 1, NsFirst + 49, BN_NCOLS).ClearContents
+        ResultLine = M_Main.RunSACCR_Silent()
+        Set ResultsSheet = GetSheet(SH_RESULTS)
+        TableCell(NsSheet, NsFirst, BN_ID).Value = "CLEAR-RECON"
+        TableCell(NsSheet, NsFirst, BN_REGIME).Value = TableCell(ResultsSheet, OutputFirstRow(SH_RESULTS), RS_REGIME).Value
+        TableCell(NsSheet, NsFirst, BN_EAD).Value = 1000
+        ResultLine = M_Main.RunSACCR_Silent()
+        TEST_Kit.Check InStr(ResultLine, "; reconciliation=DONE;") > 0, "run before the clear: " & ResultLine
+        CheckStatus GetSheet(SH_RECON), "Reconciliation current", "before the clear"
+        Application.Calculation = xlCalculationManual
+        ResultLine = M_Main.ClearBank_Silent("BankNettingSets")
+        Shown = SafeStr(GetSheet(SH_RECON).Range(RECON_STATUS_CELL).Value)
+        Application.Calculation = SavedCalc
+        TEST_Kit.Check Left$(Shown, 11) = "OUT OF DATE", "status after a clear in manual calculation: " & Shown
+
 '------------------------------------------------------------------------------
 ' RESTORE
 '------------------------------------------------------------------------------
@@ -906,6 +929,7 @@ Private Sub CaseBankClear()
 Unexpected:
         TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         M_Main.gTestFault = ""
+        Application.Calculation = SavedCalc
         RestoreBankTable NsSheet, NsFirst, BN_NCOLS, NsTable, NsSettings, NM_BN_SCALE, NM_BN_ABSTOL, NM_BN_RELTOL
         RestoreBankTable TrSheet, TrFirst, BT_NCOLS, TrTable, TrSettings, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL
 

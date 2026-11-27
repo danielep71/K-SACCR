@@ -927,6 +927,11 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Show a reconciliation as out of date at once after **Clear bank figures**, also in manual
+  calculation (Codex on #841). The command cleared the bank table with calculation off and put the
+  user's mode back without recalculating the status cells, so in manual calculation
+  Reconciliation still read "Reconciliation current" beside the old comparison. It now
+  recalculates them, as Run SA-CCR does; `TEST_Reconcile` checks it (252 checks).
 - Keep one quick-check comment per commit and mode (#828). The report of the smoke check of a pull
   request replaced the report of the full quick check run by hand on the same commit (#824), as
   both carried the marker `excel-quick-check:SHA`. The marker now names the mode (`full`, `smoke`,
