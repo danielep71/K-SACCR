@@ -118,14 +118,22 @@ checks pass. With `-Smoke` it runs the smoke check of a pull request (#801)
 instead, in `saccr-smoke-SHORTSHA`: the same build, `Auto_Open` and compile,
 then the harness and the calculation suites once (`TEST_Suite.Smoke`, into
 `summary.log`), with no sheet review and no protection checks; its exit code
-is 0 when the project compiled and those suites passed. Either way
+is 0 when the project compiled and those suites passed. `-Screenshots`, which
+implies `-Smoke`, then takes the documentation screenshots (#616) with
+`Take-SACCR-Screenshots.ps1`: the sheets of `docs/assets` in four states (the
+template, the staged example files, a run, bank figures and a run), each cut
+to its rows and columns, into `screenshots\` with the list `screenshots.txt`;
+its exit code also needs every picture. `screenshots.py` then reduces them to
+the palette of `docs/assets` and writes them there
+([screenshots](../docs/assets/README.md#screenshots)). Either way
 the script never pushes or discards changes, and checks made by eye, such
 as the Ribbon's labels, stay with the operator.
 
 `Run-SACCR-QuickCheck.ps1` is what the workflow `excel-quick.yml` runs on the
 owner's self-hosted runner (#713): it refuses a run that is not a branch of this
 repository, takes the machine's Excel mutex, runs `Verify-SACCR-Branch.ps1 -Smoke
--Commit SHA` (a pull request, or a run by hand in mode `smoke`) or `-Quick -Commit SHA`
+-Commit SHA` (a pull request, or a run by hand in mode `smoke`), `-Screenshots -Commit SHA`
+(mode `screenshots`; #616) or `-Quick -Commit SHA`
 (a run by hand in mode `full`; #801) on the commit the workflow checked out (that switch fetches and checks
 out nothing, and stops when HEAD is another commit) and reports the result as a
 comment of the pull request and an artifact of the run. Its functions that need no
@@ -549,7 +557,8 @@ release, [`INSTALLATION.md`](../INSTALLATION.md#released-workbook) the user's
 verification.
 
 `.github/workflows/excel-quick.yml`, **Excel quick check**, runs the smoke check of
-a pull request, or by hand the full quick check or the smoke check (#801), on the
+a pull request, or by hand the full quick check, the smoke check (#801) or the
+documentation screenshots (#616), on the
 owner's self-hosted runner (label `excel`, declared for actionlint in
 `.github/actionlint.yaml`) for a pull request from a branch of this repository, or by
 hand. It is the one workflow that may run on a self-hosted runner; its job holds
