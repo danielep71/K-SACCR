@@ -47,7 +47,7 @@ same `economic_trade_id` and `netting_set_id`; exactly one leg has
 `mtm_leg` `Y` and carries the whole MtM, and the others have `mtm_leg` `N` and
 an MtM of `0`. The engine rejects every leg of an economic trade that breaks
 this rule (see the
-[user manual](../user-manual/v1.2.0/K-SACCR_v1.2.0_User_Manual.md#multi-leg-economic-trades-prevent-mtm-double-counting)).
+[user manual](../user-manual/v1.3.0/K-SACCR_v1.3.0_User_Manual.md#multi-leg-economic-trades-prevent-mtm-double-counting)).
 
 ## 🧾 File format
 
@@ -145,8 +145,8 @@ negative `number` or `integer` is a value, not a formula.
 | --- | --- |
 | NettingSets | 10,000 |
 | Trades | 100,000 |
-| BankNettingSets | 200 |
-| BankTrades | 500 |
+| BankNettingSets | 10,000 |
+| BankTrades | 50,000 |
 
 A file of more than 128 MiB (134,217,728 bytes, a byte-order mark included)
 is rejected from its size alone, before any of it is read
