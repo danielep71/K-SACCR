@@ -83,8 +83,8 @@ Attribute VB_Name = "TEST_Reconcile"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 23              'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 239              'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 24              'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 247              'Checks in a complete run
         Private Const TOL               As Double = 0.000001      'Tolerance of numeric checks
 
 '------------------------------------------------------------------------------
@@ -154,6 +154,7 @@ Public Sub RunReconcileTests()
         CaseExportCsvTemplates
         CaseBankImport
         CaseBankTradesImport
+        CaseBankClear
 
         Application.Calculation = CallerCalculation
         M_Main.gSilent = CallerSilent
@@ -802,6 +803,98 @@ Unexpected:
         TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
         M_Main.gTestFault = ""
         RestoreBankTable BankSheet, FirstRow, BN_NCOLS, SavedTable, SavedSettings, NM_BN_SCALE, NM_BN_ABSTOL, NM_BN_RELTOL
+
+End Sub
+
+
+Private Sub CaseBankClear()
+'
+'==============================================================================
+'                               CaseBankClear
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Clear bank figures (#815): ClearBank_Silent empties the figures and
+'   comments of BankNettingSets and of BankTrades, says how many rows held
+'   an entry, leaves the amount scale and the tolerances, clears an empty
+'   table without complaint, counts a comment alone as an entry, and raises for a kind that is not a bank
+'   file. The suite then puts both tables back.
+'
+' UPDATED
+'   2026-11-27
+'==============================================================================
+'
+
+    Dim NsSheet         As Worksheet    'BankNettingSets
+    Dim TrSheet         As Worksheet    'BankTrades
+    Dim NsFirst         As Long         'First bank row of BankNettingSets
+    Dim TrFirst         As Long         'First bank row of BankTrades
+    Dim NsTable         As Variant      'BankNettingSets table formulas, first 50 rows
+    Dim TrTable         As Variant      'BankTrades table formulas, first 50 rows
+    Dim NsSettings      As Variant      'Its settings formulas, (scale, abs, rel)
+    Dim TrSettings      As Variant      'Its settings formulas, (scale, abs, rel)
+    Dim ResultLine      As String       'What a call returned
+    Dim ErrorNumber     As Long         'Error raised for an unknown kind
+
+        On Error GoTo Unexpected
+        TEST_Kit.BeginCase "bank.clear"
+        M_Main.gSilent = True
+        Set NsSheet = GetSheet(SH_BANK_NS)
+        Set TrSheet = GetSheet(SH_BANK_TR)
+        NsFirst = NamedRow(NM_BN_HEADER) + 1
+        TrFirst = NamedRow(NM_BT_HEADER) + 1
+        NsTable = TableRange(NsSheet, NsFirst, 1, NsFirst + 49, BN_NCOLS).Formula
+        TrTable = TableRange(TrSheet, TrFirst, 1, TrFirst + 49, BT_NCOLS).Formula
+        NsSettings = Array(NamedCell(NM_BN_SCALE).Formula, NamedCell(NM_BN_ABSTOL).Formula, _
+                           NamedCell(NM_BN_RELTOL).Formula)
+        TrSettings = Array(NamedCell(NM_BT_SCALE).Formula, NamedCell(NM_BT_ABSTOL).Formula, _
+                           NamedCell(NM_BT_RELTOL).Formula)
+
+    'Two netting-set rows, one of them a comment only, and a scale of 1000
+        TableRange(NsSheet, NsFirst, 1, NsFirst + 49, BN_NCOLS).ClearContents
+        TableCell(NsSheet, NsFirst, BN_ID).Value = "CLEAR-ME"
+        TableCell(NsSheet, NsFirst, BN_EAD).Value = 100
+        TableCell(NsSheet, NsFirst + 1, BN_NCOLS).Value = "a comment"
+        NamedCell(NM_BN_SCALE).Value = 1000
+        ResultLine = M_Main.ClearBank_Silent("BankNettingSets")
+        TEST_Kit.Check ResultLine = "RESULT=CLEARED; sheet=BankNettingSets; rows=2", "clear BankNettingSets: " & ResultLine
+        TEST_Kit.Check Application.WorksheetFunction.CountA(TableRange(NsSheet, NsFirst, 1, NsFirst + 49, BN_NCOLS)) = 0, _
+                       "BankNettingSets still holds entries"
+        TEST_Kit.Check NamedCell(NM_BN_SCALE).Value2 = 1000, "the amount scale changed: " & CStr(NamedCell(NM_BN_SCALE).Value2)
+        ResultLine = M_Main.ClearBank_Silent("BankNettingSets")
+        TEST_Kit.Check ResultLine = "RESULT=CLEARED; sheet=BankNettingSets; rows=0", "clear an empty table: " & ResultLine
+
+    'A comment alone is an entry to clear (Codex on #817)
+        TableCell(NsSheet, NsFirst + 3, BN_NCOLS).Value = "a comment alone"
+        ResultLine = M_Main.ClearBank_Silent("BankNettingSets")
+        TEST_Kit.Check ResultLine = "RESULT=CLEARED; sheet=BankNettingSets; rows=1", "clear a comment alone: " & ResultLine
+
+    'One trade row
+        TableRange(TrSheet, TrFirst, 1, TrFirst + 49, BT_NCOLS).ClearContents
+        TableCell(TrSheet, TrFirst, 1).Value = "CLEAR-T1"
+        TableCell(TrSheet, TrFirst, 2).Value = 1000
+        ResultLine = M_Main.ClearBank_Silent("BankTrades")
+        TEST_Kit.Check ResultLine = "RESULT=CLEARED; sheet=BankTrades; rows=1", "clear BankTrades: " & ResultLine
+        TEST_Kit.Check Application.WorksheetFunction.CountA(TableRange(TrSheet, TrFirst, 1, TrFirst + 49, BT_NCOLS)) = 0, _
+                       "BankTrades still holds entries"
+
+    'A kind that is not a bank file
+        On Error Resume Next
+        ResultLine = M_Main.ClearBank_Silent("Trades")
+        ErrorNumber = Err.Number
+        On Error GoTo Unexpected
+        TEST_Kit.Check ErrorNumber = ERR_CSV_READ, "clear of another kind: error " & ErrorNumber
+
+'------------------------------------------------------------------------------
+' RESTORE
+'------------------------------------------------------------------------------
+        RestoreBankTable NsSheet, NsFirst, BN_NCOLS, NsTable, NsSettings, NM_BN_SCALE, NM_BN_ABSTOL, NM_BN_RELTOL
+        RestoreBankTable TrSheet, TrFirst, BT_NCOLS, TrTable, TrSettings, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL
+        Exit Sub
+
+Unexpected:
+        TEST_Kit.Fail TEST_Kit.CurrentCase, "unexpected error " & Err.Number & ": " & Err.Description
+        RestoreBankTable NsSheet, NsFirst, BN_NCOLS, NsTable, NsSettings, NM_BN_SCALE, NM_BN_ABSTOL, NM_BN_RELTOL
+        RestoreBankTable TrSheet, TrFirst, BT_NCOLS, TrTable, TrSettings, NM_BT_SCALE, NM_BT_ABSTOL, NM_BT_RELTOL
 
 End Sub
 

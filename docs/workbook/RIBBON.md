@@ -86,6 +86,8 @@ Each command calls `RibbonAction`, which runs the macro named here.
 | `ksImportTrades` | Trades file... | I, T | `ImportTradesCsv` |
 | `ksImportBankNettingSets` | BankNettingSets file... | I, B | `ImportBankNettingSetsCsv` |
 | `ksImportBankTrades` | BankTrades file... | I, L | `ImportBankTradesCsv` |
+| `ksClearBankNettingSets` | Clear BankNettingSets... | I, C | `ClearBankNettingSets` |
+| `ksClearBankTrades` | Clear BankTrades... | I, R | `ClearBankTrades` |
 | `ksValidateStaging` | Validate staging | V | `ValidateStaging` |
 | `ksCommitImport` | Commit import | M | `CommitImport` |
 | `ksTemplateNettingSets` | NettingSets template... | P, N | `ExportNettingSetsCsvTemplate` |

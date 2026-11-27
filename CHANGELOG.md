@@ -97,6 +97,14 @@ Use only the categories needed by a release.
 
 ### Added
 
+- Add **Clear bank figures** to BankNettingSets and BankTrades, and ship both sheets empty, as the
+  owner asked (#815): the bank figures of the demonstration portfolio stayed after a real one was
+  committed and spoiled its reconciliation, with no clear way to remove them. A rounded button
+  beside Import CSV on each bank sheet, and Clear BankNettingSets... and Clear BankTrades... in
+  the Import CSV menu of the Ribbon (`ksClearBankNettingSets`, `ksClearBankTrades`), clear every
+  figure and comment after a confirmation, No being the default; the amount scale and the
+  tolerances stay. `ClearBank_Silent(kind)` is the automation entry point; `TEST_Reconcile` checks
+  it (`bank.clear`, 24 cases, 247 checks); a sheet of comments alone is cleared too (Codex on #817).
 - Show the progress of the long commands in Excel's status bar (#807), as the owner asked: the
   command, a bar of 20 blocks, the percentage and the step. **Run** and Validate inputs follow
   the engine's phases and its trades; **Import CSV**, for the four files, and the Check macros
