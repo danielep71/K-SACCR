@@ -5,7 +5,7 @@ guard against forks, the report of a run, the files of its artifact and the
 upsert of its pull-request comment.
 .DESCRIPTION
 Dot-sourced by tools\Run-SACCR-QuickCheck.ps1, which the workflow
-.github\workflows\excel-quick.yml runs on the owner's self-hosted runner, and
+.github\workflows\excel-quick.yml runs on the self-hosted runner, and
 by tools\test_quick_check_script.py. The file only defines functions; it runs
 under Windows PowerShell 5.1 and PowerShell 7.
 #>
@@ -16,7 +16,7 @@ $script:QuickMarkerPrefix = "<!-- excel-quick-check:"
 
 function Test-QuickRunAllowed {
     # A run starts for a branch of this repository, or by hand: never for the
-    # branch of a fork, whose code would run on the owner's machine.
+    # branch of a fork, whose code would run on the self-hosted runner.
     param([string]$EventName, [string]$HeadRepository, [string]$Repository)
     if ($EventName -eq "workflow_dispatch") {
         return $true
@@ -67,15 +67,33 @@ function Hide-QuickPaths {
     return $result
 }
 
+function Get-QuickMode {
+    # The mode of a run, from its summary: "smoke", "screenshots" (the smoke
+    # check followed by the documentation screenshots, #616) or "full".
+    param([string]$Summary)
+    if ($Summary -match '(?m)^Mode: smoke.*documentation screenshots') {
+        return "screenshots"
+    }
+    if ($Summary -match '(?m)^Mode: smoke') {
+        return "smoke"
+    }
+    return "full"
+}
+
 function Get-QuickMarker {
-    param([string]$Sha)
-    return $script:QuickMarkerPrefix + $Sha + " -->"
+    # The marker of the comment of one commit and one mode (#828): a smoke
+    # check of a pull request never replaces the report of a full quick check
+    # run by hand on the same commit, nor the other way round.
+    param([string]$Sha, [string]$Mode = "full")
+    return $script:QuickMarkerPrefix + $Sha + ":" + $Mode + " -->"
 }
 
 function New-QuickReport {
     # The pull-request comment of one run: what it checked, its verdict, the
     # first lines of the summary and the rest folded.
-    param([string]$Summary, [string]$Sha, [bool]$Passed, [string]$RunUrl, [string]$ArtifactName)
+    # Mode: the mode the runner chose (full, smoke, screenshots); without it, the mode the summary
+    # names. A run that wrote no summary keeps the mode it was started in (#828, Codex on #830).
+    param([string]$Summary, [string]$Sha, [bool]$Passed, [string]$RunUrl, [string]$ArtifactName, [string]$Mode = "")
     $verdict = "FAIL"
     if ($Passed) {
         $verdict = "PASS"
@@ -84,13 +102,22 @@ function New-QuickReport {
     if ($Sha.Length -ge 7) {
         $short = $Sha.Substring(0, 7)
     }
-    $smoke = $Summary -match '(?m)^Mode: smoke'
+    # The title follows the summary when it names its mode; the marker follows the mode of the run.
+    $summaryMode = Get-QuickMode $Summary
+    $markerMode = $Mode
+    if ([string]::IsNullOrEmpty($markerMode)) {
+        $markerMode = $summaryMode
+    }
+    if ($Summary -notmatch '(?m)^Mode: ') {
+        $summaryMode = $markerMode
+    }
+    $smoke = $summaryMode -ne "full"
     $kind = "quick"
-    $what = "A pull-request check on the owner's Windows runner, not a release certification."
+    $what = "A pull-request check on the self-hosted Windows runner, not a release certification."
     $folded = "Test_RunAll, protection checks and sheet review"
     if ($smoke) {
         $kind = "smoke"
-        $what = ("A smoke check of the pull request on the owner's Windows runner: the build, the compile and the " +
+        $what = ("A smoke check of the pull request on the self-hosted Windows runner: the build, the compile and the " +
                  "calculation suites. Every suite, the sheet review and the protection checks run in the full quick " +
                  "check, by hand, and in certification before a release.")
         $folded = "Suites"
@@ -109,11 +136,11 @@ function New-QuickReport {
     $head = @($head | Where-Object { $_ -notmatch '^Bundle: ' })
     $fence = '```'
     $out = New-Object System.Collections.Generic.List[string]
-    $out.Add((Get-QuickMarker $Sha))
+    $out.Add((Get-QuickMarker -Sha $Sha -Mode $markerMode))
     $out.Add("### Excel $kind check of ``$short``: $verdict")
     $out.Add("")
-    $out.Add($what + " It does not replace the owner's verification before a VBA or template change is merged, " +
-             "unless the owner says so here.")
+    $out.Add($what + " It does not replace the maintainer's verification before a VBA or template change is merged, " +
+             "unless the maintainer says so here.")
     $out.Add("")
     $out.Add($fence + "text")
     $head | ForEach-Object { $out.Add($_) }
@@ -270,8 +297,9 @@ function Find-QuickPullNumber {
 }
 
 function Publish-QuickReport {
-    # One comment per commit: created, or updated when this commit's marker is
-    # already on the pull request (a re-run).
+    # One comment per commit and mode: created, or updated when the marker of
+    # the report, its first line, is already on the pull request (a re-run of
+    # the same mode on the same commit, #828).
     param([string]$Repository, [int]$PullNumber, [string]$Body, [string]$Sha, [string]$Token)
     $base = "https://api.github.com/repos/$Repository"
     $existing = @()
@@ -282,7 +310,11 @@ function Publish-QuickReport {
             break
         }
     }
-    $id = Find-QuickReportComment -Comments $existing -Marker (Get-QuickMarker $Sha)
+    $marker = @($Body -split "\r?\n")[0]
+    if (-not $marker.StartsWith($script:QuickMarkerPrefix)) {
+        $marker = Get-QuickMarker -Sha $Sha
+    }
+    $id = Find-QuickReportComment -Comments $existing -Marker $marker
     if ($null -ne $id) {
         [void](Invoke-QuickApi -Method "PATCH" -Uri "$base/issues/comments/$id" -Token $Token -Body @{ body = $Body })
         return "updated"

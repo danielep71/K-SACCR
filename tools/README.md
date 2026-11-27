@@ -134,7 +134,7 @@ the script never pushes or discards changes, and checks made by eye, such
 as the Ribbon's labels, stay with the operator.
 
 `Run-SACCR-QuickCheck.ps1` is what the workflow `excel-quick.yml` runs on the
-owner's self-hosted runner (#713): it refuses a run that is not a branch of this
+self-hosted runner (#713): it refuses a run that is not a branch of this
 repository, takes the machine's Excel mutex, runs `Verify-SACCR-Branch.ps1 -Smoke
 -Commit SHA` (a pull request, or a run by hand in mode `smoke`), `-Screenshots -Commit SHA`
 (mode `screenshots`; #616) or `-Quick -Commit SHA`
@@ -563,7 +563,7 @@ verification.
 `.github/workflows/excel-quick.yml`, **Excel quick check**, runs the smoke check of
 a pull request, or by hand the full quick check, the smoke check (#801) or the
 documentation screenshots (#616), on the
-owner's self-hosted runner (label `excel`, declared for actionlint in
+self-hosted runner (label `excel`, declared for actionlint in
 `.github/actionlint.yaml`) for a pull request from a branch of this repository, or by
 hand. It is the one workflow that may run on a self-hosted runner; its job holds
 `contents: read` and `pull-requests: write` and posts the result in the pull
