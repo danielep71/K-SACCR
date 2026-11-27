@@ -913,6 +913,13 @@ Use only the categories needed by a release.
 
 ### Fixed
 
+- Show the measure and its figures in the tiles of Reconciliation and TradeReconciliation (#819).
+  Measure shown, Sum of bank figures, Sum of calc. figures, Sum of abs. diff. and Largest abs. diff.
+  read `#N/A` after every reconciliation: the hidden cell X1, which finds the first visible row,
+  gave the SUBTOTAL of the visible rows alone as the lookup array of MATCH, and Excel did not
+  evaluate it row by row. It is now multiplied by the condition that the row holds a result, as in
+  the formulas of ReconSummary, and the documentation picture of Reconciliation is retaken.
+
 - Keep the column headers of NettingSets and Trades in view, and format every committed row, as the
   owner reported with a real portfolio of 920 netting sets (#811). The header is now on row 4, the
   last of the frozen rows, and the data starts on row 5: the empty row 4 is gone, the frozen rows
