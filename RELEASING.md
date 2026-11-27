@@ -92,7 +92,8 @@ every acceptance criterion is met.
    and text. Reopen an issue closed too early and say exactly what remains.
    Tell completed work apart from duplicates, rejected proposals and work
    deferred or abandoned on purpose, and close each with the matching reason.
-   Never tick a criterion that has not been verified.
+   Never tick a criterion that has not been verified. An actionable issue is
+   assigned to the maintainer, the GitHub account of the connected session.
 2. **Open issues.** Check that each one is still outstanding work, with the
    same fields. Bring stale descriptions and progress up to date and fix
    broken or obsolete links. Keep `blocked` only while a named prerequisite is
@@ -142,7 +143,9 @@ End with a report:
 
 Keep verified facts apart from assumptions. If pagination, permissions or
 missing evidence left something unexamined, the report says so and does not
-claim a complete audit. A finding that needs code is fixed through a task PR
+claim a complete audit. The report is recorded in
+[`docs/release-audits/`](docs/release-audits/README.md), one dated file per
+audit, through a documentation PR into the release branch. A finding that needs code is fixed through a task PR
 before step 2; an issue reopened for this release stays in its scope or is
 moved out of the milestone by decision, never left behind silently.
 

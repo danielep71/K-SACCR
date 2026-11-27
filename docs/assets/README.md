@@ -15,8 +15,10 @@ The images below show sheets of the workbook built from
 taken in Excel for Windows on 2026-11-27 by
 `tools/Take-SACCR-Screenshots.ps1` (#616), which the
 [Excel quick check](../EXCEL_EVIDENCE.md#automatic-quick-check) runs in its mode
-`screenshots` on the owner's runner, except `SACCR_Ribbon.png`, taken by hand
-the same day, and `SACCR_Evidence_CSV.png`, taken on 2026-10-16.
+`screenshots` on the self-hosted runner, except `SACCR_Ribbon.png`, taken by hand
+the same day, and `SACCR_Evidence_CSV.png`, taken on 2026-10-16. They were taken
+from commit `07b68e3` (run 46035197674); `SACCR_Reconciliation.png` was retaken
+from `bb24522` (run 46039677982) after the tiles were corrected (#819, #821).
 
 | Image | Shows |
 | --- | --- |
