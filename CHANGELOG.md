@@ -95,6 +95,8 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-28
+
 ### Added
 
 - Take two release checks with the documentation screenshots (#616), named `check-*.png` so that
@@ -2732,7 +2734,8 @@ For a workbook built from `release/1.0.0` or `main` before the release:
 
 ---
 
-[Unreleased]: https://github.com/danielep71/K-SACCR/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/danielep71/K-SACCR/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/danielep71/K-SACCR/releases/tag/v1.3.0
 [1.2.0]: https://github.com/danielep71/K-SACCR/releases/tag/v1.2.0
 [1.1.0]: https://github.com/danielep71/K-SACCR/releases/tag/v1.1.0
 [1.0.2]: https://github.com/danielep71/K-SACCR/releases/tag/v1.0.2
