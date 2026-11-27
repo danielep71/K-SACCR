@@ -334,13 +334,18 @@ Attribute VB_Name = "M_Main"
         Private mTradeReconState As String    'Trade reconciliation outcome
         Private mReconLine       As String    'Lines for the run message; "" for none
     'The progress of a long operation in the status bar (#807): the
-    'operation ProgressStart named, "" when none shows its progress, the
-    'text last written, so that a step that changes nothing is not written,
-    'and the step, for ProgressDetail.
+    'operation ProgressStart named, "" when none shows its progress; the
+    'text last written, its percentage and when, so that the status bar is
+    'not written more often than it changes; and the current step, its
+    'share of the bar and what it does, for ProgressReport.
         Private mProgressOperation As String  'Operation in progress; "" for none
         Private mProgressText      As String  'Text of the status bar; "" for none
-        Private mProgressDone      As Long    'Steps done
-        Private mProgressTotal     As Long    'Steps in all
+        Private mProgressPercent   As Long    'Percentage last written; -1 for none
+        Private mProgressPainted   As Single  'Timer when last written
+        Private mProgressFrom      As Double  'Where the current step starts, 0 to 1
+        Private mProgressTo        As Double  'Where it ends, 0 to 1
+        Private mProgressDetail    As String  'What the current step does
+        Private Const PROGRESS_PAINT_SECONDS As Single = 0.25  'Shortest time between two writes of a new detail alone
 
 
 '
@@ -553,28 +558,52 @@ End Sub
 '
 
 Public Sub RunSACCR()
+
 '
-'==============================================================================
-'                                   RunSACCR
+'------------------------------------------------------------------------------
+'                   RUN SA-CCR AND WRITE EVERY OUTPUT SHEET
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Run the full SA-CCR calculation and write every output sheet, then
-'   show Results and report the economic trades and legs used, the total
+'   Runs the full SA-CCR calculation and writes every output sheet, then
+'   shows Results and reports the economic trades and legs used, the total
 '   EAD of each regime and the number of errors and warnings. A run that
-'   stops shows Checks.
+'   stops shows Checks
 '
-' USAGE
-'   Called by Run on the K-SACCR Ribbon tab.
+' WHY THIS EXISTS
+'   The command behind Run SA-CCR; ExecuteOperation does the work
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Shows the progress in the status bar (#807): the engine's phases
+'     and its trades, then what follows them
+'   - Refreshes the Ribbon's states afterwards
+'
+' ERROR POLICY
+'   As ExecuteOperation: reported in a message, never raised
+'
+' DEPENDENCIES
+'   ExecuteOperation, RibbonStateChanged, ProgressStart, ProgressEnd
+'
+' NOTES
+'   Called by Run on the K-SACCR Ribbon tab
 '
 ' UPDATED
-'   2026-11-06
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' RUN
 '------------------------------------------------------------------------------
+    'Run the operation, its progress in the status bar; its message gives
+    'the status bar back, and ProgressEnd does when there was none
+        ProgressStart "Run SA-CCR"
         ExecuteOperation OP_RUN
+        ProgressEnd
         RibbonStateChanged
 
 End Sub
@@ -745,27 +774,51 @@ End Function
 
 
 Public Sub ValidateInputs()
+
 '
-'==============================================================================
-'                                ValidateInputs
+'------------------------------------------------------------------------------
+'                 VALIDATE EVERY INPUT WITHOUT WRITING RESULTS
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Validate every input without writing results, show the Checks sheet and
-'   report the number of errors and warnings.
+'   Validates every input without writing results, shows the Checks sheet
+'   and reports the number of errors and warnings
 '
-' USAGE
+' WHY THIS EXISTS
+'   The command behind Validate inputs; ExecuteOperation does the work
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Shows the progress in the status bar (#807): the engine's phases
+'     and its trades, then what follows them
+'   - Refreshes the Ribbon's states afterwards
+'
+' ERROR POLICY
+'   As ExecuteOperation: reported in a message, never raised
+'
+' DEPENDENCIES
+'   ExecuteOperation, RibbonStateChanged, ProgressStart, ProgressEnd
+'
+' NOTES
 '   Validate inputs on the K-SACCR Ribbon tab (Run menu), or the Macros
-'   dialog.
+'   dialog
 '
 ' UPDATED
-'   2026-10-06
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
-' VALIDATE
+' RUN
 '------------------------------------------------------------------------------
+    'Run the operation, its progress in the status bar; its message gives
+    'the status bar back, and ProgressEnd does when there was none
+        ProgressStart "Validate inputs"
         ExecuteOperation OP_VALIDATE
+        ProgressEnd
         RibbonStateChanged
 
 End Sub
@@ -2126,6 +2179,7 @@ Public Sub ExportReport()
     'the message gives the status bar back
         ProgressStart "Report"
         Written = WriteReport(CStr(ChosenFile), FileFormat = "PDF")
+        ProgressShow 1, 1, "done"
         Notify "Report exported as " & FileFormat & " (" & Written & "):" & vbLf & vbLf & CStr(ChosenFile), _
                vbInformation
 
@@ -6833,8 +6887,10 @@ Private Sub CheckCsvFile( _
 '
 ' BEHAVIOR
 '   - A cancelled dialog does nothing
-'   - Shows "reading and checking" in the status bar while the file is
-'     read (#807); the message gives the status bar back
+'   - Refuses while another operation runs (mRunning), which it holds
+'     while the file is read
+'   - Shows the progress of the reading in the status bar, record by
+'     record (#807); the message gives the status bar back
 '
 ' ERROR POLICY
 '   Reports a file that cannot be read in a message, or in the Immediate
@@ -6842,7 +6898,7 @@ Private Sub CheckCsvFile( _
 '
 ' DEPENDENCIES
 '   ReadCsvFile (CORE_CsvReader), CsvCheckMessage, ProgressStart,
-'   ProgressShow, Notify
+'   ProgressShow, ProgressSink, Notify
 '
 ' NOTES
 '   Runs from CheckTradesCsv and the other Check macros
@@ -6861,11 +6917,18 @@ Private Sub CheckCsvFile( _
     Dim Values()        As String           'The records of an accepted file
     Dim Lines()         As Long             'Their lines
     Dim Findings()      As CsvFinding       'The findings
+    Dim Guarded         As Boolean          'True while this check holds the operation guard
 
 '------------------------------------------------------------------------------
 ' INITIALIZE
 '------------------------------------------------------------------------------
         On Error GoTo ErrorHandler
+    'One operation at a time: the status bar lets Excel paint while the
+    'file is read
+        If mRunning Then
+            Notify Kind & " CSV file not checked: an SA-CCR operation is already running.", vbExclamation
+            Exit Sub
+        End If
 
 '------------------------------------------------------------------------------
 ' ASK AND READ
@@ -6878,8 +6941,13 @@ Private Sub CheckCsvFile( _
         End If
     'Read and check it, its progress in the status bar
         ProgressStart "Check " & Kind
-        ProgressShow 0, 1, "reading and checking " & CutText(CStr(ChosenFile), CSV_MESSAGE_PATH, True)
-        ReadCsvFile CStr(ChosenFile), Kind, Result, Values, Lines, Findings
+        ProgressShow 0, 1, VBA.Mid$(CStr(ChosenFile), VBA.InStrRev(CStr(ChosenFile), Application.PathSeparator, -1, vbBinaryCompare) + 1)
+        mRunning = True
+        Guarded = True
+        ReadCsvFile CStr(ChosenFile), Kind, Result, Values, Lines, Findings, 0, False, ProgressSink()
+        mRunning = False
+        Guarded = False
+        ProgressShow 1, 1, "done"
 
 '------------------------------------------------------------------------------
 ' REPORT
@@ -6897,7 +6965,8 @@ Private Sub CheckCsvFile( _
 ' ERROR HANDLER
 '------------------------------------------------------------------------------
 ErrorHandler:
-    'Say what failed
+    'Give the guard back, then say what failed
+        If Guarded Then mRunning = False
         Notify Kind & " CSV file not checked: " & Err.Description, vbCritical
 
 End Sub
@@ -7422,8 +7491,10 @@ Private Sub ImportCsv( _
 '
 ' BEHAVIOR
 '   - A cancelled dialog changes nothing
-'   - Shows the progress in the status bar by phases (#807): reading and
-'     checking the file, then writing its records
+'   - Refuses while another operation runs (mRunning), which it holds
+'     while the file is read
+'   - Shows the progress in the status bar (#807): reading and checking
+'     the file, record by record, then writing its records
 '   - A structural finding loads nothing; findings about values are
 '     listed and stay to be corrected on the sheet
 '   - When the sheet has changes since its last load, asks before they
@@ -7437,7 +7508,7 @@ Private Sub ImportCsv( _
 ' DEPENDENCIES
 '   StagingSheetOf, ReadCsvFile (CORE_CsvReader), CsvCheckMessage,
 '   StagingHasEdits, ReplaceConfirmed, LoadStaging, CutText,
-'   ProgressStart, ProgressShow, ProgressEnd, Notify
+'   ProgressStart, ProgressShow, ProgressEnd, ProgressSink, Notify
 '
 ' NOTES
 '   Every message gives the status bar back (Notify); the question gets it
@@ -7458,12 +7529,19 @@ Private Sub ImportCsv( _
     Dim Values()        As String           'The records of a readable file
     Dim Lines()         As Long             'Their lines
     Dim Findings()      As CsvFinding       'The findings
+    Dim Guarded         As Boolean          'True while this import holds the operation guard
     Dim Note            As String           'What was loaded
 
 '------------------------------------------------------------------------------
 ' INITIALIZE
 '------------------------------------------------------------------------------
         On Error GoTo ErrorHandler
+    'One operation at a time: the status bar lets Excel paint while the
+    'file is read
+        If mRunning Then
+            Notify Kind & " CSV import: an SA-CCR operation is already running.", vbExclamation
+            Exit Sub
+        End If
 
 '------------------------------------------------------------------------------
 ' ASK AND READ
@@ -7477,8 +7555,12 @@ Private Sub ImportCsv( _
         End If
     'Read and check it, its progress in the status bar
         ProgressStart "Import " & Kind
-        ProgressShow 0, 2, "reading and checking " & CutText(CStr(ChosenFile), CSV_MESSAGE_PATH, True)
-        ReadCsvFile CStr(ChosenFile), Kind, Result, Values, Lines, Findings, 0, True
+        ProgressShow 0, 10, VBA.Mid$(CStr(ChosenFile), VBA.InStrRev(CStr(ChosenFile), Application.PathSeparator, -1, vbBinaryCompare) + 1), 9
+        mRunning = True
+        Guarded = True
+        ReadCsvFile CStr(ChosenFile), Kind, Result, Values, Lines, Findings, 0, True, ProgressSink()
+        mRunning = False
+        Guarded = False
     'A file that cannot be read loads nothing
         If Not Result.Readable Then
             Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, _
@@ -7502,7 +7584,7 @@ Private Sub ImportCsv( _
 ' LOAD
 '------------------------------------------------------------------------------
     'Write the records to the staging sheet
-        ProgressShow 1, 2, "writing " & Result.RecordCount & " records to " & SheetName
+        ProgressShow 9, 10, "writing " & Result.RecordCount & " records to " & SheetName
         LoadStaging Kind, CStr(ChosenFile), Result, Values, Lines
     'Say what was loaded and what is left to do
         If Result.Accepted Then
@@ -7511,6 +7593,7 @@ Private Sub ImportCsv( _
             Note = Result.RecordCount & " records loaded into " & SheetName & " as text: correct the findings there." & _
                    vbLf & Kind & " is unchanged."
         End If
+        ProgressShow 10, 10, "done"
         ThisWorkbook.Worksheets(SheetName).Activate
         Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, Note), _
                IIf(Result.Accepted, vbInformation, vbExclamation)
@@ -7524,7 +7607,9 @@ Private Sub ImportCsv( _
 ' ERROR HANDLER
 '------------------------------------------------------------------------------
 ErrorHandler:
-    'Say what failed; the message gives the status bar back
+    'Give the guard back, then say what failed; the message gives the
+    'status bar back
+        If Guarded Then mRunning = False
         Notify Kind & " CSV import: " & Err.Description, vbCritical
 
 End Sub
@@ -7557,8 +7642,10 @@ Private Sub ImportBankCsv( _
 '
 ' BEHAVIOR
 '   - A cancelled dialog changes nothing
-'   - Shows the progress in the status bar by phases (#807): reading and
-'     checking the file, then writing its records
+'   - Refuses while another operation runs (mRunning), which it holds
+'     while the file is read
+'   - Shows the progress in the status bar (#807): reading and checking
+'     the file, record by record, then writing its records
 '   - A file that is not accepted, or holds no record, loads nothing
 '   - Asks before replacing the figures on the sheet, except in silent
 '     mode; a No changes nothing
@@ -7569,7 +7656,7 @@ Private Sub ImportBankCsv( _
 ' DEPENDENCIES
 '   BankReconKind, BankSheetOf, ReadCsvFile (CORE_CsvReader),
 '   CsvCheckMessage, CutText, BankRowsEntered, LoadBank, ProgressStart,
-'   ProgressShow, ProgressEnd, Notify
+'   ProgressShow, ProgressEnd, ProgressSink, Notify
 '
 ' NOTES
 '   Every message gives the status bar back (Notify); the question gets it
@@ -7591,11 +7678,18 @@ Private Sub ImportBankCsv( _
     Dim Values()        As String           'The records of a readable file
     Dim Lines()         As Long             'Their lines
     Dim Findings()      As CsvFinding       'The findings
+    Dim Guarded         As Boolean          'True while this import holds the operation guard
 
 '------------------------------------------------------------------------------
 ' INITIALIZE
 '------------------------------------------------------------------------------
         On Error GoTo ErrorHandler
+    'One operation at a time: the status bar lets Excel paint while the
+    'file is read
+        If mRunning Then
+            Notify Kind & " CSV import: an SA-CCR operation is already running.", vbExclamation
+            Exit Sub
+        End If
 
 '------------------------------------------------------------------------------
 ' ASK AND READ
@@ -7610,8 +7704,12 @@ Private Sub ImportBankCsv( _
         End If
     'Read and check it, its progress in the status bar
         ProgressStart "Import " & Kind
-        ProgressShow 0, 2, "reading and checking " & CutText(CStr(ChosenFile), CSV_MESSAGE_PATH, True)
-        ReadCsvFile CStr(ChosenFile), Kind, Result, Values, Lines, Findings, 0, True
+        ProgressShow 0, 10, VBA.Mid$(CStr(ChosenFile), VBA.InStrRev(CStr(ChosenFile), Application.PathSeparator, -1, vbBinaryCompare) + 1), 9
+        mRunning = True
+        Guarded = True
+        ReadCsvFile CStr(ChosenFile), Kind, Result, Values, Lines, Findings, 0, True, ProgressSink()
+        mRunning = False
+        Guarded = False
     'The file is accepted as a whole, or loads nothing
         If Not Result.Accepted Then
             Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, _
@@ -7644,8 +7742,9 @@ Private Sub ImportBankCsv( _
 ' LOAD
 '------------------------------------------------------------------------------
     'Write the records to the bank sheet and say so
-        ProgressShow 1, 2, "writing " & Result.RecordCount & " records to " & SheetName
+        ProgressShow 9, 10, "writing " & Result.RecordCount & " records to " & SheetName
         LoadBank ReconKind, Result, Values
+        ProgressShow 10, 10, "done"
         ThisWorkbook.Worksheets(SheetName).Activate
         Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, _
                                "Loaded into " & SheetName & ": " & Result.RecordCount & " records." & vbLf & _
@@ -7661,7 +7760,9 @@ Private Sub ImportBankCsv( _
 ' ERROR HANDLER
 '------------------------------------------------------------------------------
 ErrorHandler:
-    'Say what failed; the message gives the status bar back
+    'Give the guard back, then say what failed; the message gives the
+    'status bar back
+        If Guarded Then mRunning = False
         Notify Kind & " CSV import: " & Err.Description, vbCritical
 
 End Sub
@@ -8762,47 +8863,82 @@ End Function
 '
 
 Public Sub ValidateStaging()
+
 '
-'==============================================================================
-'                               ValidateStaging
+'------------------------------------------------------------------------------
+'                       VALIDATE THE STAGING SHEETS
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Check the rows of both staging sheets (#209) and list the findings on
-'   Checks with the origin IMPORT, each linked to its cell, which is marked
-'   on its staging sheet. Nothing is copied to NettingSets or Trades.
+'   Checks the rows of both staging sheets (#209) and lists the findings
+'   on Checks with the origin IMPORT, each linked to its cell, which is
+'   marked on its staging sheet. Nothing is copied to NettingSets or
+'   Trades
 '
-' USAGE
-'   Validate staging on the K-SACCR Ribbon tab, the Validate staging
-'   button on Import_NettingSets and Import_Trades, or the Macros dialog.
+' WHY THIS EXISTS
+'   The command behind Validate staging: CheckStaging validates, this
+'   shows the outcome
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Shows the progress of the validation in the status bar (#807)
+'   - Shows Checks, unless the validation was refused, then the message
 '
 ' ERROR POLICY
 '   Reports an error in a message, or in the Immediate window in silent
-'   mode; never raises.
+'   mode; never raises
+'
+' DEPENDENCIES
+'   CheckStaging, RibbonStateChanged, GetSheet, ProgressStart, Notify
+'
+' NOTES
+'   Validate staging on the K-SACCR Ribbon tab, the Validate staging
+'   button on Import_NettingSets and Import_Trades, or the Macros dialog
 '
 ' UPDATED
-'   2026-10-28
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
-    Dim ResultLine  As String    'What the validation found
-    Dim Message     As String    'Its message
+    Const PROC_NAME     As String = "M_Main.ValidateStaging"
+
+    Dim ResultLine      As String    'What the validation found
+    Dim Message         As String    'Its message
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+        On Error GoTo ErrorHandler
 
 '------------------------------------------------------------------------------
 ' VALIDATE AND REPORT
 '------------------------------------------------------------------------------
-        On Error GoTo Failed
+    'Validate, its progress in the status bar
+        ProgressStart "Validate staging"
         ResultLine = CheckStaging(Message)
         RibbonStateChanged
+    'Show Checks, then the outcome; the message gives the status bar back
         If Left$(ResultLine, Len("RESULT=REFUSED")) <> "RESULT=REFUSED" And Not gSilent Then
             GetSheet(SH_CHECKS).Activate
         End If
         Notify Message, IIf(Left$(ResultLine, Len("RESULT=VALID")) = "RESULT=VALID", vbInformation, vbExclamation)
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
         Exit Sub
 
-Failed:
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+ErrorHandler:
+    'Say what failed; the message gives the status bar back
         Notify "Staging validation: " & Err.Description, vbCritical
 
 End Sub
@@ -8851,16 +8987,27 @@ Private Function CheckStaging( _
     ByRef Message As String) _
     As String
 '
-'==============================================================================
-'                                 CheckStaging
+'------------------------------------------------------------------------------
+'               VALIDATE THE PORTFOLIO A COMMIT WOULD MAKE
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Validate the portfolio a commit would make (#209): the staged rows of
+'   Validates the portfolio a commit would make (#209): the staged rows of
 '   each staging sheet that holds any, and the live sheet where none are
-'   staged. Then rewrite Checks with the findings, mark their cells and
-'   set each staging sheet's status to VALID or INVALID.
+'   staged. Then rewrites Checks with the findings, marks their cells and
+'   sets each staging sheet's status to VALID or INVALID
 '
-' METHOD
+' WHY THIS EXISTS
+'   Commit import replaces NettingSets and Trades only with rows a
+'   validation found VALID, judged as a run would judge them
+'
+' INPUTS
+'   Message
+'     Receives the message for the user
+'
+' RETURNS
+'   The result line of ValidateStaging_Silent
+'
+' BEHAVIOR
 '   0. The workbook is recalculated first, as a run recalculates it, so
 '      that a formula input is judged by its current result (#519).
 '   1. Each staging block is read as text, as CheckStagedRecords reads
@@ -8888,37 +9035,49 @@ Private Function CheckStaging( _
 '   6. The status of each staging sheet that holds rows is set last, and
 '      a validation without a finding stores the fingerprint of what it
 '      judged for StagingValidationCurrent; any other empties it.
-'   The fingerprints and counters of the last run are left as they are. Checks no
-'   longer shows what the run wrote, so current outputs read as EDITED
-'   and the evidence export refuses until the next run (#244).
-'
-' RETURNS
-'   The result line of ValidateStaging_Silent, and Message for the user.
-'
-' STATE OWNERSHIP
-'   Captures calculation mode, events and screen updating, switches them
-'   off while it writes and restores them on every path. Sets mRunning
-'   while it writes and refuses to start while an operation runs.
+'   The status bar shows each of these steps when the caller started a
+'   progress, and the rows checked within steps 1 (#807)
 '
 ' ERROR POLICY
 '   Raises ERR_STAGING_WRITE when a staging sheet or its names are
 '   missing, and ERR_RUN_ACTIVE while an operation runs, before anything
 '   is written; ERR_RECALC_PENDING when Excel does not finish
 '   recalculating, before anything is judged or written;
-'   ERR_OUTPUT_LAYOUT when the NettingSets or Trades table
-'   it needs cannot be located, before Checks is written. A later error
-'   is raised after Excel's settings have been restored; Checks may then
-'   hold part of the findings, and no status is changed. A setting not
-'   restored raises ERR_CLEANUP_FAILED.
+'   ERR_OUTPUT_LAYOUT when the NettingSets or Trades table it needs
+'   cannot be located, before Checks is written. A later error is raised
+'   after Excel's settings have been restored; Checks may then hold part
+'   of the findings, and no status is changed. A setting not restored
+'   raises ERR_CLEANUP_FAILED
+'
+' DEPENDENCIES
+'   StagingFormulaCell, StagingSheetOf, ReadStaging, ProtectWorkbook,
+'   InputsRecalculated, CheckStagedRecords, CheckPortfolio and
+'   CheckContext (CORE_CsvReader), AddCsvFindings, StagedKeys, LiveKeys,
+'   CheckLiveTrades, CORE_Engine.LoadRunContext, CheckLiveContext,
+'   AddParamsFinding, StagingSummary, WriteStagingChecks, UnmarkStaging,
+'   MarkStaging, StagingMetaCell, RememberStagingValidation,
+'   RestoreSettings, ProgressShow, ProgressSink
+'
+' NOTES
+'   The fingerprints and counters of the last run are left as they are.
+'   Checks no longer shows what the run wrote, so current outputs read as
+'   EDITED and the evidence export refuses until the next run (#244)
+'
+' STATE OWNERSHIP
+'   Captures calculation mode, events and screen updating, switches them
+'   off while it writes and restores them on every path. Sets mRunning
+'   while it writes and refuses to start while an operation runs
 '
 ' UPDATED
-'   2026-11-03
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
+    Const PROC_NAME         As String = "M_Main.CheckStaging"
+    Const STEPS             As Long = 5                 'Steps of the status bar
+
     Dim Kind                As Variant          'Staging kind
     Dim FormulaAt           As String           'A staged cell holding a formula
     Dim NsSheet             As Worksheet        'Import_NettingSets
@@ -8960,10 +9119,11 @@ Private Function CheckStaging( _
 '------------------------------------------------------------------------------
 ' REFUSE
 '------------------------------------------------------------------------------
-    'A formula would be judged by its result, not by what was entered.
+    'One operation at a time
         If mRunning Then
-            Err.Raise ERR_RUN_ACTIVE, "M_Main.CheckStaging", "An SA-CCR operation is already running."
+            Err.Raise ERR_RUN_ACTIVE, PROC_NAME, "An SA-CCR operation is already running."
         End If
+    'A formula would be judged by its result, not by what was entered
         For Each Kind In Array("NettingSets", "Trades")
             FormulaAt = StagingFormulaCell(CStr(Kind))
             If Len(FormulaAt) > 0 Then
@@ -8974,6 +9134,7 @@ Private Function CheckStaging( _
                 Exit Function
             End If
         Next Kind
+    'Nothing staged, nothing to validate
         NsRows = ReadStaging("NettingSets", NsSheet, NsFirst, NsValues, NsLines)
         TrRows = ReadStaging("Trades", TrSheet, TrFirst, TrValues, TrLines)
         If NsRows = 0 And TrRows = 0 Then
@@ -8982,9 +9143,14 @@ Private Function CheckStaging( _
                       vbLf & vbLf & "Import a CSV file first."
             Exit Function
         End If
+
+'------------------------------------------------------------------------------
+' INITIALIZE
+'------------------------------------------------------------------------------
+    'Hold the guard, then capture and prepare Excel
         mRunning = True
         ProtectWorkbook
-        On Error GoTo Failed
+        On Error GoTo ErrorHandler
         SavedCalculation = Application.Calculation
         SavedEvents = Application.EnableEvents
         SavedScreen = Application.ScreenUpdating
@@ -8993,23 +9159,26 @@ Private Function CheckStaging( _
         Application.EnableEvents = False
         Application.Calculation = xlCalculationManual
     'A formula on Params, NettingSets or Trades is judged by its current
-    'result, as a run judges it (#519).
+    'result, as a run judges it (#519)
         If Not InputsRecalculated() Then
-            Err.Raise ERR_RECALC_PENDING, "M_Main.CheckStaging", _
+            Err.Raise ERR_RECALC_PENDING, PROC_NAME, _
                       "Excel did not finish recalculating the inputs, so nothing was validated."
         End If
 
 '------------------------------------------------------------------------------
 ' EACH RECORD
 '------------------------------------------------------------------------------
+    'The staged rows of each sheet, row by row in the status bar
         ReDim Found(1 To 16)
         If NsRows > 0 Then
-            CheckStagedRecords "NettingSets", NsValues, NsLines, NsRows, Result, Findings
+            ProgressShow 0, STEPS, SH_IMPORT_NS
+            CheckStagedRecords "NettingSets", NsValues, NsLines, NsRows, Result, Findings, 0, ProgressSink()
             AddCsvFindings "NettingSets", NsSheet, NsFirst, Result, Findings, Found, FoundCount
             NsErrors = Result.FindingCount
         End If
         If TrRows > 0 Then
-            CheckStagedRecords "Trades", TrValues, TrLines, TrRows, Result, Findings
+            ProgressShow 1, STEPS, SH_IMPORT_TR
+            CheckStagedRecords "Trades", TrValues, TrLines, TrRows, Result, Findings, 0, ProgressSink()
             AddCsvFindings "Trades", TrSheet, TrFirst, Result, Findings, Found, FoundCount
             TrErrors = Result.FindingCount
         End If
@@ -9017,6 +9186,8 @@ Private Function CheckStaging( _
 '------------------------------------------------------------------------------
 ' BETWEEN RECORDS
 '------------------------------------------------------------------------------
+    'The netting sets the legs may refer to: the staged ones, or the live
+        ProgressShow 2, STEPS, "checking the legs against their netting sets"
         If NsRows > 0 Then
             NsSource = SH_IMPORT_NS
             StagedKeys NsValues, NsRows, IDs, Regimes, IDCount
@@ -9024,6 +9195,7 @@ Private Function CheckStaging( _
             NsSource = SH_NS
             LiveKeys IDs, Regimes, IDCount
         End If
+    'The staged legs, or the live legs, against them
         If TrRows > 0 Then
             CheckPortfolio TrValues, TrLines, TrRows, IDs, IDCount, Result, Findings, NsSource
             AddCsvFindings "Trades", TrSheet, TrFirst, Result, Findings, Found, FoundCount
@@ -9037,7 +9209,8 @@ Private Function CheckStaging( _
 '------------------------------------------------------------------------------
     'What a run reads before the input sheets, read as a run reads it. When
     'a run would stop there, nothing that depends on it is judged, and no
-    'staging sheet can be VALID.
+    'staging sheet can be VALID
+        ProgressShow 3, STEPS, "checking against Params"
         If CORE_Engine.LoadRunContext(Context, ProblemSheet, ProblemReference, ProblemRow, ProblemMessage) Then
             If TrRows > 0 Then
                 CheckContext TrValues, TrLines, TrRows, Context, IDs, Regimes, IDCount, False, Result, Findings
@@ -9059,6 +9232,8 @@ Private Function CheckStaging( _
 '------------------------------------------------------------------------------
 ' WRITE CHECKS, MARK THE CELLS, SET THE STATUS
 '------------------------------------------------------------------------------
+    'Checks, then the marks, then the status of each sheet with rows
+        ProgressShow 4, STEPS, "writing Checks and marking the cells"
         Summary = StagingSummary(NsRows, NsErrors, TrRows, TrErrors, NsSource, FoundCount, Dialog)
         WriteStagingChecks Found, FoundCount, Summary
         UnmarkStaging "NettingSets"
@@ -9071,16 +9246,20 @@ Private Function CheckStaging( _
             StagingMetaCell("Trades", 4).Value2 = IIf(TrErrors = 0, STAGING_VALID, STAGING_INVALID)
         End If
         RememberStagingValidation (FoundCount = 0)
+        ProgressShow STEPS, STEPS, "done"
 
 '------------------------------------------------------------------------------
-' RESTORE EXCEL AND REPORT
+' EXIT PROCEDURE
 '------------------------------------------------------------------------------
+    'Reached on success and, through the handler, after an error: restore
+    'Excel and give the guard back first
 CleanUp:
         On Error GoTo 0
         If StateCaptured Then
             CleanupDetails = RestoreSettings(SavedCalculation, SavedEvents, SavedScreen)
         End If
         mRunning = False
+    'Raise the first error, or a setting not restored
         If ErrorNumber <> 0 Then
             If Len(CleanupDetails) > 0 Then
                 ErrorDescription = ErrorDescription & " Excel settings not restored: " & CleanupDetails
@@ -9088,9 +9267,10 @@ CleanUp:
             Err.Raise ErrorNumber, ErrorSource, ErrorDescription
         End If
         If Len(CleanupDetails) > 0 Then
-            Err.Raise ERR_CLEANUP_FAILED, "M_Main.CheckStaging", _
+            Err.Raise ERR_CLEANUP_FAILED, PROC_NAME, _
                       "The staging sheets were validated, but Excel settings were not restored: " & CleanupDetails
         End If
+    'The result line and the message
         CheckStaging = "RESULT=" & IIf(FoundCount = 0, "VALID", "INVALID") & "; errors=" & FoundCount & _
                        "; nettingsets=" & NsRows & "; trades=" & TrRows
         If FoundCount > 0 Then
@@ -9101,9 +9281,10 @@ CleanUp:
         Exit Function
 
 '------------------------------------------------------------------------------
-' HANDLE ERROR
+' ERROR HANDLER
 '------------------------------------------------------------------------------
-Failed:
+ErrorHandler:
+    'Keep the first error for the caller
         ErrorNumber = Err.Number
         ErrorSource = Err.Source
         ErrorDescription = Err.Description
@@ -14930,39 +15111,69 @@ Private Function ExecuteOperation( _
     ByVal Operation As Long) _
     As String
 '
-'==============================================================================
-'                               ExecuteOperation
+'------------------------------------------------------------------------------
+'                 RUN ONE OPERATION WITH EXCEL PREPARED FOR SPEED
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Run one operation with Excel prepared for speed, restore Excel, then
-'   report the outcome.
+'   Runs one operation with Excel prepared for speed, restores Excel, then
+'   reports the outcome
+'
+' WHY THIS EXISTS
+'   Run SA-CCR, Validate inputs and Clear outputs share one path, so that
+'   every one of them withdraws the same outputs first and puts Excel back
+'   the same way on every path
 '
 ' INPUTS
-'   Operation: OP_RUN, OP_VALIDATE or OP_CLEAR.
+'   Operation
+'     OP_RUN, OP_VALIDATE or OP_CLEAR
 '
 ' RETURNS
-'   The result line built by ReportOutcome; empty when the operation raised
-'   an error or was refused because another was running.
+'   The result line built by ReportOutcome; empty when the operation
+'   raised an error or was refused because another was running
 '
-' STATE OWNERSHIP
-'   Captures calculation mode, events and screen updating before changing
-'   them, and restores the captured values on every path. Nothing is
-'   changed if the capture itself fails. Clears mRunning before reporting,
-'   so a later operation can always run.
+' BEHAVIOR
+'   - Refuses a second operation while one runs (mRunning)
+'   - Captures calculation mode, events and screen updating before
+'     changing them, and restores the captured values on every path;
+'     nothing is changed if the capture itself fails
+'   - Withdraws both reconciliations, the fingerprint of the output sheets
+'     and the Dashboard (#45, #675), then recalculates the inputs, except
+'     for Clear outputs
+'   - Runs the engine, then for a completed run the reconciliations, the
+'     Dashboard and the fingerprint of the outputs
+'   - Shows its progress in the status bar when the caller started one
+'     (ProgressShow, #807): the engine takes 80% of the bar, then the
+'     reconciliations and the Dashboard
+'   - Clears mRunning before reporting, so a later operation can always
+'     run
 '
 ' ERROR POLICY
-'   The primary error is copied into locals before cleanup and reported, or
-'   raised in silent mode, after cleanup. A cleanup failure is reported
-'   with it, or on its own when the operation succeeded.
+'   The primary error is copied into locals before cleanup and reported,
+'   or raised in silent mode, after cleanup. A cleanup failure is reported
+'   with it, or on its own when the operation succeeded
+'
+' DEPENDENCIES
+'   ReportFailure, ReportOutcome, ProtectWorkbook, ForgetRunOutputs,
+'   ClearDashboard, ClearReconciliation, InputsRecalculated,
+'   CORE_Engine.Calculate, ReconcileAfterRun, WriteDashboard,
+'   RememberRunOutputs, ClearAllOutputs, ReapplyOutputFilters,
+'   RefreshResultsStatus, RestoreSettings, ProgressShow, ProgressSink
+'
+' NOTES
+'   gTestFault "recalc-error", "recalc" and "operation" inject the
+'   failures the tests need
 '
 ' UPDATED
-'   2026-11-05
-'==============================================================================
-'
+'   2026-11-27
+'------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
 ' DECLARE
 '------------------------------------------------------------------------------
+    Const PROC_NAME        As String = "M_Main.ExecuteOperation"
+    Const STEPS            As Long = 10                'Steps of the status bar
+    Const ENGINE_STEPS     As Long = 8                 'Steps the engine takes
+
     Dim SavedCalculation   As XlCalculation    'Calculation mode before the operation
     Dim SavedEvents        As Boolean          'EnableEvents before the operation
     Dim SavedScreen        As Boolean          'ScreenUpdating before the operation
@@ -14974,23 +15185,22 @@ Private Function ExecuteOperation( _
     Dim CleanupDetails     As String           'Restoration failures; empty when all restored
 
 '------------------------------------------------------------------------------
-' REFUSE RE-ENTRY
+' INITIALIZE
 '------------------------------------------------------------------------------
     'A button pressed while an operation is running must not start a
-    'second one on half-written sheets.
+    'second one on half-written sheets
         If mRunning Then
-            ReportFailure ERR_RUN_ACTIVE, "M_Main.ExecuteOperation", _
-                          "An SA-CCR operation is already running.", ""
+            ReportFailure ERR_RUN_ACTIVE, PROC_NAME, "An SA-CCR operation is already running.", ""
             Exit Function
         End If
         mRunning = True
         ProtectWorkbook
-        On Error GoTo Failed
+        On Error GoTo ErrorHandler
 
 '------------------------------------------------------------------------------
 ' CAPTURE AND PREPARE EXCEL
 '------------------------------------------------------------------------------
-    'Read all three settings before changing any of them.
+    'Read all three settings before changing any of them
         SavedCalculation = Application.Calculation
         SavedEvents = Application.EnableEvents
         SavedScreen = Application.ScreenUpdating
@@ -15005,7 +15215,8 @@ Private Function ExecuteOperation( _
     'Every operation first withdraws both reconciliations (#45), the
     'fingerprint of the output sheets and the Dashboard (#675), before
     'anything that can stop it, the recalculation included; only a run that
-    'completes makes new ones, so a run that fails leaves no Dashboard.
+    'completes makes new ones, so a run that fails leaves no Dashboard
+        ProgressShow 0, STEPS, "withdrawing the previous outputs"
         mReconState = "NONE"
         mTradeReconState = "NONE"
         mReconLine = ""
@@ -15018,28 +15229,29 @@ Private Function ExecuteOperation( _
                 ClearReconciliation "Outputs cleared by validation: press Run SA-CCR to reconcile."
             Case OP_CLEAR
                 ClearReconciliation "Outputs cleared " & Format$(Now, "yyyy-mm-dd hh:mm:ss")
+            Case Else
         End Select
 
 '------------------------------------------------------------------------------
-' BRING FORMULA INPUTS UP TO DATE
+' RECALCULATE THE INPUTS
 '------------------------------------------------------------------------------
-    'In manual calculation a formula whose precedents changed since the last
-    'recalculation still holds its old result, and the engine would
-    'calculate from it and fingerprint it as current. Calculate brings every
-    'dirty cell up to date first; it refreshes no external data connection
-    '(#195). Clear outputs reads no input. The stored fingerprint is
-    'withdrawn before the recalculation starts: if it does not finish, for
-    'example after Esc, or raises an error, a dirty input could still show
-    'the value the last run used, so the earlier results must not be
-    'reported as current (#204). A run that completes records its own
-    'fingerprint again; validation never keeps one.
+    'In manual calculation a formula whose precedents changed since the
+    'last recalculation still holds its old result, and the engine would
+    'calculate from it and fingerprint it as current. Calculate brings
+    'every dirty cell up to date first; it refreshes no external data
+    'connection (#195). Clear outputs reads no input. The stored
+    'fingerprint is withdrawn before the recalculation starts: if it does
+    'not finish, for example after Esc, or raises an error, a dirty input
+    'could still show the value the last run used, so the earlier results
+    'must not be reported as current (#204). A run that completes records
+    'its own fingerprint again; validation never keeps one
         If Operation <> OP_CLEAR Then
             CORE_Engine.ForgetRunInputs
             If gTestFault = "recalc-error" Then
-                Err.Raise ERR_INJECTED_FAULT, "M_Main.ExecuteOperation", "Injected recalculation failure."
+                Err.Raise ERR_INJECTED_FAULT, PROC_NAME, "Injected recalculation failure."
             End If
             If Not InputsRecalculated() Or gTestFault = "recalc" Then
-                Err.Raise ERR_RECALC_PENDING, "M_Main.ExecuteOperation", _
+                Err.Raise ERR_RECALC_PENDING, PROC_NAME, _
                           "Excel did not finish recalculating the inputs, so the operation was not started " & _
                           "and the previous results are no longer reported as current."
             End If
@@ -15048,36 +15260,45 @@ Private Function ExecuteOperation( _
 '------------------------------------------------------------------------------
 ' RUN THE OPERATION
 '------------------------------------------------------------------------------
+    'The test seam of a failed operation
         If gTestFault = "operation" Then
-            Err.Raise ERR_INJECTED_FAULT, "M_Main.ExecuteOperation", "Injected operation failure."
+            Err.Raise ERR_INJECTED_FAULT, PROC_NAME, "Injected operation failure."
         End If
+    'The engine tells the status bar how far it is, within its steps
         Select Case Operation
             Case OP_RUN
-                Completed = CORE_Engine.Calculate(True)
+                ProgressShow 0, STEPS, vbNullString, ENGINE_STEPS
+                Completed = CORE_Engine.Calculate(True, ProgressSink())
                 If Completed Then
+                    ProgressShow ENGINE_STEPS, STEPS, "reconciling"
                     mReconState = ReconcileAfterRun(RECON_NS)
                     mTradeReconState = ReconcileAfterRun(RECON_TR)
+                    ProgressShow ENGINE_STEPS + 1, STEPS, "writing the Dashboard"
                     WriteDashboard
                     RememberRunOutputs
                 Else
                     ClearReconciliation "Reconciliation not run: the SA-CCR run stopped; see the Checks sheet."
                 End If
             Case OP_VALIDATE
-                Completed = CORE_Engine.Calculate(False)
+                ProgressShow 0, 1, vbNullString
+                Completed = CORE_Engine.Calculate(False, ProgressSink())
             Case OP_CLEAR
                 ClearAllOutputs
                 Completed = True
+            Case Else
         End Select
         ReapplyOutputFilters
+        ProgressShow 1, 1, "done"
 
 '------------------------------------------------------------------------------
-' RESTORE EXCEL AND REPORT
+' EXIT PROCEDURE
 '------------------------------------------------------------------------------
-    'Reached on success and, through Failed, after an error. The operation
-    'handler is switched off first so that a reporting error cannot loop
-    'back into it. The status cell is recalculated first: the operation
-    'stored or withdrew the run fingerprint, and in manual calculation the
-    'cell would keep the value computed while the fingerprint was empty.
+    'Reached on success and, through the handler, after an error. The
+    'operation handler is switched off first so that a reporting error
+    'cannot loop back into it. The status cell is recalculated first: the
+    'operation stored or withdrew the run fingerprint, and in manual
+    'calculation the cell would keep the value computed while the
+    'fingerprint was empty
 CleanUp:
         On Error GoTo 0
         If StateCaptured Then
@@ -15093,9 +15314,10 @@ CleanUp:
         Exit Function
 
 '------------------------------------------------------------------------------
-' HANDLE ERROR
+' ERROR HANDLER
 '------------------------------------------------------------------------------
-Failed:
+ErrorHandler:
+    'Keep the first error for the report after cleanup
         ErrorNumber = Err.Number
         ErrorSource = Err.Source
         ErrorDescription = Err.Description
@@ -15745,8 +15967,10 @@ Private Sub Notify( _
 '   Nothing
 '
 ' BEHAVIOR
-'   - Gives the status bar back to Excel first, when an operation shows
-'     its progress there (ProgressEnd, #807)
+'   - The message ends the operation: the status bar keeps its progress,
+'     100% once the operation is done, while the message is shown, and is
+'     given back to Excel when it is closed (ProgressEnd, #807); the
+'     keyboard and the mouse are given back before the message
 '
 ' ERROR POLICY
 '   None of its own; MsgBox errors propagate
@@ -15764,8 +15988,6 @@ Private Sub Notify( _
 '------------------------------------------------------------------------------
 ' SHOW OR PRINT
 '------------------------------------------------------------------------------
-    'The message ends the operation, and its progress
-        ProgressEnd
     'Remember the message for the tests, then show or print it
         gLastMessage = Message
         If gSilent Then
@@ -15773,8 +15995,15 @@ Private Sub Notify( _
                 Debug.Print Message
             End If
         Else
+            If VBA.Len(mProgressOperation) > 0 Then
+                On Error Resume Next
+                Application.Interactive = True
+                On Error GoTo 0
+            End If
             MsgBox Message, IconStyle, MSG_TITLE
         End If
+    'The message ends the operation, and its progress
+        ProgressEnd
 
 End Sub
 
@@ -15790,8 +16019,8 @@ Private Sub ProgressStart( _
 '   (#807), under the name Operation
 '
 ' WHY THIS EXISTS
-'   Excel freezes while a long import or report runs; the status bar
-'   says what it is doing
+'   Excel shows nothing while a long import, validation, run or report
+'   runs; the status bar says what it is doing
 '
 ' INPUTS
 '   Operation
@@ -15802,14 +16031,18 @@ Private Sub ProgressStart( _
 '
 ' BEHAVIOR
 '   - Does nothing in silent mode: automation and tests show nothing
-'   - ProgressShow then writes each step, ProgressEnd gives the status bar
-'     back to Excel; Notify calls ProgressEnd
+'   - Turns off Excel's keyboard and mouse input (Application.Interactive)
+'     until ProgressEnd, since WriteProgress lets Excel paint
+'   - Shows the operation at 0% at once
+'   - ProgressShow then writes each step, ProgressReport the progress
+'     within a step, ProgressEnd gives the status bar back to Excel;
+'     Notify calls ProgressEnd
 '
 ' ERROR POLICY
-'   None
+'   Best effort, as WriteProgress
 '
 ' DEPENDENCIES
-'   gSilent
+'   gSilent, WriteProgress, Application.Interactive
 '
 ' NOTES
 '   None
@@ -15823,11 +16056,21 @@ Private Sub ProgressStart( _
 '------------------------------------------------------------------------------
     'Nothing is shown in silent mode
         If gSilent Then Exit Sub
-    'Name the operation; nothing is written until its first step
+    'Take the keyboard and the mouse from Excel while it runs: DoEvents
+    'lets Excel paint the status bar, and an edit then would change a sheet
+    'the operation is writing
+        On Error Resume Next
+        Application.Interactive = False
+        On Error GoTo 0
+    'Name the operation, with one step not yet begun
         mProgressOperation = Operation
         mProgressText = vbNullString
-        mProgressDone = 0
-        mProgressTotal = 0
+        mProgressDetail = vbNullString
+        mProgressFrom = 0#
+        mProgressTo = 1#
+        mProgressPercent = -1
+        mProgressPainted = 0!
+        WriteProgress 0#, vbNullString, True
 
 End Sub
 
@@ -15835,14 +16078,15 @@ End Sub
 Private Sub ProgressShow( _
     ByVal Done As Long, _
     ByVal Total As Long, _
-    ByVal Detail As String)
+    ByVal Detail As String, _
+    Optional ByVal Span As Long = 1)
 '
 '------------------------------------------------------------------------------
-'                     WRITE A STEP OF AN OPERATION'S PROGRESS
+'                    WRITE A STEP OF AN OPERATION'S PROGRESS
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Writes the progress of the operation ProgressStart named to the status
-'   bar: Done of Total steps, and what is being done (CORE_Util.ProgressText)
+'   bar: Done of Total steps, and what is being done
 '
 ' WHY THIS EXISTS
 '   The procedures of an operation say their own steps, while only the
@@ -15852,52 +16096,47 @@ Private Sub ProgressShow( _
 '   Done
 '     Steps done
 '   Total
-'     Steps in all; 0 for unknown, which shows no bar
+'     Steps in all; 0 or less is taken as 1
 '   Detail
 '     What is being done
+'   Span
+'     The steps this one takes, 1 by default; ProgressReport moves the
+'     bar within them
 '
 ' RETURNS
 '   Nothing
 '
 ' BEHAVIOR
-'   - Does nothing when no progress was started, so that the procedures of
-'     an operation can show their steps whoever calls them
-'   - Writes the status bar only when its text changes
-'   - Keeps the step, for ProgressDetail
+'   - Does nothing when no progress was started
+'   - Keeps the step, for ProgressDetail and ProgressReport
+'   - Writes the status bar at once (WriteProgress)
 '
 ' ERROR POLICY
-'   Best effort: a status bar that cannot be written is left as it is
+'   Best effort, as WriteProgress
 '
 ' DEPENDENCIES
-'   CORE_Util.ProgressText, Application.StatusBar
+'   WriteProgress
 '
 ' NOTES
-'   No DoEvents: the status bar repaints without yielding to Excel
+'   None
 '
 ' UPDATED
 '   2026-11-27
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
-' DECLARE
-'------------------------------------------------------------------------------
-    Dim Text            As String         'The text of the status bar
-
-'------------------------------------------------------------------------------
 ' WRITE
 '------------------------------------------------------------------------------
     'Only an operation that shows its progress
         If VBA.Len(mProgressOperation) = 0 Then Exit Sub
-    'Keep the step for ProgressDetail
-        mProgressDone = Done
-        mProgressTotal = Total
-    'Only a text that changed
-        Text = CORE_Util.ProgressText(mProgressOperation, Done, Total, Detail)
-        If Text = mProgressText Then Exit Sub
-        On Error Resume Next
-        Application.StatusBar = Text
-        On Error GoTo 0
-        mProgressText = Text
+    'Keep the step: its share of the bar and what it does
+        If Total < 1 Then Total = 1
+        mProgressFrom = Done / Total
+        mProgressTo = (Done + Span) / Total
+        If mProgressTo > 1# Then mProgressTo = 1#
+        mProgressDetail = Detail
+    'Write it
+        WriteProgress mProgressFrom, Detail, True
 
 End Sub
 
@@ -15913,8 +16152,8 @@ Private Sub ProgressDetail( _
 '   chart being pictured, without moving the bar (#807)
 '
 ' WHY THIS EXISTS
-'   A step can be long, as the charts of a PDF; its detail moves while
-'   the bar stays
+'   A step can be long, as the charts of a PDF; its detail moves while the
+'   bar stays
 '
 ' INPUTS
 '   Detail
@@ -15924,13 +16163,13 @@ Private Sub ProgressDetail( _
 '   Nothing
 '
 ' BEHAVIOR
-'   - Does nothing when no progress was started (ProgressShow)
+'   - Does nothing when no progress was started
 '
 ' ERROR POLICY
-'   As ProgressShow
+'   Best effort, as WriteProgress
 '
 ' DEPENDENCIES
-'   ProgressShow
+'   WriteProgress
 '
 ' NOTES
 '   None
@@ -15943,7 +16182,213 @@ Private Sub ProgressDetail( _
 ' WRITE
 '------------------------------------------------------------------------------
     'The step stays; the detail changes
-        ProgressShow mProgressDone, mProgressTotal, Detail
+        If VBA.Len(mProgressOperation) = 0 Then Exit Sub
+        WriteProgress mProgressFrom, Detail, True
+
+End Sub
+
+
+Public Sub ProgressReport( _
+    ByVal Fraction As Double, _
+    ByVal Detail As String)
+'
+'------------------------------------------------------------------------------
+'                    MOVE THE BAR WITHIN THE CURRENT STEP
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Moves the status bar within the step ProgressShow wrote last, by the
+'   fraction of it done, as the CSV reader and the engine report it
+'   (#807)
+'
+' WHY THIS EXISTS
+'   The core modules depend on no other layer: they tell a late-bound
+'   object how far they are, and ThisWorkbook.ReportProgress passes it
+'   here
+'
+' INPUTS
+'   Fraction
+'     The fraction of the step done, from 0 to 1; a value outside is held
+'     within
+'   Detail
+'     What is being done, after the detail of the step
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Does nothing when no progress was started
+'   - Writes the status bar when the percentage changes, or at most every
+'     PROGRESS_PAINT_SECONDS for a new detail (WriteProgress)
+'
+' ERROR POLICY
+'   Never raises: a report must not stop the operation it describes
+'
+' DEPENDENCIES
+'   WriteProgress
+'
+' NOTES
+'   Public for ThisWorkbook only; it is not a macro, as it takes arguments
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Text            As String         'The detail shown
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+    'Only an operation that shows its progress
+        On Error GoTo ErrorHandler
+        If VBA.Len(mProgressOperation) = 0 Then Exit Sub
+    'Hold the fraction within the step
+        If Fraction < 0# Then Fraction = 0#
+        If Fraction > 1# Then Fraction = 1#
+    'The step's detail, then the report's
+        Text = Detail
+        If VBA.Len(mProgressDetail) > 0 Then Text = mProgressDetail & ": " & Detail
+        WriteProgress mProgressFrom + (mProgressTo - mProgressFrom) * Fraction, Text, False
+
+'------------------------------------------------------------------------------
+' EXIT PROCEDURE
+'------------------------------------------------------------------------------
+        Exit Sub
+
+'------------------------------------------------------------------------------
+' ERROR HANDLER
+'------------------------------------------------------------------------------
+ErrorHandler:
+    'A report never stops the operation
+
+End Sub
+
+
+Private Function ProgressSink() As Object
+'
+'------------------------------------------------------------------------------
+'               THE OBJECT THE CORE MODULES TELL HOW FAR THEY ARE
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Returns the object to pass to the CSV reader and the engine as their
+'   Progress: ThisWorkbook while an operation shows its progress, Nothing
+'   otherwise (#807)
+'
+' WHY THIS EXISTS
+'   The silent entry points and the tests pass Nothing, so the core
+'   modules report nothing and nothing is slowed down
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   ThisWorkbook, whose ReportProgress calls ProgressReport, or Nothing
+'
+' BEHAVIOR
+'   - Nothing when no progress was started
+'
+' ERROR POLICY
+'   None
+'
+' DEPENDENCIES
+'   ThisWorkbook.ReportProgress
+'
+' NOTES
+'   None
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' RETURN VALUE
+'------------------------------------------------------------------------------
+    'The workbook while progress is shown
+        If VBA.Len(mProgressOperation) = 0 Then
+            Set ProgressSink = Nothing
+        Else
+            Set ProgressSink = ThisWorkbook
+        End If
+
+End Function
+
+
+Private Sub WriteProgress( _
+    ByVal Fraction As Double, _
+    ByVal Detail As String, _
+    ByVal Force As Boolean)
+'
+'------------------------------------------------------------------------------
+'                      WRITE THE PROGRESS TO THE STATUS BAR
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Writes the operation, the bar, the percentage and Detail to the status
+'   bar (CORE_Util.ProgressText) and lets Excel paint it (#807)
+'
+' WHY THIS EXISTS
+'   A macro that never yields leaves the status bar unpainted: the bar
+'   stood still at its first step
+'
+' INPUTS
+'   Fraction
+'     The fraction of the operation done, from 0 to 1
+'   Detail
+'     What is being done
+'   Force
+'     True writes a new text at once; False waits until the percentage
+'     changes or PROGRESS_PAINT_SECONDS have passed
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - Writes nothing when the text is unchanged
+'   - DoEvents after each write, so that Excel paints the status bar; the
+'     operation holds mRunning, which refuses any other command started
+'     meanwhile
+'
+' ERROR POLICY
+'   Best effort: a status bar that cannot be written is left as it is
+'
+' DEPENDENCIES
+'   CORE_Util.ProgressText, Application.StatusBar, DoEvents, Timer
+'
+' NOTES
+'   Timer restarts at midnight, which only paints once more
+'
+' UPDATED
+'   2026-11-27
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim Text            As String         'The text of the status bar
+    Dim Percent         As Long           'The percentage shown
+    Dim Elapsed         As Single         'Seconds since the last write
+
+'------------------------------------------------------------------------------
+' WRITE
+'------------------------------------------------------------------------------
+    'Only a text that changed
+        Text = CORE_Util.ProgressText(mProgressOperation, VBA.Int(Fraction * 1000#), 1000, Detail)
+        If Text = mProgressText Then Exit Sub
+    'Not too often for a new detail alone
+        Percent = VBA.Int(Fraction * 100#)
+        Elapsed = VBA.Timer - mProgressPainted
+        If Not Force And Percent = mProgressPercent Then
+            If Elapsed >= 0! And Elapsed < PROGRESS_PAINT_SECONDS Then Exit Sub
+        End If
+    'Write it and let Excel paint it
+        On Error Resume Next
+        Application.StatusBar = Text
+        VBA.DoEvents
+        On Error GoTo 0
+        mProgressText = Text
+        mProgressPercent = Percent
+        mProgressPainted = VBA.Timer
 
 End Sub
 
@@ -15970,14 +16415,15 @@ Private Sub ProgressEnd()
 ' BEHAVIOR
 '   - Does nothing when no progress was started, so that a status bar
 '     another procedure writes, as Download prices, is left as it is
-'   - Called before every message (Notify) and every question, so that a
-'     dialog never shows over a status bar that still runs
+'   - Called after every message (Notify) and before every question, so
+'     that the bar never outlives its operation
+'   - Gives Excel its keyboard and mouse input back
 '
 ' ERROR POLICY
 '   Best effort: a status bar that cannot be reset is left as it is
 '
 ' DEPENDENCIES
-'   Application.StatusBar
+'   Application.StatusBar, Application.Interactive, DoEvents
 '
 ' NOTES
 '   None
@@ -15991,13 +16437,14 @@ Private Sub ProgressEnd()
 '------------------------------------------------------------------------------
     'Only an operation that showed its progress
         If VBA.Len(mProgressOperation) = 0 Then Exit Sub
-    'Give the status bar back to Excel
+    'Forget it and give the status bar back to Excel
         mProgressOperation = vbNullString
         mProgressText = vbNullString
-        mProgressDone = 0
-        mProgressTotal = 0
+        mProgressDetail = vbNullString
         On Error Resume Next
         Application.StatusBar = False
+        Application.Interactive = True
+        VBA.DoEvents
         On Error GoTo 0
 
 End Sub
