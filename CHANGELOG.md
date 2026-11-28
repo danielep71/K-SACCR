@@ -95,6 +95,12 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Documentation
+
+- The website's download buttons, checksum link, status line, certification note and release link
+  point to release 1.3.0, now published, and its validation list says which CRR rules are validated:
+  those of the production reconciliation (#667) and of the R package `SACCR` (#100).
+
 ## [1.3.0] - 2026-11-28
 
 ### Added
