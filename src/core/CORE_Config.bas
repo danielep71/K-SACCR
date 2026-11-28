@@ -415,7 +415,7 @@ Attribute VB_Name = "CORE_Config"
             "mtm_leg;settlement_type;next_reset_date;comment"
         Public Const CSV_CP_FILE As String = "K-SACCR_Counterparties_v1.csv"
         Public Const CSV_CP_HEADER As String = "counterparty_id;counterparty_name;report_category;" & _
-            "intragroup;internal_ead_limit;lei;country;comment"
+            "intragroup;internal_ead_limit;lei;national_code;country;comment"
         Public Const CSV_BN_FILE As String = "K-SACCR_BankNettingSets_v1.csv"
         Public Const CSV_BN_HEADER As String = "netting_set_id;regime;ead;rc;pfe;addon_aggregate;addon_ir;" & _
             "addon_fx;addon_cr;addon_eq;addon_co;addon_ot;multiplier;comment"
@@ -531,9 +531,10 @@ Attribute VB_Name = "CORE_Config"
         Public Const CP_INTRAGROUP  As Long = 4     'Intragroup (Y/N); blank = not provided
         Public Const CP_LIMIT       As Long = 5     'Internal EAD limit; blank = no limit, 0 = a limit of zero
         Public Const CP_LEI         As Long = 6     'LEI (ISO 17442)
-        Public Const CP_COUNTRY     As Long = 7     'Country, ISO 3166-1 alpha-2
-        Public Const CP_COMMENT     As Long = 8     'Free-text comment, not read
-        Public Const CP_NCOLS       As Long = 8     'Number of columns
+        Public Const CP_NATIONAL    As Long = 7     'National code, used when there is no LEI (COREP C 34.06)
+        Public Const CP_COUNTRY     As Long = 8     'Country, ISO 3166-1 alpha-2
+        Public Const CP_COMMENT     As Long = 9     'Free-text comment, not read
+        Public Const CP_NCOLS       As Long = 9     'Number of columns
 
 '------------------------------------------------------------------------------
 ' BANK FIGURES

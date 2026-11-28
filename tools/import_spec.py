@@ -407,7 +407,9 @@ def counterparties_section(contract: dict[str, Any]) -> str:
         f"<p>One record per counterparty. {code(spec['key'])} is the key: unique in the file and compared "
         f"case-insensitively; a netting set names its counterparty by this key in {code('counterparty_id')}, the "
         "last column of NettingSets. No SA-CCR rule reads the file: it gives the counterparty's category, group "
-        "membership, internal limit, LEI and country to the reports.</p>",
+        "membership, internal limit, LEI or national code, and country to the reports.</p>",
+        f"<p>{code('national_code')} is the counterparty's national identification code, for a counterparty "
+        "without an LEI: COREP C 34.06 reports the type of code, LEI or national code. It is free text.</p>",
         f"<p>A blank {code('report_category')} is a counterparty not classified: the category is never inferred from "
         f"the name or from the FINREP sector of NettingSets. A blank {code('internal_ead_limit')} is no limit, and "
         f"{code('0')} is a limit of zero. The file holds at most {spec['max_records']:,} records; a longer file is "

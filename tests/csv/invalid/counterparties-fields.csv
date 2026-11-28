@@ -1,5 +1,5 @@
-counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;country;comment
-CP-001;Bank A;BANKS;y;-1;5493001KJTIIGC8Y1R13;gb;
-CP-002;;CCP;N;1000;5493001kjtiigc8y1r12;ITA;
-cp-001;Duplicate;CLEARING_BROKER;N;0;5493001KJTIIGC8Y1R1;IT;=SUM(1)
-;No ID;NBFI;;;;;
+counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;national_code;country;comment
+CP-001;Bank A;BANKS;y;-1;5493001KJTIIGC8Y1R13;;gb;
+CP-002;;CCP;N;1000;5493001kjtiigc8y1r12;=HYPERLINK(1);ITA;
+cp-001;Duplicate;CLEARING_BROKER;N;0;5493001KJTIIGC8Y1R1;;IT;=SUM(1)
+;No ID;NBFI;;;;;;

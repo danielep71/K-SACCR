@@ -225,14 +225,18 @@ class FileTests(unittest.TestCase):
         self.assertEqual((findings, rows[0]["counterparty_id"]), ([], ""))
 
     def test_a_counterparties_file_takes_an_lei_with_its_check_digits_and_a_country_code(self) -> None:
-        def found(lei: str = "", country: str = "", limit: str = "", category: str = "") -> list[tuple[str, int, int, str]]:
-            return codes(f"{CP_HEADER}\nCP-1;Name;{category};;{limit};{lei};{country};\n", kind="Counterparties")
+        def found(lei: str = "", country: str = "", limit: str = "", category: str = "",
+                  national: str = "") -> list[tuple[str, int, int, str]]:
+            return codes(f"{CP_HEADER}\nCP-1;Name;{category};;{limit};{lei};{national};{country};\n",
+                         kind="Counterparties")
         self.assertEqual(found("5493001KJTIIGC8Y1R12", "IT", "0", "CCP"), [])
         self.assertEqual(found("5493001KJTIIGC8Y1R13"), [("CSV-TYPE", 2, 1, "lei")])
         self.assertEqual(found("5493001kjtiigc8y1r12"), [("CSV-TYPE", 2, 1, "lei")])
         self.assertEqual(found(country="it"), [("CSV-TYPE", 2, 1, "country")])
         self.assertEqual(found(limit="-1"), [("CSV-RANGE", 2, 1, "internal_ead_limit")])
         self.assertEqual(found(category="Bank"), [("CSV-ALLOWED", 2, 1, "report_category")])
+        self.assertEqual(found(national="GB01234567", country="GB"), [])  # the code used when there is no LEI
+        self.assertEqual(found(national="=1+1"), [("CSV-FORMULA", 2, 1, "national_code")])
         self.assertTrue(csv.lei_checksum_ok("529900T8BM49AURSDO55"))
         self.assertFalse(csv.lei_checksum_ok("529900T8BM49AURSDO56"))
 

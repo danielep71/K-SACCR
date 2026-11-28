@@ -63,7 +63,7 @@ Attribute VB_Name = "CORE_CsvSchema"
             "Economic trade ID|MtM leg|Settlement type|Next reset date|"
         Public Const CP_HEADERS As String = _
             "CounterpartyID|Counterparty name|Report category|Intragroup|Internal EAD limit|" & _
-            "LEI|Country|"
+            "LEI|National code|Country|"
         Public Const BN_HEADERS As String = _
             "NettingSetID|Regime (BCBS / CRR)|EAD|RC|PFE|AddOn aggregate|AddOn IR|AddOn FX|" & _
             "AddOn CR|AddOn EQ|AddOn CO|AddOn OT|Multiplier|"
@@ -219,16 +219,17 @@ Public Function CsvSpecOf( _
                 Spec.MaxRecords = 10000
                 Spec.Version = 1
                 Spec.EarlierColumns = ""
-                Spec.ColumnCount = 8
-                ReDim Columns(1 To 8)
+                Spec.ColumnCount = 9
+                ReDim Columns(1 To 9)
                 SetColumn Columns(1), "counterparty_id", "id", True, "", False, 0, False, 0, False, 0
                 SetColumn Columns(2), "counterparty_name", "text", True, "", False, 0, False, 0, False, 0
                 SetColumn Columns(3), "report_category", "code", False, "BANK|NBFI|CORPORATE|CCP|CLEARING_BROKER", False, 0, False, 0, False, 0
                 SetColumn Columns(4), "intragroup", "flag", False, "Y|N", False, 0, False, 0, False, 0
                 SetColumn Columns(5), "internal_ead_limit", "number", False, "", True, 0, False, 0, False, 0
                 SetColumn Columns(6), "lei", "lei", False, "", False, 0, False, 0, False, 0
-                SetColumn Columns(7), "country", "country", False, "", False, 0, False, 0, False, 0
-                SetColumn Columns(8), "comment", "text", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(7), "national_code", "text", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(8), "country", "country", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(9), "comment", "text", False, "", False, 0, False, 0, False, 0
                 Spec.RuleCount = 0
                 Erase Rules
                 CsvSpecOf = True

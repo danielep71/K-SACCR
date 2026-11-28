@@ -39,6 +39,7 @@
         ["CSV-REQUIRED", 3, 2, "counterparty_name"],
         ["CSV-TYPE", 3, 2, "country"],
         ["CSV-TYPE", 3, 2, "lei"],
+        ["CSV-FORMULA", 3, 2, "national_code"],
         ["CSV-FORMULA", 4, 3, "comment"],
         ["CSV-DUPLICATE-KEY", 4, 3, "counterparty_id"],
         ["CSV-TYPE", 4, 3, "lei"],

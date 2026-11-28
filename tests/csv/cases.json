@@ -853,7 +853,7 @@
     {
       "name": "counterparty-codes",
       "kind": "Counterparties",
-      "text": "counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;country;comment\nA;Bank A;BANK;Y;0;;;\nB;Fund B;NBFI;N;;;;\nC;Corp C;CORPORATE;;1e6;;;\nD;CCP D;CCP;;;;;\nE;Broker E;CLEARING_BROKER;;;;;\nF;Other F;Bank;;;;;\n",
+      "text": "counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;national_code;country;comment\nA;Bank A;BANK;Y;0;;;;\nB;Fund B;NBFI;N;;;;;\nC;Corp C;CORPORATE;;1e6;;;;\nD;CCP D;CCP;;;;;;\nE;Broker E;CLEARING_BROKER;;;;;;\nF;Other F;Bank;;;;;;\n",
       "records": 0,
       "findings": [
         [
@@ -867,7 +867,7 @@
     {
       "name": "lei-forms",
       "kind": "Counterparties",
-      "text": "counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;country;comment\nA;A;;;;5493001KJTIIGC8Y1R12;;\nB;B;;;;5493001KJTIIGC8Y1R21;;\nC;C;;;;5493001KJTIIGC8Y1R1A;;\nD;D;;;;5493001kjtiigc8y1r12;;\nE;E;;;;5493001KJTIIGC8Y1R12 ;;\nF;F;;;;-493001KJTIIGC8Y1R12;;\nG;G;;;;529900T8BM49AURSDO55;;\nH;H;;;;5493001KJTIIGC8Y1R1;;\n",
+      "text": "counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;national_code;country;comment\nA;A;;;;5493001KJTIIGC8Y1R12;;;\nB;B;;;;5493001KJTIIGC8Y1R21;;;\nC;C;;;;5493001KJTIIGC8Y1R1A;;;\nD;D;;;;5493001kjtiigc8y1r12;;;\nE;E;;;;5493001KJTIIGC8Y1R12 ;;;\nF;F;;;;-493001KJTIIGC8Y1R12;;;\nG;G;;;;529900T8BM49AURSDO55;;;\nH;H;;;;5493001KJTIIGC8Y1R1;;;\n",
       "records": 0,
       "findings": [
         [
@@ -911,7 +911,7 @@
     {
       "name": "country-forms",
       "kind": "Counterparties",
-      "text": "counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;country;comment\nA;A;;;;;IT;\nB;B;;;;;it;\nC;C;;;;;ITA;\nD;D;;;;;I1;\nE;E;;;;;ZZ;\nF;F;;;;; IT;\n",
+      "text": "counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;national_code;country;comment\nA;A;;;;;;IT;\nB;B;;;;;;it;\nC;C;;;;;;ITA;\nD;D;;;;;;I1;\nE;E;;;;;;ZZ;\nF;F;;;;;; IT;\n",
       "records": 0,
       "findings": [
         [
@@ -943,7 +943,7 @@
     {
       "name": "counterparty-limit-and-required",
       "kind": "Counterparties",
-      "text": "counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;country;comment\nA;;;;-0.5;;;\n;B;;;0;;;\nC;C;;;1.5;;;\n",
+      "text": "counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;national_code;country;comment\nA;;;;-0.5;;;;\n;B;;;0;;;;\nC;C;;;1.5;;;;\n",
       "records": 0,
       "findings": [
         [

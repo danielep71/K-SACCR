@@ -271,6 +271,7 @@ total rows on `Results` and are rejected as netting-set IDs.
 | `intragroup` | Intragroup | flag: `Y`, `N` | no | not provided | Y for a counterparty of the reporting bank's own group. | `N` |
 | `internal_ead_limit` | Internal EAD limit | number (>= 0) | no | no limit | Internal limit on the counterparty's EAD, in the reporting currency; 0 is a limit of zero, not a missing limit. | `25000000` |
 | `lei` | LEI | LEI: 20 characters, ISO 17442 check digits | no | not provided | Legal Entity Identifier (ISO 17442): 20 upper-case letters and digits whose check digits pass ISO 7064 MOD 97-10. | `5493001KJTIIGC8Y1R12` |
+| `national_code` | National code | text (<= 500 characters) | no | not provided | National identification code of the counterparty, used when it has no LEI: COREP C 34.06 reports the type of code, LEI or national code. | `GB01234567` |
 | `country` | Country | country: ISO 3166-1 alpha-2 | no | not provided | Country of residence of the counterparty, as an ISO 3166-1 alpha-2 code in upper case. | `GB` |
 | `comment` | Comment | text (<= 500 characters) | no |  | Free text, not read by the workbook. | `Limit withdrawn` |
 <!-- END GENERATED: Counterparties -->
@@ -280,7 +281,9 @@ counterparty, which a netting set names in its `counterparty_id`. No SA-CCR
 rule reads it. A blank `report_category` is a counterparty not classified, and
 the category is never inferred from the name or from the FINREP sector of
 NettingSets; a blank `intragroup` is not provided; a blank `internal_ead_limit`
-is no limit, and `0` is a limit of zero.
+is no limit, and `0` is a limit of zero. `national_code` is the national
+identification code of a counterparty without an LEI, which COREP C 34.06
+reports as the type of code, LEI or national code.
 
 ## 📋 BankNettingSets columns
 

@@ -102,7 +102,9 @@ Use only the categories needed by a release.
   counterparty ID and name (required), the report category (BANK, NBFI, CORPORATE, CCP or
   CLEARING_BROKER; blank means not classified), the intragroup flag, an internal EAD limit (0 or
   more; blank means no limit, 0 is a limit of zero), the LEI (ISO 17442, its check digits tested
-  with ISO 7064 MOD 97-10), the country (ISO 3166-1 alpha-2) and a comment. It is loaded directly
+  with ISO 7064 MOD 97-10), the national code of a counterparty without an LEI (COREP C 34.06 reports
+  the type of code, LEI or national code; owner, 2026-11-28), the country (ISO 3166-1 alpha-2) and a
+  comment. It is loaded directly
   from `K-SACCR_Counterparties_v1.csv` as the bank sheets are: **Import CSV**, **Export CSV
   template** and **Clear counterparties** on the sheet and in the Ribbon (`ksImportCounterparties`,
   `ksClearCounterparties`, `ksTemplateCounterparties`, `ksGoCounterparties`), and a file with any

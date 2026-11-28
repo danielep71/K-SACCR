@@ -199,7 +199,7 @@
       "max_records": 10000,
       "examples": [
         {"counterparty_id": "CP-001", "counterparty_name": "Synthetic Bank, London", "report_category": "BANK", "intragroup": "N", "internal_ead_limit": "25000000", "lei": "5493001KJTIIGC8Y1R12", "country": "GB"},
-        {"counterparty_id": "CP-002", "counterparty_name": "Example Corp \"North\"; Ltd", "report_category": "CORPORATE", "internal_ead_limit": "0", "comment": "Limit withdrawn"},
+        {"counterparty_id": "CP-002", "counterparty_name": "Example Corp \"North\"; Ltd", "report_category": "CORPORATE", "internal_ead_limit": "0", "national_code": "GB01234567", "comment": "Limit withdrawn"},
         {"counterparty_id": "CP-003", "counterparty_name": "Example CCP", "report_category": "CCP", "country": "DE"}
       ],
       "columns": [
@@ -209,6 +209,7 @@
         {"name": "intragroup", "sheet_header": "Intragroup", "type": "flag", "required": false, "blank": "not provided", "description": "Y for a counterparty of the reporting bank's own group.", "example": "N"},
         {"name": "internal_ead_limit", "sheet_header": "Internal EAD limit", "type": "number", "min": 0, "required": false, "blank": "no limit", "description": "Internal limit on the counterparty's EAD, in the reporting currency; 0 is a limit of zero, not a missing limit.", "example": "25000000"},
         {"name": "lei", "sheet_header": "LEI", "type": "lei", "required": false, "blank": "not provided", "description": "Legal Entity Identifier (ISO 17442): 20 upper-case letters and digits whose check digits pass ISO 7064 MOD 97-10.", "example": "5493001KJTIIGC8Y1R12"},
+        {"name": "national_code", "sheet_header": "National code", "type": "text", "required": false, "blank": "not provided", "description": "National identification code of the counterparty, used when it has no LEI: COREP C 34.06 reports the type of code, LEI or national code.", "example": "GB01234567"},
         {"name": "country", "sheet_header": "Country", "type": "country", "required": false, "blank": "not provided", "description": "Country of residence of the counterparty, as an ISO 3166-1 alpha-2 code in upper case.", "example": "GB"},
         {"name": "comment", "sheet_header": "Comment", "type": "text", "required": false, "description": "Free text, not read by the workbook.", "example": "Limit withdrawn"}
       ]
