@@ -927,13 +927,13 @@ produces it.
 The plan below shows each released version on its release date and each
 planned one up to its
 [milestone](https://github.com/danielep71/K-SACCR/milestones)'s due date as
-of 2026-11-27; a planned bar starts the day after the previous version's
+of 2026-11-28; a planned bar starts the day after the previous version's
 release or due date. The due dates are planning targets, not release
 commitments.
 
 ```mermaid
 gantt
-    title K-SACCR release plan (release dates; planned due dates as of 2026-11-27)
+    title K-SACCR release plan (release dates; planned due dates as of 2026-11-28)
     dateFormat YYYY-MM-DD
     axisFormat %b %Y
     todayMarker on
@@ -945,12 +945,12 @@ gantt
     v1.2.0 Excel Ribbon interface            :done, v12, 2026-11-07, 1d
     v1.3.0 Diagnostics, independent validation :done, v13, 2026-11-28, 1d
     section Planned
-    v1.3.5 COREP C 34 templates              :v135, 2027-03-08, 2027-03-21
-    v1.3.6 Limits and report views           :v136, after v135, 2027-04-18
-    v1.4.0 Advanced products, FX provenance  :v14, after v136, 2027-05-16
-    v1.5.0 Simplified SA-CCR                 :v15, after v14, 2027-06-20
-    v1.6.0 Original exposure method          :v16, after v15, 2027-07-18
-    v1.7.0 Python desktop app and engine     :v17, 2027-06-21, 2027-09-12
+    v1.3.5 COREP C 34 sheets, examples       :v135, 2026-11-30, 2026-12-13
+    v1.3.6 Limits, report views, calculator  :v136, after v135, 2026-12-23
+    v1.4.0 Advanced products, FX provenance  :v14, 2026-11-30, 2026-12-31
+    v1.5.0 Simplified SA-CCR                 :v15, 2027-01-04, 2027-01-31
+    v1.6.0 Original exposure method          :v16, after v15, 2027-02-28
+    v1.7.0 Python desktop app and engine     :v17, 2027-01-04, 2027-03-31
 ```
 
 | Milestone | Scope |
@@ -961,11 +961,11 @@ gantt
 | v1.1.0 | CSV import and staging for Trades and NettingSets (#206–#211, #468, #473), workbook protection against accidental edits (#420–#422), and integration/release evidence (#212) |
 | v1.2.0 | Excel Ribbon interface (#213–#218), Home landing page (#330), sheet navigation from the Ribbon (#329) and a Restore regulatory parameters command (#357) |
 | v1.3.0 | Diagnostics and independent validation: stable Checks codes (#81), independent cross-check (#100, #352), production reconciliation evidence (#667, #668), randomised FormulaTest inputs (#165), counterparty sector (#674), a Dashboard sheet (#675), formatted run report next to the CSV evidence (#259), one shared harness for the suites (#536), accuracy contracts for derived expected values (#537), each regime's credit scale (#659), the FX notional rule in the CSV checks (#678), a navigation bar on every sheet (#615, #620, #664), new screenshots (#616) and the user manual (#686) |
-| v1.3.5 | COREP C 34 templates fed by the SA-CCR results (#666) |
-| v1.3.6 | Limits and report views: a counterparty input with identifier, category, intragroup flag and internal EAD limit (#831), a history of recorded run totals (#832), and a Reports sheet with five views behind a button bar: Summary, Counterparty type, Top 10, Limits and Netting set (#833–#839) |
+| v1.3.5 | COREP C 34 sheets in the workbook (C 34.03, C 34.02, C 34.06, C 34.10) filled from the full SA-CCR results (#666), a counterparty input with identifier, category, intragroup flag, internal EAD limit, LEI and country (#831), and example portfolios built from sanitized real data (#847) |
+| v1.3.6 | Limits and report views: a history of recorded run totals (#832), a Reports sheet with five views behind a button bar: Summary, Counterparty type, Top 10, Limits and Netting set (#833–#839), and a single-trade SA-CCR calculator, as a sheet (#848) and on the website (#849) |
 | v1.4.0 | Advanced products and FX provenance: digital options (#120), FX quote import (#157), engine separated from Excel I/O (#220), TARGET holiday calendar (#328) |
-| v1.5.0 | Simplified SA-CCR (#107) |
-| v1.6.0 | Original exposure method (#111) |
+| v1.5.0 | Simplified SA-CCR (#107) and its cells of the COREP C 34 sheets (#850) |
+| v1.6.0 | Original exposure method (#111) and its cells of the COREP C 34 sheets (#851) |
 | v1.7.0 | Two parallel tracks. A Python desktop application that replaces the Excel interface, first on the Excel/VBA engine run in a hidden workbook (#694–#699), then on the Python engine (#700). The standalone Python engine: the full SA-CCR without Excel, with its own reference tests, and a reconciliation of its intermediates and EAD with the workbook's (#450–#459) |
 
 The [milestones](https://github.com/danielep71/K-SACCR/milestones)

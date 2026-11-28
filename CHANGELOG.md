@@ -97,6 +97,13 @@ Use only the categories needed by a release.
 
 ### Documentation
 
+- The README roadmap follows the plan of 2026-11-28: v1.3.0 was released three months early, so v1.3.5,
+  v1.3.6 and v1.4.0 are each released by 31 December 2026 and v1.5.0, v1.6.0 and v1.7.0 by 31 March
+  2027. The rows name what was added: the COREP C 34 sheets and the counterparty input in v1.3.5
+  (#666, #831), example portfolios from sanitized real data (#847), a single-trade calculator (#848,
+  #849) and the COREP cells of the simplified SA-CCR and of the original exposure method (#850, #851).
+  The audit report of v1.3.0 records that the owner handled the notifications and renamed the v1.7.0
+  milestone.
 - The website's download buttons, checksum link, status line, certification note and release link
   point to release 1.3.0, now published, and its validation list says which CRR rules are validated:
   those of the production reconciliation (#667) and of the R package `SACCR` (#100).
