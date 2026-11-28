@@ -9,11 +9,12 @@ release runbook is in [`RELEASING.md`](../RELEASING.md).
 
 ## Branches
 
-The active release branch is `release/1.3.0`.
+The active release branch is `release/1.3.5`.
 
 | Branch | Purpose and allowed work |
 | --- | --- |
-| `release/1.3.0` | Active integration branch for all development. Retained after each integration and brought up to date with `main` through a pull request. |
+| `release/1.3.5` | Active integration branch for all development, created on 2026-11-28 from `release/1.3.0` at `753f074`, after release 1.3.0. Retained after each integration and brought up to date with `main` through a pull request. |
+| `release/1.3.0` | Completed: release 1.3.0 was published on 2026-11-28 from `main` at `ad5d5f5` (tag `v1.3.0`). Retained, as the branch-deletion ruleset requires; it takes no new work. |
 | `release/1.2.0` | Deleted after owner-authorized cleanup on 2026-11-07. Published history remains available through tag `v1.2.0` and its release artifacts; all former branch content is retained in `main`. |
 | `release/1.1.0` | Deleted after owner-authorized cleanup on 2026-11-07. Published history remains available through tag `v1.1.0` and its release artifacts; all former branch content is retained in `main`. |
 | `release/1.0.2` | Deleted after owner-authorized cleanup. Published history remains available through tag `v1.0.2` and its release artifacts; all former branch commits are retained in `main`. |
@@ -254,7 +255,7 @@ configuration.
 | Repository visibility | Public. |
 | Pull request settings | Updating a pull request branch from its base is offered. Projects and the legacy downloads feature are off. |
 | Branch rulesets | **Protect main** (the default branch): pull request required with no approvals, conversations resolved, merge commits only, **Repository integrity** required, up to date and enforced on branch creation, no force pushes or deletion, no bypass. **Protect release branches** (`release/**`): the same, except that squash and merge commits are allowed and the check is not enforced when a branch is created; task PRs are squash-merged and the PR that brings the branch up to date with `main` is merged with a merge commit. **Protect traffic history** (`traffic-history`): no force pushes or deletion, no bypass. The separate **Prevent release branch deletion** ruleset blocks deletion of matching release branches with no bypass. Keep following the review checklist for what rulesets cannot check. |
-| Release deletion coverage | **Prevent release branch deletion** is active for `release/**`, with no branch exclusions and no bypass actors. It protects the active `release/1.3.0` and future matching branches. Historical `release/1.0.0`, `release/1.0.1`, `release/1.0.2`, `release/1.1.0` and `release/1.2.0` have been deleted; their published tags and artifacts remain. Any future historical-branch deletion requires separate owner authorization, commit-reachability and link checks, and immediate removal of temporary ruleset exceptions. |
+| Release deletion coverage | **Prevent release branch deletion** is active for `release/**`, with no branch exclusions and no bypass actors. It protects the active `release/1.3.5`, the retained `release/1.3.0` and future matching branches. Historical `release/1.0.0`, `release/1.0.1`, `release/1.0.2`, `release/1.1.0` and `release/1.2.0` have been deleted; their published tags and artifacts remain. Any future historical-branch deletion requires separate owner authorization, commit-reachability and link checks, and immediate removal of temporary ruleset exceptions. |
 | Tag ruleset | `v*` tags: updates, deletions and force pushes blocked, so a published tag cannot move. |
 | Automatic head-branch deletion | Enabled for eligible merged PR branches. It does not remove release branches covered by **Prevent release branch deletion**; retain the active release branch after integration and bring it up to date with `main` through a pull request. |
 | Wiki | Editable by collaborators only. Maintained directly in the Wiki repository, outside this repository's source and checks (owner decision); it links to files and images of this repository only on `main`. Authoritative documentation stays in versioned `docs/`. |

@@ -128,6 +128,11 @@ Use only the categories needed by a release.
   point to release 1.3.0, now published, and its validation list says which CRR rules are validated:
   those of the production reconciliation (#667) and of the R package `SACCR` (#100).
 
+### Maintenance
+
+- Set `release/1.3.5` as the active development branch and the target for
+  Dependabot, after release 1.3.0; `release/1.3.0` is retained and takes no new work.
+
 ## [1.3.0] - 2026-11-28
 
 ### Added

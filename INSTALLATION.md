@@ -176,7 +176,7 @@ Use a **Git clone**:
 ```sh
 git clone https://github.com/danielep71/K-SACCR.git
 cd K-SACCR
-git switch release/1.3.0
+git switch release/1.3.5
 ```
 
 The branch to switch to is the
