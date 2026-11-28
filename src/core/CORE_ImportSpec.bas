@@ -34,8 +34,8 @@ Attribute VB_Name = "CORE_ImportSpec"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Public Const IMPORT_SPEC_FILE   As String = "K-SACCR_Import_Specification_v3.html"    'File name the export offers
-        Public Const IMPORT_SPEC_BYTES  As Long = 46618    'Length of the page in UTF-8 bytes
+        Public Const IMPORT_SPEC_FILE   As String = "K-SACCR_Import_Specification_v4.html"    'File name the export offers
+        Public Const IMPORT_SPEC_BYTES  As Long = 52921    'Length of the page in UTF-8 bytes
 
 
 Public Function ImportSpecificationText() As String
@@ -55,6 +55,7 @@ Public Function ImportSpecificationText() As String
         AppendPart6 Page
         AppendPart7 Page
         AppendPart8 Page
+        AppendPart9 Page
         ImportSpecificationText = Page
 
 End Function
@@ -76,10 +77,10 @@ Public Function ImportSpecExample( _
         Select Case Kind
             Case "NettingSets"
                 Text = Text & "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_am"
-                Text = Text & "ount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin;counterparty_sector" & vbLf
-                Text = Text & "NS-001;Synthetic Bank, London;Y;N;1;N;N;;-150000;250000;0;100000;;;;;;CI" & vbLf
-                Text = Text & "00731;""M" & ChrW(252) & "ller & S" & ChrW(248) & "n """"Nord""""; <Example> AG"";N;;;;;;;;;;;BCBS;;;;NFC" & vbLf
-                Text = Text & "NS-CCP;Example CCP;Y;CCP;1;N;N;;0;0;0;0;;;;Y;N;" & vbLf
+                Text = Text & "ount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin;counterparty_sector;counterparty_id" & vbLf
+                Text = Text & "NS-001;Synthetic Bank, London;Y;N;1;N;N;;-150000;250000;0;100000;;;;;;CI;CP-001" & vbLf
+                Text = Text & "00731;""M" & ChrW(252) & "ller & S" & ChrW(248) & "n """"Nord""""; <Example> AG"";N;;;;;;;;;;;BCBS;;;;NFC;" & vbLf
+                Text = Text & "NS-CCP;Example CCP;Y;CCP;1;N;N;;0;0;0;0;;;;Y;N;;" & vbLf
             Case "Trades"
                 Text = Text & "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_da"
                 Text = Text & "te;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment" & vbLf
@@ -88,6 +89,11 @@ Public Function ImportSpecExample( _
                 Text = Text & "000245;00731;EQ;SINGLE;ACME-EQ;Option;Long;Call;;;1000000;EUR;35000;;;;2028-03-31;2027-03-31;100;110;;;;;;;;" & vbLf
                 Text = Text & "TRD-STM-1;00731;IR;;EUR;Linear;Short;;;;3000000;EUR;0;;;;2029-12-31;;;;;;;;;STM;2026-12-31;""Settled to market, """"STM""""""" & vbLf
                 Text = Text & "TRD-CCP-1;NS-CCP;IR;;GBP;Linear;Long;;;;2000000;GBP;-15000;;;;2028-06-30;;;;;;;;;;;Cleared swap" & vbLf
+            Case "Counterparties"
+                Text = Text & "counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;country;comment" & vbLf
+                Text = Text & "CP-001;Synthetic Bank, London;BANK;N;25000000;5493001KJTIIGC8Y1R12;GB;" & vbLf
+                Text = Text & "CP-002;""Example Corp """"North""""; Ltd"";CORPORATE;;0;;;Limit withdrawn" & vbLf
+                Text = Text & "CP-003;Example CCP;CCP;;;;DE;" & vbLf
             Case "BankNettingSets"
                 Text = Text & "netting_set_id;regime;ead;rc;pfe;addon_aggregate;addon_ir;addon_fx;addon_cr;addon_eq;addon_co;addon_ot;multiplier;comment" & vbLf
                 Text = Text & "NS-001;BCBS;350913.6;120000;230913.6;225000;200000;25000;;;;;1;Month-end figures" & vbLf
@@ -107,14 +113,14 @@ End Function
 Private Sub AppendPart1( _
     ByRef Page As String)
 '
-'   Piece 1 of 8 of the page.
+'   Piece 1 of 9 of the page.
 '
         Page = Page & "<!DOCTYPE html>" & vbLf
         Page = Page & "<html lang=""en"">" & vbLf
         Page = Page & "<head>" & vbLf
         Page = Page & "<meta charset=""utf-8"">" & vbLf
         Page = Page & "<meta name=""viewport"" content=""width=device-width, initial-scale=1"">" & vbLf
-        Page = Page & "<title>K-SACCR CSV import specification, contract version 3</title>" & vbLf
+        Page = Page & "<title>K-SACCR CSV import specification, contract version 4</title>" & vbLf
         Page = Page & "<style>" & vbLf
         Page = Page & ":root { --ink: #1b2733; --muted: #4a5a68; --line: #c9d3dd; --head: #e8f0fa; --accent: #1f5aa6; --code: #f4f6f8; }" & vbLf
         Page = Page & "* { box-sizing: border-box; }" & vbLf
@@ -154,21 +160,21 @@ Private Sub AppendPart1( _
         Page = Page & "<body>" & vbLf
         Page = Page & "<header>" & vbLf
         Page = Page & "<h1>K-SACCR CSV import specification</h1>" & vbLf
-        Page = Page & "<p class=""lead"">CSV contract version 3, for NettingSets files of version 2, whose blank template is <code>K-SACCR_NettingSets_v2.csv</code>, and Trades files of version 1, whose blank template is <cod"
-        Page = Page & "e>K-SACCR_Trades_v1.csv</code>, and BankNettingSets files of version 1, whose blank template is <code>K-SACCR_BankNettingSets_v1.csv</code>, and BankTrades files of version 1, whose blank template is "
-        Page = Page & "<code>K-SACCR_BankTrades_v1.csv</code>. A file's version changes only when a column is added, removed or renamed, not with each K-SACCR release.</p>" & vbLf
+        Page = Page & "<p class=""lead"">CSV contract version 4, for NettingSets files of version 3, whose blank template is <code>K-SACCR_NettingSets_v3.csv</code>, and Trades files of version 1, whose blank template is <cod"
+        Page = Page & "e>K-SACCR_Trades_v1.csv</code>, and Counterparties files of version 1, whose blank template is <code>K-SACCR_Counterparties_v1.csv</code>, and BankNettingSets files of version 1, whose blank template "
+        Page = Page & "is <code>K-SACCR_BankNettingSets_v1.csv</code>, and BankTrades files of version 1, whose blank template is <code>K-SACCR_BankTrades_v1.csv</code>. A file's version changes only when a column is added,"
+        Page = Page & " removed or renamed, not with each K-SACCR release.</p>" & vbLf
         Page = Page & "</header>" & vbLf
         Page = Page & "<nav><ol><li><a href=""#files"">Files</a></li><li><a href=""#format"">File format</a></li><li><a href=""#header"">Header</a></li><li><a href=""#types"">Value types</a></li><li><a href=""#blanks"">Blank fields, "
-        Page = Page & "empty files and limits</a></li><li><a href=""#nettingsets"">NettingSets file</a></li><li><a href=""#trades"">Trades file</a></li><li><a href=""#banknettingsets"">BankNettingSets file</a></li><li><a href=""#b"
-        Page = Page & "anktrades"">BankTrades file</a></li><li><a href=""#examples"">Using the examples</a></li><li><a href=""#findings"">Findings</a></li></ol></nav>" & vbLf
+        Page = Page & "empty files and limits</a></li><li><a href=""#nettingsets"">NettingSets file</a></li><li><a href=""#trades"">Trades file</a></li><li><a href=""#counterparties"">Counterparties file</a></li><li><a href=""#ban"
+        Page = Page & "knettingsets"">BankNettingSets file</a></li><li><a href=""#banktrades"">BankTrades file</a></li><li><a href=""#examples"">Using the examples</a></li><li><a href=""#findings"">Findings</a></li></ol></nav>" & vbLf
         Page = Page & "<main>" & vbLf
         Page = Page & "<section id=""files"">" & vbLf
         Page = Page & "<h2>Files</h2>" & vbLf
         Page = Page & "<p>Each file carries the inputs of one sheet: a record of <code>NettingSets</code> is one netting set, a record of <code>Trades</code> one leg. <strong>Import CSV</strong> on the staging sheet <code>I"
         Page = Page & "mport_NettingSets</code> or <code>Import_Trades</code> reads a file; <strong>Validate staging</strong> checks the staged rows of both against each other and against Params; <strong>Commit import</stro"
         Page = Page & "ng> then replaces the input sheet. The <strong>Templates</strong> menu of the K-SACCR tab writes the blank template of each file, the header alone.</p>" & vbLf
-        Page = Page & "<p>The two bank files carry a bank's own figures, one record per netting set or per leg, for the sheets <code>BankNettingSets</code> and <code>BankTrades</code>, which <code>Reconciliation</code> and "
-        Page = Page & "<code>TradeReconciliation</code> compare with the workbook's results. They have no staging sheet: <strong>BankNettingSets file...</strong> and <strong>BankTrades file...</strong> in the Import CSV men"
+        Page = Page & "<p>The Counterparties file carries one record per counterparty, for the sheet <code>Counterparties</code>; a netting set names its counterparty in the last column of NettingSets. It has no staging she"
 
 End Sub
 
@@ -176,15 +182,20 @@ End Sub
 Private Sub AppendPart2( _
     ByRef Page As String)
 '
-'   Piece 2 of 8 of the page.
+'   Piece 2 of 9 of the page.
 '
+        Page = Page & "et: <strong>Counterparties file...</strong> in the Import CSV menu, or <strong>Import CSV</strong> on the sheet, replace the rows of the sheet with the records of a file that follows the contract, and"
+        Page = Page & " change nothing otherwise.</p>" & vbLf
+        Page = Page & "<p>The two bank files carry a bank's own figures, one record per netting set or per leg, for the sheets <code>BankNettingSets</code> and <code>BankTrades</code>, which <code>Reconciliation</code> and "
+        Page = Page & "<code>TradeReconciliation</code> compare with the workbook's results. They have no staging sheet: <strong>BankNettingSets file...</strong> and <strong>BankTrades file...</strong> in the Import CSV men"
         Page = Page & "u, or <strong>Import CSV</strong> on the sheet, replace the figures of the sheet with the records of a file that follows the contract, and change nothing otherwise. <strong>BankNettingSets template..."
         Page = Page & "</strong> and <strong>BankTrades template...</strong> write the blank template.</p>" & vbLf
         Page = Page & "<table>" & vbLf
         Page = Page & "<thead><tr><th>File</th><th>Version</th><th>Sheet</th><th>Key column</th><th>Records per file</th><th>Blank template</th></tr></thead>" & vbLf
         Page = Page & "<tbody>" & vbLf
-        Page = Page & "<tr><td>NettingSets</td><td class=""num"">2</td><td>NettingSets</td><td><code>netting_set_id</code></td><td class=""num"">10,000</td><td><code>K-SACCR_NettingSets_v2.csv</code></td></tr>" & vbLf
+        Page = Page & "<tr><td>NettingSets</td><td class=""num"">3</td><td>NettingSets</td><td><code>netting_set_id</code></td><td class=""num"">10,000</td><td><code>K-SACCR_NettingSets_v3.csv</code></td></tr>" & vbLf
         Page = Page & "<tr><td>Trades</td><td class=""num"">1</td><td>Trades</td><td><code>trade_id</code></td><td class=""num"">100,000</td><td><code>K-SACCR_Trades_v1.csv</code></td></tr>" & vbLf
+        Page = Page & "<tr><td>Counterparties</td><td class=""num"">1</td><td>Counterparties</td><td><code>counterparty_id</code></td><td class=""num"">10,000</td><td><code>K-SACCR_Counterparties_v1.csv</code></td></tr>" & vbLf
         Page = Page & "<tr><td>BankNettingSets</td><td class=""num"">1</td><td>BankNettingSets</td><td><code>netting_set_id</code></td><td class=""num"">10,000</td><td><code>K-SACCR_BankNettingSets_v1.csv</code></td></tr>" & vbLf
         Page = Page & "<tr><td>BankTrades</td><td class=""num"">1</td><td>BankTrades</td><td><code>trade_id</code></td><td class=""num"">50,000</td><td><code>K-SACCR_BankTrades_v1.csv</code></td></tr>" & vbLf
         Page = Page & "</tbody>" & vbLf
@@ -217,8 +228,10 @@ Private Sub AppendPart2( _
         Page = Page & "<p>The first record is the header. It names every column of the file exactly once, in any order, with the exact lower-case names below; names are case-sensitive. A missing, unknown or repeated column "
         Page = Page & "rejects the file before any record is read. There are no optional columns: an optional field is a column whose value may be blank. The column set is the file's version: a file is never mapped to a ver"
         Page = Page & "sion by guessing what a column means.</p>" & vbLf
-        Page = Page & "<p>A NettingSets file whose header is exactly the column set of version 1, the template <code>K-SACCR_NettingSets_v1.csv</code>, is still read: <code>counterparty_sector</code> is blank in each of its"
-        Page = Page & " records.</p>" & vbLf
+        Page = Page & "<p>A NettingSets file whose header is exactly the column set of version 2, the template <code>K-SACCR_NettingSets_v2.csv</code>, is still read: <code>counterparty_id</code> is blank in each of its rec"
+        Page = Page & "ords.</p>" & vbLf
+        Page = Page & "<p>A NettingSets file whose header is exactly the column set of version 1, the template <code>K-SACCR_NettingSets_v1.csv</code>, is still read: <code>counterparty_sector</code>, <code>counterparty_id<"
+        Page = Page & "/code> are blank in each of its records.</p>" & vbLf
         Page = Page & "</section>" & vbLf
         Page = Page & "<section id=""types"">" & vbLf
         Page = Page & "<h2>Value types</h2>" & vbLf
@@ -231,13 +244,6 @@ Private Sub AppendPart2( _
         Page = Page & "<tr><td><code>code</code></td><td>One of the listed values</td><td>Exact spelling and case: <code>Linear</code>, not <code>linear</code>.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>flag</code></td><td><code>Y</code>, <code>N</code></td><td>Exact; <code>y</code>, <code>Yes</code>, <code>TRUE</code>, <code>1</code> are rejected.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>currency</code></td><td>Three capital letters</td><td><code>EUR</code>, not <code>eur</code>.</td></tr>" & vbLf
-        Page = Page & "<tr><td><code>integer</code></td><td><code>-?digits</code></td><td>No sign <code>+</code>, no leading zero, no decimal point.</td></tr>" & vbLf
-        Page = Page & "<tr><td><code>number</code></td><td><code>-?digits[.digits][e" & ChrW(177) & "digits]</code></td><td>As under Numbers above; a non-zero magnitude from 2.2250738585072014e-308 to 9.99999999999999e307.</td></tr>" & vbLf
-        Page = Page & "<tr><td><code>date</code></td><td><code>yyyy-mm-dd</code></td><td>A calendar date within the range above.</td></tr>" & vbLf
-        Page = Page & "</tbody>" & vbLf
-        Page = Page & "</table>" & vbLf
-        Page = Page & "</section>" & vbLf
-        Page = Page & "<section id=""blanks"">" & vbLf
 
 End Sub
 
@@ -245,8 +251,19 @@ End Sub
 Private Sub AppendPart3( _
     ByRef Page As String)
 '
-'   Piece 3 of 8 of the page.
+'   Piece 3 of 9 of the page.
 '
+        Page = Page & "<tr><td><code>lei</code></td><td>Twenty capital letters or digits</td><td>A Legal Entity Identifier (ISO 17442): 18 capital letters or digits, then 2 check digits that pass ISO 7064 MOD 97-10. A lower"
+        Page = Page & "-case or shortened code is rejected.</td></tr>" & vbLf
+        Page = Page & "<tr><td><code>country</code></td><td>Two capital letters</td><td>An ISO 3166-1 alpha-2 code: <code>IT</code>, not <code>it</code> or <code>ITA</code>; whether the code is assigned is not checked.</td>"
+        Page = Page & "</tr>" & vbLf
+        Page = Page & "<tr><td><code>integer</code></td><td><code>-?digits</code></td><td>No sign <code>+</code>, no leading zero, no decimal point.</td></tr>" & vbLf
+        Page = Page & "<tr><td><code>number</code></td><td><code>-?digits[.digits][e" & ChrW(177) & "digits]</code></td><td>As under Numbers above; a non-zero magnitude from 2.2250738585072014e-308 to 9.99999999999999e307.</td></tr>" & vbLf
+        Page = Page & "<tr><td><code>date</code></td><td><code>yyyy-mm-dd</code></td><td>A calendar date within the range above.</td></tr>" & vbLf
+        Page = Page & "</tbody>" & vbLf
+        Page = Page & "</table>" & vbLf
+        Page = Page & "</section>" & vbLf
+        Page = Page & "<section id=""blanks"">" & vbLf
         Page = Page & "<h2>Blank fields, empty files and limits</h2>" & vbLf
         Page = Page & "<ul>" & vbLf
         Page = Page & "<li>A <strong>blank field</strong> is an empty one. A required field must not be blank; an optional blank field takes the meaning given under <em>Blank means</em>, which is the sheet's.</li>" & vbLf
@@ -254,8 +271,8 @@ Private Sub AppendPart3( _
         Page = Page & "<li>A <strong>header-only file</strong> is valid and holds no record. Committing it never clears the input sheet: a staging sheet without rows leaves its input sheet as it is.</li>" & vbLf
         Page = Page & "<li>A file is accepted or rejected <strong>as a whole</strong>: one finding rejects every record, and no record is dropped or truncated.</li>" & vbLf
         Page = Page & "</ul>" & vbLf
-        Page = Page & "<table><thead><tr><th>File</th><th>Records per file</th></tr></thead><tbody><tr><td>NettingSets</td><td class=""num"">10,000</td></tr><tr><td>Trades</td><td class=""num"">100,000</td></tr><tr><td>BankNett"
-        Page = Page & "ingSets</td><td class=""num"">10,000</td></tr><tr><td>BankTrades</td><td class=""num"">50,000</td></tr></tbody></table>" & vbLf
+        Page = Page & "<table><thead><tr><th>File</th><th>Records per file</th></tr></thead><tbody><tr><td>NettingSets</td><td class=""num"">10,000</td></tr><tr><td>Trades</td><td class=""num"">100,000</td></tr><tr><td>Counterp"
+        Page = Page & "arties</td><td class=""num"">10,000</td></tr><tr><td>BankNettingSets</td><td class=""num"">10,000</td></tr><tr><td>BankTrades</td><td class=""num"">50,000</td></tr></tbody></table>" & vbLf
         Page = Page & "<p>A file of more than 134,217,728 bytes (128 MiB), a byte-order mark included, is rejected from its size alone. These limits are the import's. The sheets' drop-down lists cover only the rows a user t"
         Page = Page & "ypes into, and the calculation reads every row of the input sheets, so they limit neither the import nor the calculation.</p>" & vbLf
         Page = Page & "</section>" & vbLf
@@ -296,6 +313,15 @@ Private Sub AppendPart3( _
         Page = Page & "o</td><td></td><td>the Params alpha</td><td><code>1.4</code></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">14</td><td><code>regime_override</code></td><td>Regime override</td><td>Regime of this netting set and all its trades.</td><td>code</td><td>no</td><td><code>CRR</code>, <code>BCBS<"
         Page = Page & "/code></td><td>the Params regime</td><td><code>CRR</code></td></tr>" & vbLf
+
+End Sub
+
+
+Private Sub AppendPart4( _
+    ByRef Page As String)
+'
+'   Piece 4 of 9 of the page.
+'
         Page = Page & "<tr><td class=""num"">15</td><td><code>margin_agreements</code></td><td>Margin agreements</td><td>MIXED or SHARED declares an unsupported structure, which the engine rejects.</td><td>code</td><td>no</td"
         Page = Page & "><td><code>MIXED</code>, <code>SHARED</code></td><td>a single agreement or none</td><td></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">16</td><td><code>qccp</code></td><td>QCCP</td><td>Role CCP only, and then required: Y if the CCP is qualifying.</td><td>flag</td><td>no</td><td><code>Y</code>, <code>N</code></td><"
@@ -305,17 +331,10 @@ Private Sub AppendPart3( _
         Page = Page & "<tr><td class=""num"">18</td><td><code>counterparty_sector</code></td><td>Counterparty sector</td><td>FINREP counterparty sector: central banks, general governments, credit institutions, other financial"
         Page = Page & " corporations, non-financial corporations, households. Not used by any SA-CCR rule; a CCP is recognised from its clearing role.</td><td>code</td><td>no</td><td><code>CB</code>, <code>GG</code>, <code>"
         Page = Page & "CI</code>, <code>OFC</code>, <code>NFC</code>, <code>HH</code></td><td>Not classified</td><td><code>CI</code></td></tr>" & vbLf
+        Page = Page & "<tr><td class=""num"">19</td><td><code>counterparty_id</code></td><td>Counterparty ID</td><td>ID of the counterparty on the Counterparties sheet, compared case-insensitively (#831). Not used by any SA-C"
+        Page = Page & "CR rule.</td><td>id (at most 64 characters)</td><td>no</td><td></td><td>not linked</td><td><code>CP-001</code></td></tr>" & vbLf
         Page = Page & "</tbody>" & vbLf
         Page = Page & "</table></div>" & vbLf
-
-End Sub
-
-
-Private Sub AppendPart4( _
-    ByRef Page As String)
-'
-'   Piece 4 of 8 of the page.
-'
         Page = Page & "<h3>Rules between the fields of a record</h3>" & vbLf
         Page = Page & "<ul><li>When <code>clearing_role</code> is <code>CCP</code>, <code>qccp</code>, <code>ccp_retains_variation_margin</code> are required; otherwise <code>qccp</code>, <code>ccp_retains_variation_margin<"
         Page = Page & "/code> are blank.</li></ul>" & vbLf
@@ -323,10 +342,11 @@ Private Sub AppendPart4( _
         Page = Page & "ing member facing its client <code>CM</code>. <code>MULTI</code> declares a multi-level client structure, which the file accepts and the calculation rejects.</p>" & vbLf
         Page = Page & "<h3>Example</h3>" & vbLf
         Page = Page & "<pre class=""csv"" id=""example-nettingsets"">netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margi"
-        Page = Page & "n_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin;counterparty_sector" & vbLf
-        Page = Page & "NS-001;Synthetic Bank, London;Y;N;1;N;N;;-150000;250000;0;100000;;;;;;CI" & vbLf
-        Page = Page & "00731;&quot;M" & ChrW(252) & "ller &amp; S" & ChrW(248) & "n &quot;&quot;Nord&quot;&quot;; &lt;Example&gt; AG&quot;;N;;;;;;;;;;;BCBS;;;;NFC" & vbLf
-        Page = Page & "NS-CCP;Example CCP;Y;CCP;1;N;N;;0;0;0;0;;;;Y;N;" & vbLf
+        Page = Page & "n_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin;counterparty_sector;counterpart"
+        Page = Page & "y_id" & vbLf
+        Page = Page & "NS-001;Synthetic Bank, London;Y;N;1;N;N;;-150000;250000;0;100000;;;;;;CI;CP-001" & vbLf
+        Page = Page & "00731;&quot;M" & ChrW(252) & "ller &amp; S" & ChrW(248) & "n &quot;&quot;Nord&quot;&quot;; &lt;Example&gt; AG&quot;;N;;;;;;;;;;;BCBS;;;;NFC;" & vbLf
+        Page = Page & "NS-CCP;Example CCP;Y;CCP;1;N;N;;0;0;0;0;;;;Y;N;;" & vbLf
         Page = Page & "</pre>" & vbLf
         Page = Page & "</section>" & vbLf
         Page = Page & "<section id=""trades"">" & vbLf
@@ -362,6 +382,15 @@ Private Sub AppendPart4( _
         Page = Page & "Standard</td><td><code>Standard</code></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">10</td><td><code>hedging_set_label</code></td><td>Hedging-set label</td><td>Label of a basis or volatility hedging set; required by the engine for those.</td><td>id (at most 64 cha"
         Page = Page & "racters)</td><td>no</td><td></td><td></td><td></td></tr>" & vbLf
+
+End Sub
+
+
+Private Sub AppendPart5( _
+    ByRef Page As String)
+'
+'   Piece 5 of 9 of the page.
+'
         Page = Page & "<tr><td class=""num"">11</td><td><code>notional_amount</code></td><td>Notional</td><td>Unscaled notional of this leg.</td><td>number (&ge; 0)</td><td>yes</td><td></td><td></td><td><code>10000000</code><"
         Page = Page & "/td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">12</td><td><code>notional_currency</code></td><td>Notional CCY</td><td>Currency of the notional.</td><td>currency</td><td>no</td><td>three capital letters, such as <code>EUR</code>"
@@ -376,15 +405,6 @@ Private Sub AppendPart4( _
         Page = Page & "<tr><td class=""num"">17</td><td><code>maturity_date</code></td><td>Maturity date (M)</td><td>Contractual maturity M.</td><td>date</td><td>no</td><td></td><td></td><td><code>2031-10-01</code></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">18</td><td><code>option_expiry_date</code></td><td>Option expiry (T)</td><td>Option expiry T; required by the engine for an option.</td><td>date</td><td>no</td><td></td><td></td><t"
         Page = Page & "d></td></tr>" & vbLf
-
-End Sub
-
-
-Private Sub AppendPart5( _
-    ByRef Page As String)
-'
-'   Piece 5 of 8 of the page.
-'
         Page = Page & "<tr><td class=""num"">19</td><td><code>underlying_price</code></td><td>Underlying price (P)</td><td>Option underlying price or rate P.</td><td>number</td><td>no</td><td></td><td></td><td></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">20</td><td><code>strike_price</code></td><td>Strike (K)</td><td>Option strike K.</td><td>number</td><td>no</td><td></td><td></td><td></td></tr>" & vbLf
         Page = Page & "<tr><td class=""num"">21</td><td><code>lambda_price</code></td><td>Lambda shift</td><td>Lambda shift added to P and K.</td><td>number (&ge; 0)</td><td>no</td><td></td><td></td><td></td></tr>" & vbLf
@@ -431,6 +451,15 @@ Private Sub AppendPart5( _
         Page = Page & "<tr><td><code>reset</code></td><td><code>CSV-CONTEXT-RESET</code></td><td>The next reset date of an STM trade is after the reporting date.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>currency</code></td><td><code>CSV-CONTEXT-CURRENCY</code></td><td>The notional and MtM currencies have a rate in the FX table; a blank one is the reporting currency, or for the MtM the n"
         Page = Page & "otional currency.</td></tr>" & vbLf
+
+End Sub
+
+
+Private Sub AppendPart6( _
+    ByRef Page As String)
+'
+'   Piece 6 of 9 of the page.
+'
         Page = Page & "<tr><td><code>pair</code></td><td><code>CSV-CONTEXT-PAIR</code></td><td>Both currencies of an FX pair have a rate in the FX table.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>fx-notional</code></td><td><code>CSV-CONTEXT-FX-NOTIONAL</code></td><td>Once both currencies of an FX pair have a rate, the notional currency, or the reporting currency when it is blank,"
         Page = Page & " is one of them.</td></tr>" & vbLf
@@ -445,21 +474,62 @@ Private Sub AppendPart5( _
         Page = Page & "</code>, <code>FX</code>, <code>IR</code>, as the workbook template has. With other Params, a validation may report a matured trade or a missing rate.</p>" & vbLf
         Page = Page & "<pre class=""csv"" id=""example-trades"">trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_"
         Page = Page & "amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;n"
-
-End Sub
-
-
-Private Sub AppendPart6( _
-    ByRef Page As String)
-'
-'   Piece 6 of 8 of the page.
-'
         Page = Page & "ext_reset_date;comment" & vbLf
         Page = Page & "TRD-101-IR;NS-001;IR;;USD;Linear;Short;;;;5000000;USD;-1200000;EUR;2026-10-01;2029-10-01;2029-10-01;;;;;;;TRD-101;Y;;;&quot;Cross-currency swap; MtM on this leg&quot;" & vbLf
         Page = Page & "TRD-101-FX;NS-001;FX;;EUR/USD;Linear;Long;;;;5000000;USD;0;;;;2029-10-01;;;;;;;TRD-101;N;;;" & vbLf
         Page = Page & "000245;00731;EQ;SINGLE;ACME-EQ;Option;Long;Call;;;1000000;EUR;35000;;;;2028-03-31;2027-03-31;100;110;;;;;;;;" & vbLf
         Page = Page & "TRD-STM-1;00731;IR;;EUR;Linear;Short;;;;3000000;EUR;0;;;;2029-12-31;;;;;;;;;STM;2026-12-31;&quot;Settled to market, &quot;&quot;STM&quot;&quot;&quot;" & vbLf
         Page = Page & "TRD-CCP-1;NS-CCP;IR;;GBP;Linear;Long;;;;2000000;GBP;-15000;;;;2028-06-30;;;;;;;;;;;Cleared swap" & vbLf
+        Page = Page & "</pre>" & vbLf
+        Page = Page & "</section>" & vbLf
+        Page = Page & "<section id=""counterparties"">" & vbLf
+        Page = Page & "<h2>Counterparties file</h2>" & vbLf
+        Page = Page & "<p>One record per counterparty. <code>counterparty_id</code> is the key: unique in the file and compared case-insensitively; a netting set names its counterparty by this key in <code>counterparty_id</"
+        Page = Page & "code>, the last column of NettingSets. No SA-CCR rule reads the file: it gives the counterparty's category, group membership, internal limit, LEI and country to the reports.</p>" & vbLf
+        Page = Page & "<p>A blank <code>report_category</code> is a counterparty not classified: the category is never inferred from the name or from the FINREP sector of NettingSets. A blank <code>internal_ead_limit</code>"
+        Page = Page & " is no limit, and <code>0</code> is a limit of zero. The file holds at most 10,000 records; a longer file is rejected whole, never truncated.</p>" & vbLf
+        Page = Page & "<h3>How a file is loaded</h3>" & vbLf
+        Page = Page & "<ul><li>The file is accepted or rejected as a whole: a finding, a file with too many records or a header-only file changes nothing, and the findings are listed in a message.</li><li>A sheet that alrea"
+        Page = Page & "dy holds counterparties asks before they are replaced.</li><li>Every field but the limit is written as text, so <code>00731</code> keeps its leading zeros; the limit is written as a number, and a blan"
+        Page = Page & "k limit is an empty cell.</li></ul>" & vbLf
+        Page = Page & "<h3>Columns</h3>" & vbLf
+        Page = Page & "<div class=""wide""><table>" & vbLf
+        Page = Page & "<thead><tr><th>#</th><th>CSV column (exact header)</th><th>Sheet column</th><th>Meaning</th><th>Type and limits</th><th>Required</th><th>Allowed values</th><th>Blank means</th><th>Example</th></tr></t"
+        Page = Page & "head>" & vbLf
+        Page = Page & "<tbody>" & vbLf
+        Page = Page & "<tr><td class=""num"">1</td><td><code>counterparty_id</code></td><td>CounterpartyID</td><td>Unique counterparty ID, compared case-insensitively; NettingSets refers to it in its Counterparty ID column.</"
+        Page = Page & "td><td>id (at most 64 characters)</td><td>yes</td><td></td><td></td><td><code>CP-001</code></td></tr>" & vbLf
+        Page = Page & "<tr><td class=""num"">2</td><td><code>counterparty_name</code></td><td>Counterparty name</td><td>Name of the counterparty.</td><td>text (at most 500 characters)</td><td>yes</td><td></td><td></td><td><co"
+        Page = Page & "de>Synthetic Bank, London</code></td></tr>" & vbLf
+        Page = Page & "<tr><td class=""num"">3</td><td><code>report_category</code></td><td>Report category</td><td>Category of the counterparty in the report views: bank, non-bank financial institution, corporate, central co"
+        Page = Page & "unterparty or clearing broker. Never inferred from the name or the FINREP sector.</td><td>code</td><td>no</td><td><code>BANK</code>, <code>NBFI</code>, <code>CORPORATE</code>, <code>CCP</code>, <code>"
+        Page = Page & "CLEARING_BROKER</code></td><td>not classified</td><td><code>BANK</code></td></tr>" & vbLf
+        Page = Page & "<tr><td class=""num"">4</td><td><code>intragroup</code></td><td>Intragroup</td><td>Y for a counterparty of the reporting bank&#x27;s own group.</td><td>flag</td><td>no</td><td><code>Y</code>, <code>N</c"
+        Page = Page & "ode></td><td>not provided</td><td><code>N</code></td></tr>" & vbLf
+        Page = Page & "<tr><td class=""num"">5</td><td><code>internal_ead_limit</code></td><td>Internal EAD limit</td><td>Internal limit on the counterparty&#x27;s EAD, in the reporting currency; 0 is a limit of zero, not a m"
+        Page = Page & "issing limit.</td><td>number (&ge; 0)</td><td>no</td><td></td><td>no limit</td><td><code>25000000</code></td></tr>" & vbLf
+        Page = Page & "<tr><td class=""num"">6</td><td><code>lei</code></td><td>LEI</td><td>Legal Entity Identifier (ISO 17442): 20 upper-case letters and digits whose check digits pass ISO 7064 MOD 97-10.</td><td>lei</td><td"
+        Page = Page & ">no</td><td>20 capital letters or digits, the last 2 check digits, such as <code>5493001KJTIIGC8Y1R12</code></td><td>not provided</td><td><code>5493001KJTIIGC8Y1R12</code></td></tr>" & vbLf
+        Page = Page & "<tr><td class=""num"">7</td><td><code>country</code></td><td>Country</td><td>Country of residence of the counterparty, as an ISO 3166-1 alpha-2 code in upper case.</td><td>country</td><td>no</td><td>two"
+        Page = Page & " capital letters, such as <code>IT</code></td><td>not provided</td><td><code>GB</code></td></tr>" & vbLf
+        Page = Page & "<tr><td class=""num"">8</td><td><code>comment</code></td><td>Comment</td><td>Free text, not read by the workbook.</td><td>text (at most 500 characters)</td><td>no</td><td></td><td></td><td><code>Limit w"
+        Page = Page & "ithdrawn</code></td></tr>" & vbLf
+        Page = Page & "</tbody>" & vbLf
+        Page = Page & "</table></div>" & vbLf
+        Page = Page & "<h3>Example</h3>" & vbLf
+        Page = Page & "<pre class=""csv"" id=""example-counterparties"">counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;country;comment" & vbLf
+        Page = Page & "CP-001;Synthetic Bank, London;BANK;N;25000000;5493001KJTIIGC8Y1R12;GB;" & vbLf
+        Page = Page & "CP-002;&quot;Example Corp &quot;&quot;North&quot;&quot;; Ltd&quot;;CORPORATE;;0;;;Limit withdrawn" & vbLf
+
+End Sub
+
+
+Private Sub AppendPart7( _
+    ByRef Page As String)
+'
+'   Piece 7 of 9 of the page.
+'
+        Page = Page & "CP-003;Example CCP;CCP;;;;DE;" & vbLf
         Page = Page & "</pre>" & vbLf
         Page = Page & "</section>" & vbLf
         Page = Page & "<section id=""banknettingsets"">" & vbLf
@@ -514,20 +584,20 @@ Private Sub AppendPart6( _
         Page = Page & "NS-CCP;CRR;0;;;;;;;;;;;&quot;Bank &quot;&quot;EAD&quot;&quot;; zero&quot;" & vbLf
         Page = Page & "</pre>" & vbLf
         Page = Page & "</section>" & vbLf
-
-End Sub
-
-
-Private Sub AppendPart7( _
-    ByRef Page As String)
-'
-'   Piece 7 of 8 of the page.
-'
         Page = Page & "<section id=""banktrades"">" & vbLf
         Page = Page & "<h2>BankTrades file</h2>" & vbLf
         Page = Page & "<p>One record per trade leg: the figures of the bank's own calculation that <code>TradeReconciliation</code> compares with the workbook's. <code>trade_id</code> is the key: unique in the file and comp"
         Page = Page & "ared case-insensitively, matched to the ID on <code>Trades</code>; an ID that is not there is not an error of the file, the reconciliation reports it as <code>MISSING IN CALCULATOR</code>.</p>" & vbLf
         Page = Page & "<p>The file carries no scale and no tolerance: the amount scale and the tolerances stay on the sheet <code>BankTrades</code>, and an amount in the file is written in that scale. A blank figure is not "
+
+End Sub
+
+
+Private Sub AppendPart8( _
+    ByRef Page As String)
+'
+'   Piece 8 of 9 of the page.
+'
         Page = Page & "compared. The file holds at most 50,000 records; a longer file is rejected whole, never truncated.</p>" & vbLf
         Page = Page & "<h3>How a file is loaded</h3>" & vbLf
         Page = Page & "<ul><li>The file is accepted or rejected as a whole: a finding, a file with too many records or a header-only file changes nothing, and the findings are listed in a message.</li><li>A sheet that alrea"
@@ -583,20 +653,20 @@ Private Sub AppendPart7( _
         Page = Page & "<h2>Findings</h2>" & vbLf
         Page = Page & "<p>Every finding of the import and of the validation has one of these codes.</p>" & vbLf
         Page = Page & "<table>" & vbLf
-
-End Sub
-
-
-Private Sub AppendPart8( _
-    ByRef Page As String)
-'
-'   Piece 8 of 8 of the page.
-'
         Page = Page & "<thead><tr><th>Finding</th><th>Meaning</th></tr></thead>" & vbLf
         Page = Page & "<tbody>" & vbLf
         Page = Page & "<tr><td><code>CSV-ENCODING</code></td><td>The file is not valid UTF-8 or contains a NUL character.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>CSV-SYNTAX</code></td><td>The record is not valid CSV: a quote inside an unquoted field, text after a closing quote, a lone CR, or a quoted field left open at the end of the file.</td></"
         Page = Page & "tr>" & vbLf
+
+End Sub
+
+
+Private Sub AppendPart9( _
+    ByRef Page As String)
+'
+'   Piece 9 of 9 of the page.
+'
         Page = Page & "<tr><td><code>CSV-EMPTY</code></td><td>The file has no header record.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>CSV-DELIMITER</code></td><td>The header is a single field that contains a comma or a tab: the file uses another delimiter than &#x27;;&#x27;.</td></tr>" & vbLf
         Page = Page & "<tr><td><code>CSV-HEADER-DUPLICATE</code></td><td>A column name appears more than once in the header.</td></tr>" & vbLf

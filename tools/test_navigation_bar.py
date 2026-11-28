@@ -36,7 +36,7 @@ class NavigationBarTests(unittest.TestCase):
         # The owner's request of 2026-11-26: Home at the top of the bar, above Inputs.
         top, rest = bar.blocks(bar.sections(self.contract().read_text(encoding="utf-8")))
         self.assertEqual([[name for name, _ in items] for _, items in top],
-                         [["Home"], ["Params", "NettingSets", "Trades"]])
+                         [["Home"], ["Params", "NettingSets", "Counterparties", "Trades"]])
         self.assertEqual([title for title, _ in rest], ["Staging", "Outputs", "Reconciliation", "Reference and tests"])
 
     def test_top_block_fits_the_frozen_rows_of_every_sheet(self) -> None:
@@ -109,7 +109,7 @@ class NavigationBarTests(unittest.TestCase):
         # bar shown, the one that shows it saved hidden.
         package = bar.Package(ROOT / bar.TEMPLATE)
         drawings = self.drawings(package)
-        self.assertEqual(len(drawings), 21)
+        self.assertEqual(len(drawings), 22)
         for name, drawing in drawings.items():
             anchors = {n: a for a in bar.ANCHOR.findall(drawing)
                        for n in (bar.TOGGLE_HIDE, bar.TOGGLE_SHOW) if 'name="%s"' % n in a}

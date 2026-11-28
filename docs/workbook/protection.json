@@ -9,11 +9,12 @@
       "unlocked_cells": ["AsOfDate", "ReportingCcy", "Regime", "YearConvention", "Calendar", "FX_Source", "FX_Table+200", "Holiday_Table+100"],
       "notes": "AsOfDate, ReportingCcy, Regime, the day-count convention (the days of the conventional year) and the Calendar, the source of the rates Download prices writes (FX_Source), the FX table, with rows below it for added currencies, and the table of closing days at its right are configuration. Every other value is a reference regulatory parameter, changed only after a maintenance unlock; a run on changed values stays WHAT-IF, except DaycountConvention and IRBucketOffset, conventions that do not change the run class (YearConvention and Calendar do not either)."
     },
-    "NettingSets": {"role": "Input", "unlocked_columns": {"columns": "C:T", "first_row": "NettingSets_Header"}, "allow": ["sorting", "inserting_rows"]},
+    "NettingSets": {"role": "Input", "unlocked_columns": {"columns": "C:U", "first_row": "NettingSets_Header"}, "allow": ["sorting", "inserting_rows"]},
+    "Counterparties": {"role": "Input", "unlocked_columns": {"columns": "C:J", "first_row": "Counterparties_Header"}, "allow": ["sorting", "inserting_rows"], "notes": "The counterparty input (#831), loaded from a CSV file or typed; the notes above the table stay locked."},
     "Trades": {"role": "Input", "unlocked_columns": {"columns": "C:AD", "first_row": "Trades_Header"}, "allow": ["sorting", "filtering", "inserting_rows"]},
     "Import_NettingSets": {
       "role": "Staging",
-      "unlocked_columns": {"columns": "D:U", "first_row": "ImportNettingSets_Header"},
+      "unlocked_columns": {"columns": "D:V", "first_row": "ImportNettingSets_Header"},
       "allow": ["inserting_rows"],
       "notes": "The staged values; the CSV line column and the metadata stay locked."
     },

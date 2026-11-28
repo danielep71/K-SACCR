@@ -1,7 +1,7 @@
 {
   "schema": "ksaccr-csv-contract",
-  "contract_version": 3,
-  "description": "Field-level contract of the K-SACCR CSV files, version 3: the Trades and NettingSets input files (NettingSets version 2, which still reads its version 1 files, and Trades version 1) and the BankNettingSets and BankTrades files of the bank's own figures (version 1). CSV_CONTRACT.md explains it; tools/csv_contract.py implements it.",
+  "contract_version": 4,
+  "description": "Field-level contract of the K-SACCR CSV files, version 4: the Trades and NettingSets input files (NettingSets version 3, which still reads its version 1 and 2 files, and Trades version 1), the Counterparties file of the counterparty input (version 1) and the BankNettingSets and BankTrades files of the bank's own figures (version 1). CSV_CONTRACT.md explains it; tools/csv_contract.py implements it.",
   "format": {
     "encoding": "UTF-8, with or without a byte-order mark",
     "delimiter": ";",
@@ -18,15 +18,19 @@
     "code": {},
     "flag": {"allowed": ["Y", "N"]},
     "currency": {"pattern": "^[A-Z]{3}$"},
+    "lei": {"pattern": "^[A-Z0-9]{18}[0-9]{2}$", "check": "ISO 7064 MOD 97-10"},
+    "country": {"pattern": "^[A-Z]{2}$"},
     "integer": {},
     "number": {},
     "date": {"min": "1950-01-01", "max": "2200-12-31"}
   },
   "files": {
     "NettingSets": {
-      "version": 2,
-      "template": "K-SACCR_NettingSets_v2.csv",
+      "version": 3,
+      "template": "K-SACCR_NettingSets_v3.csv",
       "earlier_versions": [
+        {"version": 2, "template": "K-SACCR_NettingSets_v2.csv",
+         "columns": ["netting_set_id", "counterparty", "margined", "clearing_role", "remargin_period_business_days", "large_or_illiquid", "margin_disputes", "mpor_override_business_days", "variation_margin_net_amount", "independent_collateral_net_amount", "threshold_amount", "minimum_transfer_amount", "alpha_factor", "regime_override", "margin_agreements", "qccp", "ccp_retains_variation_margin", "counterparty_sector"]},
         {"version": 1, "template": "K-SACCR_NettingSets_v1.csv",
          "columns": ["netting_set_id", "counterparty", "margined", "clearing_role", "remargin_period_business_days", "large_or_illiquid", "margin_disputes", "mpor_override_business_days", "variation_margin_net_amount", "independent_collateral_net_amount", "threshold_amount", "minimum_transfer_amount", "alpha_factor", "regime_override", "margin_agreements", "qccp", "ccp_retains_variation_margin"]}
       ],
@@ -35,7 +39,7 @@
       "reserved_keys": ["TOTAL", "TOTAL CRR", "TOTAL BCBS"],
       "max_records": 10000,
       "examples": [
-        {"netting_set_id": "NS-001", "counterparty": "Synthetic Bank, London", "counterparty_sector": "CI", "margined": "Y", "clearing_role": "N", "remargin_period_business_days": "1", "large_or_illiquid": "N", "margin_disputes": "N", "variation_margin_net_amount": "-150000", "independent_collateral_net_amount": "250000", "threshold_amount": "0", "minimum_transfer_amount": "100000"},
+        {"netting_set_id": "NS-001", "counterparty": "Synthetic Bank, London", "counterparty_sector": "CI", "counterparty_id": "CP-001", "margined": "Y", "clearing_role": "N", "remargin_period_business_days": "1", "large_or_illiquid": "N", "margin_disputes": "N", "variation_margin_net_amount": "-150000", "independent_collateral_net_amount": "250000", "threshold_amount": "0", "minimum_transfer_amount": "100000"},
         {"netting_set_id": "00731", "counterparty": "Müller & Søn \"Nord\"; <Example> AG", "counterparty_sector": "NFC", "margined": "N", "regime_override": "BCBS"},
         {"netting_set_id": "NS-CCP", "counterparty": "Example CCP", "margined": "Y", "clearing_role": "CCP", "remargin_period_business_days": "1", "large_or_illiquid": "N", "margin_disputes": "N", "variation_margin_net_amount": "0", "independent_collateral_net_amount": "0", "threshold_amount": "0", "minimum_transfer_amount": "0", "qccp": "Y", "ccp_retains_variation_margin": "N"}
       ],
@@ -88,7 +92,11 @@
          "type": "code", "allowed": ["CB", "GG", "CI", "OFC", "NFC", "HH"], "required": false,
          "blank": "Not classified",
          "description": "FINREP counterparty sector: central banks, general governments, credit institutions, other financial corporations, non-financial corporations, households. Not used by any SA-CCR rule; a CCP is recognised from its clearing role.",
-         "example": "CI"}
+         "example": "CI"},
+        {"name": "counterparty_id", "sheet_header": "Counterparty ID", "type": "id", "required": false,
+         "blank": "not linked",
+         "description": "ID of the counterparty on the Counterparties sheet, compared case-insensitively (#831). Not used by any SA-CCR rule.",
+         "example": "CP-001"}
       ],
       "row_rules": [
         {"id": "ccp-flags", "when": {"clearing_role": "CCP"}, "required": ["qccp", "ccp_retains_variation_margin"],
@@ -180,6 +188,29 @@
          "otherwise_blank": ["next_reset_date"]},
         {"id": "end-after-start", "after": ["end_date", "start_date"]},
         {"id": "detachment-above-attachment", "above": ["detachment_rate", "attachment_rate"]}
+      ]
+    },
+    "Counterparties": {
+      "version": 1,
+      "template": "K-SACCR_Counterparties_v1.csv",
+      "sheet": "Counterparties",
+      "key": "counterparty_id",
+      "reserved_keys": [],
+      "max_records": 10000,
+      "examples": [
+        {"counterparty_id": "CP-001", "counterparty_name": "Synthetic Bank, London", "report_category": "BANK", "intragroup": "N", "internal_ead_limit": "25000000", "lei": "5493001KJTIIGC8Y1R12", "country": "GB"},
+        {"counterparty_id": "CP-002", "counterparty_name": "Example Corp \"North\"; Ltd", "report_category": "CORPORATE", "internal_ead_limit": "0", "comment": "Limit withdrawn"},
+        {"counterparty_id": "CP-003", "counterparty_name": "Example CCP", "report_category": "CCP", "country": "DE"}
+      ],
+      "columns": [
+        {"name": "counterparty_id", "sheet_header": "CounterpartyID", "type": "id", "required": true, "description": "Unique counterparty ID, compared case-insensitively; NettingSets refers to it in its Counterparty ID column.", "example": "CP-001"},
+        {"name": "counterparty_name", "sheet_header": "Counterparty name", "type": "text", "required": true, "description": "Name of the counterparty.", "example": "Synthetic Bank, London"},
+        {"name": "report_category", "sheet_header": "Report category", "type": "code", "allowed": ["BANK", "NBFI", "CORPORATE", "CCP", "CLEARING_BROKER"], "required": false, "blank": "not classified", "description": "Category of the counterparty in the report views: bank, non-bank financial institution, corporate, central counterparty or clearing broker. Never inferred from the name or the FINREP sector.", "example": "BANK"},
+        {"name": "intragroup", "sheet_header": "Intragroup", "type": "flag", "required": false, "blank": "not provided", "description": "Y for a counterparty of the reporting bank's own group.", "example": "N"},
+        {"name": "internal_ead_limit", "sheet_header": "Internal EAD limit", "type": "number", "min": 0, "required": false, "blank": "no limit", "description": "Internal limit on the counterparty's EAD, in the reporting currency; 0 is a limit of zero, not a missing limit.", "example": "25000000"},
+        {"name": "lei", "sheet_header": "LEI", "type": "lei", "required": false, "blank": "not provided", "description": "Legal Entity Identifier (ISO 17442): 20 upper-case letters and digits whose check digits pass ISO 7064 MOD 97-10.", "example": "5493001KJTIIGC8Y1R12"},
+        {"name": "country", "sheet_header": "Country", "type": "country", "required": false, "blank": "not provided", "description": "Country of residence of the counterparty, as an ISO 3166-1 alpha-2 code in upper case.", "example": "GB"},
+        {"name": "comment", "sheet_header": "Comment", "type": "text", "required": false, "description": "Free text, not read by the workbook.", "example": "Limit withdrawn"}
       ]
     },
     "BankNettingSets": {

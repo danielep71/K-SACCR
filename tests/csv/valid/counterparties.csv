@@ -1,0 +1,6 @@
+counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;country;comment
+CP-001;"Synthetic Bank, London";BANK;N;25000000;5493001KJTIIGC8Y1R12;GB;
+00731;"Müller & Søn ""Nord""; AG";CORPORATE;;0;;DE;"Limit withdrawn"
+CP-003;Example Fund;NBFI;;;;;
+CP-004;Group Bank SpA;BANK;Y;1.5e8;529900T8BM49AURSDO55;IT;Intragroup
+cp-005;Unclassified Ltd;;N;;;;

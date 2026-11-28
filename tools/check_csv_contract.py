@@ -37,17 +37,20 @@ EXPECTED = "tests/csv/expected.json"
 CASES = "tests/csv/cases.json"
 PORTFOLIO = "tests/csv/portfolio.json"
 STAGED = "tests/csv/staged.json"
-ENGINE_HEADERS = {"NettingSets": "NS_HEADERS", "Trades": "TR_HEADERS",
+ENGINE_HEADERS = {"NettingSets": "NS_HEADERS", "Trades": "TR_HEADERS", "Counterparties": "CP_HEADERS",
                   "BankNettingSets": "BN_HEADERS", "BankTrades": "BT_HEADERS"}
-ENGINE_WIDTH = {"NettingSets": "NS_NCOLS", "Trades": "TR_NCOLS", "BankNettingSets": "BN_NCOLS", "BankTrades": "BT_NCOLS"}
+ENGINE_WIDTH = {"NettingSets": "NS_NCOLS", "Trades": "TR_NCOLS", "Counterparties": "CP_NCOLS",
+                "BankNettingSets": "BN_NCOLS", "BankTrades": "BT_NCOLS"}
 EXPORT_CONSTANTS = {"NettingSets": ("CSV_NS_FILE", "CSV_NS_HEADER"), "Trades": ("CSV_TR_FILE", "CSV_TR_HEADER"),
+                    "Counterparties": ("CSV_CP_FILE", "CSV_CP_HEADER"),
                     "BankNettingSets": ("CSV_BN_FILE", "CSV_BN_HEADER"), "BankTrades": ("CSV_BT_FILE", "CSV_BT_HEADER")}
-KEY_COLUMN = {"NettingSets": "NettingSetID", "Trades": "TradeID", "BankNettingSets": "NettingSetID", "BankTrades": "TradeID"}
+KEY_COLUMN = {"NettingSets": "NettingSetID", "Trades": "TradeID", "Counterparties": "CounterpartyID",
+              "BankNettingSets": "NettingSetID", "BankTrades": "TradeID"}
 # Staging sheet and its header anchor per file (#208); the header row starts with the CSV line column.
 STAGING = {"NettingSets": ("Import_NettingSets", "ImportNettingSets_Header"),
            "Trades": ("Import_Trades", "ImportTrades_Header")}
 STAGING_KEY = "CSV line"
-TYPES = {"id", "text", "code", "flag", "currency", "integer", "number", "date"}
+TYPES = {"id", "text", "code", "flag", "currency", "lei", "country", "integer", "number", "date"}
 NAME = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
 NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
       "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",

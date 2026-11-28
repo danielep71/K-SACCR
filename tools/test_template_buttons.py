@@ -40,6 +40,9 @@ EXPECTED = {
                     ("btn_RestoreDefaults", "RestoreFormulaTestDefaults", "Restore defaults", BLUE)),
     "Import_NettingSets": tuple((a, b.replace("{import}", "ImportNettingSetsCsv"), c, d) for a, b, c, d in STAGING),
     "Import_Trades": tuple((a, b.replace("{import}", "ImportTradesCsv"), c, d) for a, b, c, d in STAGING),
+    "Counterparties": (("btn_ImportCsv", "ImportCounterpartiesCsv", "Import CSV", NAVY),  # #831
+                       ("btn_ExportCsvTemplate", "ExportCounterpartiesCsvTemplate", "Export CSV template", BLUE),
+                       ("btn_ClearCounterparties", "ClearCounterparties", "Clear counterparties", BLUE)),
     "BankNettingSets": tuple((a, b.replace("{import}", "ImportBankNettingSetsCsv").replace(
         "{export}", "ExportBankNettingSetsCsvTemplate").replace("{clear}", "ClearBankNettingSets"), c, d)
         for a, b, c, d in (BANK_IMPORT, BANK_TEMPLATE, BANK_CLEAR)),

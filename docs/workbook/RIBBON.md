@@ -84,6 +84,8 @@ Each command calls `RibbonAction`, which runs the macro named here.
 | `ksClearOutputs` | Clear outputs | C | `ClearOutputs` |
 | `ksImportNettingSets` | NettingSets file... | I, N | `ImportNettingSetsCsv` |
 | `ksImportTrades` | Trades file... | I, T | `ImportTradesCsv` |
+| `ksImportCounterparties` | Counterparties file... | I, P | `ImportCounterpartiesCsv` |
+| `ksClearCounterparties` | Clear Counterparties... | I, E | `ClearCounterparties` |
 | `ksImportBankNettingSets` | BankNettingSets file... | I, B | `ImportBankNettingSetsCsv` |
 | `ksImportBankTrades` | BankTrades file... | I, L | `ImportBankTradesCsv` |
 | `ksClearBankNettingSets` | Clear BankNettingSets... | I, C | `ClearBankNettingSets` |
@@ -92,6 +94,7 @@ Each command calls `RibbonAction`, which runs the macro named here.
 | `ksCommitImport` | Commit import | M | `CommitImport` |
 | `ksTemplateNettingSets` | NettingSets template... | P, N | `ExportNettingSetsCsvTemplate` |
 | `ksTemplateTrades` | Trades template... | P, T | `ExportTradesCsvTemplate` |
+| `ksTemplateCounterparties` | Counterparties template... | P, C | `ExportCounterpartiesCsvTemplate` |
 | `ksTemplateBankNettingSets` | BankNettingSets template... | P, B | `ExportBankNettingSetsCsvTemplate` |
 | `ksTemplateBankTrades` | BankTrades template... | P, L | `ExportBankTradesCsvTemplate` |
 | `ksImportSpecification` | Import specification... | P, S | `ExportImportSpecification` |
@@ -146,6 +149,7 @@ A renamed sheet tab therefore cannot break an entry. The primary click of
 | Start | `ksGoHome` | Home | `shHome` |
 | Inputs | `ksGoParams` | Params | `shParams` |
 | Inputs | `ksGoNettingSets` | NettingSets | `shNettingSets` |
+| Inputs | `ksGoCounterparties` | Counterparties | `shCounterparties` |
 | Inputs | `ksGoTrades` | Trades | `shTrades` |
 | Staging | `ksGoImportNettingSets` | Import_NettingSets | `shImportNettingSets` |
 | Staging | `ksGoImportTrades` | Import_Trades | `shImportTrades` |

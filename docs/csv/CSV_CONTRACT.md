@@ -24,20 +24,22 @@ workbook exports, this document's tables and the
 
 | File | Version | Sheet | Key | Blank template |
 | --- | --- | --- | --- | --- |
-| NettingSets | 2 | `NettingSets` | `netting_set_id` | [`K-SACCR_NettingSets_v2.csv`](templates/K-SACCR_NettingSets_v2.csv) |
+| NettingSets | 3 | `NettingSets` | `netting_set_id` | [`K-SACCR_NettingSets_v3.csv`](templates/K-SACCR_NettingSets_v3.csv) |
 | Trades | 1 | `Trades` | `trade_id` | [`K-SACCR_Trades_v1.csv`](templates/K-SACCR_Trades_v1.csv) |
+| Counterparties | 1 | `Counterparties` | `counterparty_id` | [`K-SACCR_Counterparties_v1.csv`](templates/K-SACCR_Counterparties_v1.csv) |
 | BankNettingSets | 1 | `BankNettingSets` | `netting_set_id` | [`K-SACCR_BankNettingSets_v1.csv`](templates/K-SACCR_BankNettingSets_v1.csv) |
 | BankTrades | 1 | `BankTrades` | `trade_id` | [`K-SACCR_BankTrades_v1.csv`](templates/K-SACCR_BankTrades_v1.csv) |
 
-A template is the header record alone. The version 1 NettingSets template,
-[`K-SACCR_NettingSets_v1.csv`](templates/K-SACCR_NettingSets_v1.csv), is kept
-for the files written to it, which are still read. Each CSV column maps to exactly one
+A template is the header record alone. The version 1 and 2 NettingSets templates,
+[`K-SACCR_NettingSets_v1.csv`](templates/K-SACCR_NettingSets_v1.csv) and
+[`K-SACCR_NettingSets_v2.csv`](templates/K-SACCR_NettingSets_v2.csv), are kept
+for the files written to them, which are still read. Each CSV column maps to exactly one
 column of its sheet, named in the tables below; the CSV uses short
 `snake_case` names because several sheet headers contain commas and
 brackets.
 
-In the workbook, **NettingSets template**, **Trades template**, **BankNettingSets
-template** and **BankTrades template** in the **Templates** menu of the K-SACCR Ribbon
+In the workbook, **NettingSets template**, **Trades template**, **Counterparties
+template**, **BankNettingSets template** and **BankTrades template** in the **Templates** menu of the K-SACCR Ribbon
 tab write the same file, byte for byte, to a file the user chooses. The macros take the header line from constants in `CORE_Config`,
 which the `check_csv_contract` gate compares with the contract.
 
@@ -94,14 +96,18 @@ guessing what a column means.
 | --- | --- | --- |
 | NettingSets | 1 | The 17 columns from `netting_set_id` to `ccp_retains_variation_margin` (v1.1.0) |
 | NettingSets | 2 | Adds `counterparty_sector`, last (#674) |
+| NettingSets | 3 | Adds `counterparty_id`, last: the link to the Counterparties sheet (#831) |
+| Counterparties | 1 | The 8 columns from `counterparty_id` to `comment` (#831) |
 | Trades | 1 | The 28 columns (v1.1.0) |
 
 A file is read as an earlier version only when its header is exactly that
-version's column set, each column once, in any order. Version 1 NettingSets
-files are still read in this way: `counterparty_sector` is blank in each of
-their records, as if the column were present and empty. Any other header is
-judged against the current version, so a version 1 header with a column
-missing or added reports `counterparty_sector` as missing too. The contract
+version's column set, each column once, in any order. Version 1 and 2
+NettingSets files are still read in this way: the columns they lack,
+`counterparty_sector` and `counterparty_id` for version 1 and `counterparty_id`
+for version 2, are blank in each of their records, as if the columns were
+present and empty. Any other header is judged against the current version, so
+a version 1 header with a column missing or added reports the later columns as
+missing too. The contract
 lists each earlier version that is still read, with its columns and template
 (`earlier_versions` in `contract.json`); `CORE_CsvReader` and
 `tools/csv_contract.py` accept the same sets.
@@ -115,6 +121,8 @@ lists each earlier version that is still read, with its columns and template
 | `code` | One of the listed values | Exact spelling and case, as in the sheet's validation list (`Linear`, `IR`, `CLIENT`); `linear` is rejected |
 | `flag` | `Y` or `N` | Exact; `y`, `Yes`, `TRUE` or `1` are rejected |
 | `currency` | Three capital letters | `EUR`, not `eur` or `€` |
+| `lei` | Twenty capital letters or digits | A Legal Entity Identifier (ISO 17442): 18 capital letters or digits, then 2 check digits that pass ISO 7064 MOD 97-10, as each letter is read as its number from 10 (`A`) to 35 (`Z`) (#831); `5493001KJTIIGC8Y1R12`, not a lower-case or shortened code |
+| `country` | Two capital letters | An ISO 3166-1 alpha-2 code by its form (#831): `IT`, not `it` or `ITA`; whether the code is assigned is not checked |
 | `integer` | `-?digits` | No sign `+`, no leading zero, no decimal point |
 | `number` | `-?digits[.digits][e±digits]` | Decimal point `.`, no thousands separator, no sign `+`, no leading zero (`0.5` is a number, `007.5` is not); at most 15 significant digits, so a value is never rounded when it is read; a non-zero magnitude from 2.2250738585072014e-308 to 9.99999999999999e307, as a worksheet cell holds; `NaN` and `inf` are not numbers |
 | `date` | `yyyy-mm-dd` | A calendar date from 1950-01-01 to 2200-12-31, as the sheet's validation allows; `31/03/2027` and serial numbers are rejected |
@@ -122,7 +130,7 @@ lists each earlier version that is still read, with its columns and template
 Text that starts with `=`, `+`, `-`, `@`, a tab or a carriage return is
 rejected (`CSV-FORMULA`), so a field can never become a formula when it is
 written to a sheet. The rule covers every type except `number` and
-`integer` (`id`, `text`, `code`, `flag`, `currency` and `date`), so a date
+`integer` (`id`, `text`, `code`, `flag`, `currency`, `lei`, `country` and `date`), so a date
 written as `-2027-03-31` is a `CSV-FORMULA` finding, not a `CSV-TYPE` one; a
 negative `number` or `integer` is a value, not a formula.
 
@@ -211,6 +219,7 @@ A bank file has no rule against the other files: an ID that is not on
 | `qccp` | QCCP | flag: `Y`, `N` | no |  | Role CCP only, and then required: Y if the CCP is qualifying. |  |
 | `ccp_retains_variation_margin` | CCP retains VM | flag: `Y`, `N` | no |  | Role CCP only, and then required: Y if the CCP retains VM and the collateral is not protected. |  |
 | `counterparty_sector` | Counterparty sector | code: `CB`, `GG`, `CI`, `OFC`, `NFC`, `HH` | no | Not classified | FINREP counterparty sector: central banks, general governments, credit institutions, other financial corporations, non-financial corporations, households. Not used by any SA-CCR rule; a CCP is recognised from its clearing role. | `CI` |
+| `counterparty_id` | Counterparty ID | id (<= 64 characters) | no | not linked | ID of the counterparty on the Counterparties sheet, compared case-insensitively (#831). Not used by any SA-CCR rule. | `CP-001` |
 <!-- END GENERATED: NettingSets -->
 
 Reserved keys: `TOTAL`, `TOTAL CRR` and `TOTAL BCBS`, in any case, label the
@@ -250,6 +259,28 @@ total rows on `Results` and are rejected as netting-set IDs.
 | `next_reset_date` | Next reset date | date | no |  | STM only, and then required: the first settlement date after the reporting date. |  |
 | `comment` | Comment | text (<= 500 characters) | no |  | Free-text note; not read by the engine. |  |
 <!-- END GENERATED: Trades -->
+
+## 📋 Counterparties columns
+
+<!-- BEGIN GENERATED: Counterparties -->
+| CSV column | Sheet header | Type | Required | Blank means | Description | Example |
+| --- | --- | --- | --- | --- | --- | --- |
+| `counterparty_id` | CounterpartyID | id (<= 64 characters) | yes |  | Unique counterparty ID, compared case-insensitively; NettingSets refers to it in its Counterparty ID column. | `CP-001` |
+| `counterparty_name` | Counterparty name | text (<= 500 characters) | yes |  | Name of the counterparty. | `Synthetic Bank, London` |
+| `report_category` | Report category | code: `BANK`, `NBFI`, `CORPORATE`, `CCP`, `CLEARING_BROKER` | no | not classified | Category of the counterparty in the report views: bank, non-bank financial institution, corporate, central counterparty or clearing broker. Never inferred from the name or the FINREP sector. | `BANK` |
+| `intragroup` | Intragroup | flag: `Y`, `N` | no | not provided | Y for a counterparty of the reporting bank's own group. | `N` |
+| `internal_ead_limit` | Internal EAD limit | number (>= 0) | no | no limit | Internal limit on the counterparty's EAD, in the reporting currency; 0 is a limit of zero, not a missing limit. | `25000000` |
+| `lei` | LEI | LEI: 20 characters, ISO 17442 check digits | no | not provided | Legal Entity Identifier (ISO 17442): 20 upper-case letters and digits whose check digits pass ISO 7064 MOD 97-10. | `5493001KJTIIGC8Y1R12` |
+| `country` | Country | country: ISO 3166-1 alpha-2 | no | not provided | Country of residence of the counterparty, as an ISO 3166-1 alpha-2 code in upper case. | `GB` |
+| `comment` | Comment | text (<= 500 characters) | no |  | Free text, not read by the workbook. | `Limit withdrawn` |
+<!-- END GENERATED: Counterparties -->
+
+The Counterparties file holds the counterparty input of #831: one record per
+counterparty, which a netting set names in its `counterparty_id`. No SA-CCR
+rule reads it. A blank `report_category` is a counterparty not classified, and
+the category is never inferred from the name or from the FINREP sector of
+NettingSets; a blank `intragroup` is not provided; a blank `internal_ead_limit`
+is no limit, and `0` is a limit of zero.
 
 ## 📋 BankNettingSets columns
 
@@ -496,6 +527,18 @@ record limit.
 every fixture and case into the test suite `TEST_CsvReader`, which expects
 the reader to report exactly the findings `tools/csv_contract.py` reports;
 `python tools/check.py` fails when either module is out of date.
+
+## 👥 The Counterparties file
+
+A `Counterparties` file has no staging sheet either (#831): **Counterparties
+file...** in the Import CSV menu of the K-SACCR tab, and the **Import CSV**
+button of the Counterparties sheet, read the file with the reader of this
+contract and write it onto the sheet at once, as for a bank file below: the
+file is accepted or rejected as a whole, a sheet that holds counterparties asks
+before they are replaced, every field but the limit is written as text, the
+limit as a number, and an error while writing puts the old rows back.
+**Clear** on the sheet empties it, after a confirmation. A netting set that
+names an ID the sheet does not hold is not a finding of either file.
 
 ## 🏦 The bank files
 

@@ -191,7 +191,7 @@ def significant_digits(text: str) -> int:
 def check_text(value: str, column: dict[str, Any], types: dict[str, Any]) -> tuple[str, str] | None:
     kind = column["type"]
     limit = types.get(kind, {}).get("max_length")
-    if kind in ("id", "code", "flag", "currency", "integer", "number", "date") and value != value.strip():
+    if kind in ("id", "code", "flag", "currency", "lei", "country", "integer", "number", "date") and value != value.strip():
         return "CSV-TYPE", "leading or trailing spaces"
     if value.startswith(FORMULA_START) and kind not in ("number", "integer"):
         return "CSV-FORMULA", "text starts with a formula character"
@@ -226,6 +226,12 @@ def check_value(value: str, column: dict[str, Any], types: dict[str, Any]) -> tu
         return None if value in allowed else ("CSV-ALLOWED", f"{value!r} is not one of {', '.join(allowed)}")
     if kind == "currency":
         return None if re.match(types["currency"]["pattern"], value) else ("CSV-TYPE", "not a 3-letter code")
+    if kind == "country":
+        return None if re.match(types["country"]["pattern"], value) else ("CSV-TYPE", "not a 2-letter upper-case code")
+    if kind == "lei":
+        if not re.match(types["lei"]["pattern"], value):
+            return "CSV-TYPE", "not 18 upper-case letters or digits and 2 check digits"
+        return None if lei_checksum_ok(value) else ("CSV-TYPE", "the LEI check digits do not pass ISO 7064 MOD 97-10")
     if kind in ("integer", "number"):
         if not (INTEGER if kind == "integer" else NUMBER).match(value):
             return "CSV-TYPE", f"{value!r} is not {'an integer' if kind == 'integer' else 'a number'}"
@@ -239,6 +245,17 @@ def check_value(value: str, column: dict[str, Any], types: dict[str, Any]) -> tu
     if kind == "date":
         return check_date(value, types["date"])
     return None
+
+
+def lei_checksum_ok(value: str) -> bool:
+    """ISO 7064 MOD 97-10 of an LEI (ISO 17442): each letter becomes its number from 10 (A) to 35 (Z), and
+    the whole number, check digits included, leaves 1 when divided by 97. Computed digit by digit, as the
+    VBA reader does, so that no number grows beyond a Long."""
+    remainder = 0
+    for char in value:
+        for digit in str(int(char, 36)):
+            remainder = (remainder * 10 + int(digit)) % 97
+    return remainder == 1
 
 
 def check_date(value: str, limits: dict[str, str]) -> tuple[str, str] | None:
@@ -663,6 +680,10 @@ def describe_type(column: dict[str, Any], types: dict[str, Any]) -> str:
         return "code: " + ", ".join(f"`{value}`" for value in column["allowed"])
     if kind == "flag":
         return "flag: `Y`, `N`"
+    if kind == "lei":
+        return "LEI: 20 characters, ISO 17442 check digits"
+    if kind == "country":
+        return "country: ISO 3166-1 alpha-2"
     limits = [f"{label} {column[key]}" for key, label in (("min", ">="), ("min_exclusive", ">"), ("max", "<="))
               if key in column]
     if kind in ("id", "text"):
@@ -711,7 +732,7 @@ def template_findings(root: Path, contract: dict[str, Any]) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
-    parser.add_argument("--kind", choices=("Trades", "NettingSets"), help="Kind of the file to validate")
+    parser.add_argument("--kind", choices=("Trades", "NettingSets", "Counterparties", "BankNettingSets", "BankTrades"), help="Kind of the file to validate")
     parser.add_argument("file", nargs="?", type=Path, help="CSV file to validate")
     parser.add_argument("--write-templates", action="store_true", help="Write the blank templates and the field tables of CSV_CONTRACT.md")
     args = parser.parse_args()

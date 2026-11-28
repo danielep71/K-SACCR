@@ -8,8 +8,8 @@ Attribute VB_Name = "CORE_Config"
 '   each output table, parameter codes, regime and asset-class codes, the
 '   severity labels and origins written to the Checks sheet, the expected
 '   column headers, the file names and header lines of the blank CSV templates,
-'   the names and statuses of the CSV staging sheets, the bank-figure and
-'   reconciliation layout, the names of the hidden fingerprints, the regulatory
+'   the names and statuses of the CSV staging sheets, the counterparty layout
+'   (#831), the bank-figure and reconciliation layout, the names of the hidden fingerprints, the regulatory
 '   reference parameter set, the FX quote order, the error numbers raised by
 '   the workbook macros and the stable diagnostic codes of the Checks lines
 '   (#81, docs/DIAGNOSTICS.md). When a sheet layout changes, it changes here
@@ -36,7 +36,7 @@ Attribute VB_Name = "CORE_Config"
 '   Excel VBA; no references beyond the defaults.
 '
 ' UPDATED
-'   2026-11-22
+'   2026-11-28
 '
 ' AUTHOR
 '   Daniele Penza
@@ -56,6 +56,7 @@ Attribute VB_Name = "CORE_Config"
         Public Const SH_PARAMS      As String = "Params"         'Parameters, factor and FX tables
         Public Const SH_NS          As String = "NettingSets"    'Netting-set inputs
         Public Const SH_TRADES      As String = "Trades"         'Trade inputs
+        Public Const SH_CPTY        As String = "Counterparties" 'Counterparty input (#831)
         Public Const SH_RESULTS     As String = "Results"        'One row per netting set, and a total
         Public Const SH_HEDGING     As String = "HedgingSets"    'One row per hedging set
         Public Const SH_BUCKETS     As String = "Buckets"        'One row per bucket
@@ -81,11 +82,11 @@ Attribute VB_Name = "CORE_Config"
     'a protected sheet cannot get a new one. The sheets of PROTECT_NONE are
     'never protected: the user works on them (#720). check_workbook_protection
     'compares these lists with the matrix and the template.
-        Public Const PROTECT_SORTING        As String = "|NettingSets|Trades|BankNettingSets|BankTrades|"    'Sorting allowed
+        Public Const PROTECT_SORTING        As String = "|NettingSets|Counterparties|Trades|BankNettingSets|BankTrades|"    'Sorting allowed
         Public Const PROTECT_FILTERING      As String = _
             "|Trades|Basel_vs_CRR|Results|HedgingSets|Buckets|TradeCalc|Checks|"                              'Filtering of the sheet's AutoFilter allowed (#754)
         Public Const PROTECT_INSERTING_ROWS As String = _
-            "|NettingSets|Trades|Import_NettingSets|Import_Trades|BankNettingSets|BankTrades|"              'Inserting rows allowed
+            "|NettingSets|Counterparties|Trades|Import_NettingSets|Import_Trades|BankNettingSets|BankTrades|"    'Inserting rows allowed
         Public Const PROTECT_OUTLINING      As String = "|README|"                                          'Row groups open and close
         Public Const PROTECT_NONE           As String = "|Reconciliation|TradeReconciliation|"               'Never protected (#720)
     'The output sheets whose header row carries the filter buttons (#754): an operation keeps them
@@ -307,7 +308,8 @@ Attribute VB_Name = "CORE_Config"
         Public Const NS_QCCP       As Long = 16    'QCCP (Y/N): role CCP only (#112)
         Public Const NS_RETAINVM   As Long = 17    'CCP retains VM, collateral not protected (Y/N): role CCP only
         Public Const NS_SECTOR     As Long = 18    'Counterparty sector: blank, CB, GG, CI, OFC, NFC or HH (#674)
-        Public Const NS_NCOLS      As Long = 18    'Number of input columns
+        Public Const NS_CPTY_ID    As Long = 19    'Counterparty ID on the Counterparties sheet; blank = not linked (#831)
+        Public Const NS_NCOLS      As Long = 19    'Number of input columns
 
 '------------------------------------------------------------------------------
 ' TRADES INPUT COLUMNS
@@ -397,13 +399,13 @@ Attribute VB_Name = "CORE_Config"
     'feed, which makes the file the template in docs/csv/templates byte for
     'byte; tools/check_csv_contract.py checks these constants against the
     'contract.
-        Public Const CSV_NS_FILE As String = "K-SACCR_NettingSets_v2.csv"
+        Public Const CSV_NS_FILE As String = "K-SACCR_NettingSets_v3.csv"
         Public Const CSV_NS_HEADER As String = "netting_set_id;counterparty;margined;clearing_role;" & _
             "remargin_period_business_days;large_or_illiquid;margin_disputes;" & _
             "mpor_override_business_days;variation_margin_net_amount;" & _
             "independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;" & _
             "alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin;" & _
-            "counterparty_sector"
+            "counterparty_sector;counterparty_id"
         Public Const CSV_TR_FILE As String = "K-SACCR_Trades_v1.csv"
         Public Const CSV_TR_HEADER As String = "trade_id;netting_set_id;asset_class;sub_class;" & _
             "risk_factor;instrument;direction;option_type;nature;hedging_set_label;" & _
@@ -411,6 +413,9 @@ Attribute VB_Name = "CORE_Config"
             "start_date;end_date;maturity_date;option_expiry_date;underlying_price;" & _
             "strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;" & _
             "mtm_leg;settlement_type;next_reset_date;comment"
+        Public Const CSV_CP_FILE As String = "K-SACCR_Counterparties_v1.csv"
+        Public Const CSV_CP_HEADER As String = "counterparty_id;counterparty_name;report_category;" & _
+            "intragroup;internal_ead_limit;lei;country;comment"
         Public Const CSV_BN_FILE As String = "K-SACCR_BankNettingSets_v1.csv"
         Public Const CSV_BN_HEADER As String = "netting_set_id;regime;ead;rc;pfe;addon_aggregate;addon_ir;" & _
             "addon_fx;addon_cr;addon_eq;addon_co;addon_ot;multiplier;comment"
@@ -511,6 +516,24 @@ Attribute VB_Name = "CORE_Config"
         Public Const TC_LAMBDA      As Long = 23    'Lambda shift: a rate for IR, a price for CO
         Public Const TC_REGIME      As Long = 24    'Regime of the leg's netting set (#675)
         Public Const TC_MESSAGES    As Long = 25    'Warnings, or the reasons a trade was excluded
+
+'------------------------------------------------------------------------------
+' COUNTERPARTIES
+'------------------------------------------------------------------------------
+    'The Counterparties sheet holds the counterparty input (#831): one row
+    'per counterparty, which a netting set names in NettingSets column
+    'NS_CPTY_ID. Its table is located through the workbook name of its
+    'first header cell, with data from the next row. No SA-CCR rule reads it.
+        Public Const NM_CP_HEADER   As String = "Counterparties_Header"    'Header cell "CounterpartyID"
+        Public Const CP_ID          As Long = 1     'Counterparty ID
+        Public Const CP_NAME        As Long = 2     'Counterparty name
+        Public Const CP_CATEGORY    As Long = 3     'Report category: blank, BANK, NBFI, CORPORATE, CCP or CLEARING_BROKER
+        Public Const CP_INTRAGROUP  As Long = 4     'Intragroup (Y/N); blank = not provided
+        Public Const CP_LIMIT       As Long = 5     'Internal EAD limit; blank = no limit, 0 = a limit of zero
+        Public Const CP_LEI         As Long = 6     'LEI (ISO 17442)
+        Public Const CP_COUNTRY     As Long = 7     'Country, ISO 3166-1 alpha-2
+        Public Const CP_COMMENT     As Long = 8     'Free-text comment, not read
+        Public Const CP_NCOLS       As Long = 8     'Number of columns
 
 '------------------------------------------------------------------------------
 ' BANK FIGURES

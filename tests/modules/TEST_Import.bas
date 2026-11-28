@@ -135,9 +135,9 @@ Attribute VB_Name = "TEST_Import"
     'Synthetic records: two netting sets, a third with the regime override
     'BCBS, and a trade leg of NS-T1 whose ID, notional and comment each
     'case chooses. The first and third have a counterparty sector (#674).
-        Private Const NS_ROW_1          As String = "NS-T1;CPTY A;Y;N;1;N;N;;0;0;0;0;;;;;;CI"
-        Private Const NS_ROW_2          As String = "NS-T2;CPTY B;N;N;1;N;N;;0;0;0;0;;;;;;"
-        Private Const NS_ROW_BCBS       As String = "NS-T3;CPTY C;N;N;1;N;N;;0;0;0;0;;BCBS;;;;NFC"
+        Private Const NS_ROW_1          As String = "NS-T1;CPTY A;Y;N;1;N;N;;0;0;0;0;;;;;;CI;CP-T1"
+        Private Const NS_ROW_2          As String = "NS-T2;CPTY B;N;N;1;N;N;;0;0;0;0;;;;;;;"
+        Private Const NS_ROW_BCBS       As String = "NS-T3;CPTY C;N;N;1;N;N;;0;0;0;0;;BCBS;;;;NFC;"
     'Table columns of the staging block: the CSV line, then the contract's.
         Private Const COL_LINE          As Long = 1     'CSV line
         Private Const COL_ID            As Long = 2     'trade_id or netting_set_id
@@ -1467,7 +1467,7 @@ Private Sub CaseValidateLiveContext()
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
         TEST_Kit.BeginCase "validate.live-context"
-        WriteCsv CSV_NS_HEADER & vbLf & "CRR-OTHER;CPTY D;N;N;1;N;N;;0;0;0;0;;BCBS;;;;" & vbLf
+        WriteCsv CSV_NS_HEADER & vbLf & "CRR-OTHER;CPTY D;N;N;1;N;N;;0;0;0;0;;BCBS;;;;;" & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
         WriteCsv CSV_TR_HEADER & vbLf
         M_Main.ImportCsv_Silent "Trades", mTestFile, True

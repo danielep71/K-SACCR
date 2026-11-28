@@ -144,21 +144,21 @@
     {
       "name": "non-ascii-and-astral",
       "kind": "NettingSets",
-      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;Soci\u00e9t\u00e9 G\u00e9n\u00e9rale \ud83d\ude00 \u4e2d\u6587;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;Société Générale 😀 中文;Y;N;1;N;N;;0;0;0;0;;;;;\n",
       "records": 1,
       "findings": []
     },
     {
       "name": "id-64-code-points-with-astral",
       "kind": "NettingSets",
-      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\ud83d\ude00;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA😀;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
       "records": 1,
       "findings": []
     },
     {
       "name": "id-65-code-points",
       "kind": "NettingSets",
-      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\ud83d\ude00;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA😀;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
       "records": 0,
       "findings": [
         [
@@ -186,7 +186,7 @@
     {
       "name": "id-trailing-no-break-space",
       "kind": "NettingSets",
-      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1\u00a0;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1 ;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
       "records": 0,
       "findings": [
         [
@@ -200,7 +200,7 @@
     {
       "name": "id-leading-ideographic-space",
       "kind": "NettingSets",
-      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\n\u3000NS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\n　NS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
       "records": 0,
       "findings": [
         [
@@ -235,7 +235,7 @@
     {
       "name": "text-control-characters",
       "kind": "NettingSets",
-      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;A\u0085B;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-2;A\u007fB;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS-1;AB;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-2;AB;Y;N;1;N;N;;0;0;0;0;;;;;\n",
       "records": 0,
       "findings": [
         [
@@ -262,7 +262,7 @@
     {
       "name": "id-control-character",
       "kind": "NettingSets",
-      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS\u007f1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nNS1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
       "records": 0,
       "findings": [
         [
@@ -702,7 +702,7 @@
     {
       "name": "codes-and-currencies",
       "kind": "Trades",
-      "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;IR;;EUR;option;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-1;IR;;EUR;Linear;Long;;;;1000;eur;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT3;NS-1;IR;;EUR;Linear;Long;;;;1000;EURO;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT4;NS-1;IR;;EUR;Linear;Long;;;;1000;\u00c9UR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT5;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;y;;;\nT6;NS-1; IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
+      "text": "trade_id;netting_set_id;asset_class;sub_class;risk_factor;instrument;direction;option_type;nature;hedging_set_label;notional_amount;notional_currency;market_value_amount;market_value_currency;start_date;end_date;maturity_date;option_expiry_date;underlying_price;strike_price;lambda_price;attachment_rate;detachment_rate;economic_trade_id;mtm_leg;settlement_type;next_reset_date;comment\nT1;NS-1;IR;;EUR;option;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT2;NS-1;IR;;EUR;Linear;Long;;;;1000;eur;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT3;NS-1;IR;;EUR;Linear;Long;;;;1000;EURO;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT4;NS-1;IR;;EUR;Linear;Long;;;;1000;ÉUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\nT5;NS-1;IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;y;;;\nT6;NS-1; IR;;EUR;Linear;Long;;;;1000;EUR;0;;;2031-01-02;2031-01-02;;;;;;;;;;;\n",
       "records": 0,
       "findings": [
         [
@@ -806,6 +806,12 @@
           1,
           0,
           "counterparty_sector"
+        ],
+        [
+          "CSV-HEADER-MISSING",
+          1,
+          0,
+          "counterparty_id"
         ]
       ]
     },
@@ -824,9 +830,146 @@
       ]
     },
     {
+      "name": "version-2-header-reads-the-counterparty-id-blank",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin;counterparty_sector\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;;CI\n",
+      "records": 1,
+      "findings": []
+    },
+    {
+      "name": "version-2-header-and-a-version-3-record",
+      "kind": "NettingSets",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin;counterparty_sector\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;;CI;CP-1\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-FIELD-COUNT",
+          2,
+          1,
+          ""
+        ]
+      ]
+    },
+    {
+      "name": "counterparty-codes",
+      "kind": "Counterparties",
+      "text": "counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;country;comment\nA;Bank A;BANK;Y;0;;;\nB;Fund B;NBFI;N;;;;\nC;Corp C;CORPORATE;;1e6;;;\nD;CCP D;CCP;;;;;\nE;Broker E;CLEARING_BROKER;;;;;\nF;Other F;Bank;;;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-ALLOWED",
+          7,
+          6,
+          "report_category"
+        ]
+      ]
+    },
+    {
+      "name": "lei-forms",
+      "kind": "Counterparties",
+      "text": "counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;country;comment\nA;A;;;;5493001KJTIIGC8Y1R12;;\nB;B;;;;5493001KJTIIGC8Y1R21;;\nC;C;;;;5493001KJTIIGC8Y1R1A;;\nD;D;;;;5493001kjtiigc8y1r12;;\nE;E;;;;5493001KJTIIGC8Y1R12 ;;\nF;F;;;;-493001KJTIIGC8Y1R12;;\nG;G;;;;529900T8BM49AURSDO55;;\nH;H;;;;5493001KJTIIGC8Y1R1;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-TYPE",
+          3,
+          2,
+          "lei"
+        ],
+        [
+          "CSV-TYPE",
+          4,
+          3,
+          "lei"
+        ],
+        [
+          "CSV-TYPE",
+          5,
+          4,
+          "lei"
+        ],
+        [
+          "CSV-TYPE",
+          6,
+          5,
+          "lei"
+        ],
+        [
+          "CSV-FORMULA",
+          7,
+          6,
+          "lei"
+        ],
+        [
+          "CSV-TYPE",
+          9,
+          8,
+          "lei"
+        ]
+      ]
+    },
+    {
+      "name": "country-forms",
+      "kind": "Counterparties",
+      "text": "counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;country;comment\nA;A;;;;;IT;\nB;B;;;;;it;\nC;C;;;;;ITA;\nD;D;;;;;I1;\nE;E;;;;;ZZ;\nF;F;;;;; IT;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-TYPE",
+          3,
+          2,
+          "country"
+        ],
+        [
+          "CSV-TYPE",
+          4,
+          3,
+          "country"
+        ],
+        [
+          "CSV-TYPE",
+          5,
+          4,
+          "country"
+        ],
+        [
+          "CSV-TYPE",
+          7,
+          6,
+          "country"
+        ]
+      ]
+    },
+    {
+      "name": "counterparty-limit-and-required",
+      "kind": "Counterparties",
+      "text": "counterparty_id;counterparty_name;report_category;intragroup;internal_ead_limit;lei;country;comment\nA;;;;-0.5;;;\n;B;;;0;;;\nC;C;;;1.5;;;\n",
+      "records": 0,
+      "findings": [
+        [
+          "CSV-REQUIRED",
+          2,
+          1,
+          "counterparty_name"
+        ],
+        [
+          "CSV-RANGE",
+          2,
+          1,
+          "internal_ead_limit"
+        ],
+        [
+          "CSV-REQUIRED",
+          3,
+          2,
+          "counterparty_id"
+        ]
+      ]
+    },
+    {
       "name": "keys-ignore-case",
       "kind": "NettingSets",
-      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nns-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nTotal CRR;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\ncaf\u00e9;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nCAF\u00c9;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
+      "text": "netting_set_id;counterparty;margined;clearing_role;remargin_period_business_days;large_or_illiquid;margin_disputes;mpor_override_business_days;variation_margin_net_amount;independent_collateral_net_amount;threshold_amount;minimum_transfer_amount;alpha_factor;regime_override;margin_agreements;qccp;ccp_retains_variation_margin\nns-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nNS-1;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nTotal CRR;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\ncafé;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\nCAFÉ;CPTY;Y;N;1;N;N;;0;0;0;0;;;;;\n",
       "records": 0,
       "findings": [
         [

@@ -248,6 +248,15 @@ def bank_netting_sets(d: Draw, image: Any) -> None:
     netting_cards(d, 200)
 
 
+def counterparties(d: Draw, image: Any) -> None:
+    """Two people, one behind the other: the counterparties (#831)."""
+    d.ellipse((268, 118, 372, 222), fill=WHITE)
+    d.chord((222, 236, 418, 432), 180, 360, fill=WHITE)
+    d.ellipse((128, 158, 244, 274), fill=NAVY, outline=WHITE, width=W)
+    d.chord((80, 286, 292, 498), 180, 360, fill=NAVY, outline=WHITE, width=W)
+    d.line((80, 392, 292, 392), fill=WHITE, width=W)
+
+
 GLYPHS: dict[str, Callable[[Draw, Any], None]] = {
     "ksiRun": run, "ksiChecklist": checklist, "ksiClear": clear, "ksiImport": import_file,
     "ksiStaging": staging, "ksiCommit": commit, "ksiTemplates": templates, "ksiEvidence": export_file,
@@ -255,7 +264,7 @@ GLYPHS: dict[str, Callable[[Draw, Any], None]] = {
     "ksiTable": table, "ksiGear": gear, "ksiChart": chart, "ksiCalculator": calculator, "ksiBank": bank,
     "ksiCompare": compare, "ksiBook": book, "ksiInfo": info, "ksiSpecification": specification,
     "ksiTrades": trades, "ksiNettingSets": netting_sets, "ksiBankTrades": bank_trades,
-    "ksiBankNettingSets": bank_netting_sets,
+    "ksiBankNettingSets": bank_netting_sets, "ksiCounterparties": counterparties,
 }
 
 

@@ -95,6 +95,26 @@ Use only the categories needed by a release.
 
 ## [Unreleased]
 
+### Added
+
+- Describe the counterparties in a **Counterparties** sheet and link each netting set to one (#831,
+  first part), as the owner decided on 2026-11-28. The sheet, after NettingSets, holds the
+  counterparty ID and name (required), the report category (BANK, NBFI, CORPORATE, CCP or
+  CLEARING_BROKER; blank means not classified), the intragroup flag, an internal EAD limit (0 or
+  more; blank means no limit, 0 is a limit of zero), the LEI (ISO 17442, its check digits tested
+  with ISO 7064 MOD 97-10), the country (ISO 3166-1 alpha-2) and a comment. It is loaded directly
+  from `K-SACCR_Counterparties_v1.csv` as the bank sheets are: **Import CSV**, **Export CSV
+  template** and **Clear counterparties** on the sheet and in the Ribbon (`ksImportCounterparties`,
+  `ksClearCounterparties`, `ksTemplateCounterparties`, `ksGoCounterparties`), and a file with any
+  finding is refused whole. NettingSets gains a last column, **Counterparty ID**, and its CSV file
+  version 3 the column `counterparty_id`; files of version 1 and 2 are still read, with the column
+  blank. The CSV contract is version 4, with the value types `lei` and `country`; the demonstration
+  portfolio links its netting sets to five counterparties. No calculation changes: the column is not
+  read by SA-CCR, and the checks of the link come in the second part of #831. `TEST_CsvReader`
+  has 159 cases and 435 checks; 573 cases and 2619 checks in all. The navigation bar lists
+  Counterparties under Inputs, so row 4 of the sheets that freeze four rows is 40.65 points high
+  instead of 30.
+
 ### Documentation
 
 - The README roadmap follows the plan of 2026-11-28: v1.3.0 was released three months early, so v1.3.5,

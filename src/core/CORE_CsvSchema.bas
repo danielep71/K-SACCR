@@ -12,11 +12,12 @@ Attribute VB_Name = "CORE_CsvSchema"
 '   columns, key, reserved keys, record limit and rules between fields.
 '
 ' PUBLIC SURFACE
-'   None outside this VBA project. CsvSpecOf fills a CsvSpec for "Trades"
-'   or "NettingSets", with its columns (1 To ColumnCount, in contract
+'   None outside this VBA project. CsvSpecOf fills a CsvSpec for each file
+'   of the contract, with its columns (1 To ColumnCount, in contract
 '   order) and rules (1 To RuleCount; erased when there is none); the CSV_
 '   constants hold the format and type limits, and NS_HEADERS, TR_HEADERS,
-'   BN_HEADERS and BT_HEADERS the sheet headers the engine expects (#756).
+'   CP_HEADERS, BN_HEADERS and BT_HEADERS the sheet headers the engine
+'   expects (#756, #831).
 '   Allowed values, reserved keys and column lists are separated by "|",
 '   which no listed value contains.
 '
@@ -34,7 +35,7 @@ Attribute VB_Name = "CORE_CsvSchema"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Public Const CSV_CONTRACT_VERSION As Long = 3    'Contract version
+        Public Const CSV_CONTRACT_VERSION As Long = 4    'Contract version
         Public Const CSV_DELIMITER        As String = ";"    'Field separator
         Public Const CSV_MAX_BYTES        As Long = 134217728    'Largest file, in bytes
         Public Const CSV_MAX_DIGITS       As Long = 15    'Significant digits of a number
@@ -53,13 +54,16 @@ Attribute VB_Name = "CORE_CsvSchema"
             "NettingSetID|Counterparty|Margined|Client clearing role|Remargin freq. (BD)|" & _
             "Large or illiquid|Margin disputes|MPOR override (BD)|Net VM|NICA|Threshold (TH)|" & _
             "MTA|Alpha override|Regime override|Margin agreements|QCCP|CCP retains VM|" & _
-            "Counterparty sector"
+            "Counterparty sector|Counterparty ID"
         Public Const TR_HEADERS As String = _
             "TradeID|NettingSetID|Asset class|Sub-class|Risk factor / reference|Instrument|" & _
             "Direction|Option type|Nature|Hedging-set label|Notional|Notional CCY|MtM|" & _
             "MtM CCY|Start date (S)|End date (E)|Maturity date (M)|Option expiry (T)|" & _
             "Underlying price (P)|Strike (K)|Lambda shift|Attachment (A)|Detachment (D)|" & _
             "Economic trade ID|MtM leg|Settlement type|Next reset date|"
+        Public Const CP_HEADERS As String = _
+            "CounterpartyID|Counterparty name|Report category|Intragroup|Internal EAD limit|" & _
+            "LEI|Country|"
         Public Const BN_HEADERS As String = _
             "NettingSetID|Regime (BCBS / CRR)|EAD|RC|PFE|AddOn aggregate|AddOn IR|AddOn FX|" & _
             "AddOn CR|AddOn EQ|AddOn CO|AddOn OT|Multiplier|"
@@ -74,7 +78,7 @@ Attribute VB_Name = "CORE_CsvSchema"
     'One column of a file.
         Public Type CsvColumn
             ColumnName          As String     'CSV column name
-            Kind                As String     'id, text, code, flag, currency, integer, number or date
+            Kind                As String     'id, text, code, flag, currency, lei, country, integer, number or date
             Required            As Boolean    'A blank value is an error
             Allowed             As String     'Allowed values of a code or flag; "" otherwise
             HasMin              As Boolean    'MinValue applies
@@ -103,7 +107,7 @@ Attribute VB_Name = "CORE_CsvSchema"
 
     'One file of the contract; its columns and rules are separate arrays.
         Public Type CsvSpec
-            Kind                As String     'Trades or NettingSets
+            Kind                As String     'Trades, NettingSets, Counterparties or a bank file
             Sheet               As String     'Sheet the file carries
             Key                 As String     'Column whose values must be unique
             ReservedKeys        As String     'Keys a record may not use
@@ -136,10 +140,10 @@ Public Function CsvSpecOf( _
                 Spec.Key = "netting_set_id"
                 Spec.ReservedKeys = "TOTAL|TOTAL CRR|TOTAL BCBS"
                 Spec.MaxRecords = 10000
-                Spec.Version = 2
-                Spec.EarlierColumns = "netting_set_id|counterparty|margined|clearing_role|remargin_period_business_days|large_or_illiquid|margin_disputes|mpor_override_business_days|variation_margin_net_amount|independent_collateral_net_amount|threshold_amount|minimum_transfer_amount|alpha_factor|regime_override|margin_agreements|qccp|ccp_retains_variation_margin"
-                Spec.ColumnCount = 18
-                ReDim Columns(1 To 18)
+                Spec.Version = 3
+                Spec.EarlierColumns = "netting_set_id|counterparty|margined|clearing_role|remargin_period_business_days|large_or_illiquid|margin_disputes|mpor_override_business_days|variation_margin_net_amount|independent_collateral_net_amount|threshold_amount|minimum_transfer_amount|alpha_factor|regime_override|margin_agreements|qccp|ccp_retains_variation_margin|counterparty_sector netting_set_id|counterparty|margined|clearing_role|remargin_period_business_days|large_or_illiquid|margin_disputes|mpor_override_business_days|variation_margin_net_amount|independent_collateral_net_amount|threshold_amount|minimum_transfer_amount|alpha_factor|regime_override|margin_agreements|qccp|ccp_retains_variation_margin"
+                Spec.ColumnCount = 19
+                ReDim Columns(1 To 19)
                 SetColumn Columns(1), "netting_set_id", "id", True, "", False, 0, False, 0, False, 0
                 SetColumn Columns(2), "counterparty", "text", False, "", False, 0, False, 0, False, 0
                 SetColumn Columns(3), "margined", "flag", False, "Y|N", False, 0, False, 0, False, 0
@@ -158,6 +162,7 @@ Public Function CsvSpecOf( _
                 SetColumn Columns(16), "qccp", "flag", False, "Y|N", False, 0, False, 0, False, 0
                 SetColumn Columns(17), "ccp_retains_variation_margin", "flag", False, "Y|N", False, 0, False, 0, False, 0
                 SetColumn Columns(18), "counterparty_sector", "code", False, "CB|GG|CI|OFC|NFC|HH", False, 0, False, 0, False, 0
+                SetColumn Columns(19), "counterparty_id", "id", False, "", False, 0, False, 0, False, 0
                 Spec.RuleCount = 1
                 ReDim Rules(1 To 1)
                 SetRule Rules(1), "ccp-flags", "when", "clearing_role", "CCP", "qccp|ccp_retains_variation_margin", "qccp|ccp_retains_variation_margin", "", "", "clearing_role|qccp|ccp_retains_variation_margin"
@@ -205,6 +210,27 @@ Public Function CsvSpecOf( _
                 SetRule Rules(1), "stm-reset", "when", "settlement_type", "STM", "next_reset_date", "next_reset_date", "", "", "settlement_type|next_reset_date"
                 SetRule Rules(2), "end-after-start", "after", "", "", "", "", "end_date", "start_date", "end_date|start_date"
                 SetRule Rules(3), "detachment-above-attachment", "above", "", "", "", "", "detachment_rate", "attachment_rate", "detachment_rate|attachment_rate"
+                CsvSpecOf = True
+            Case "Counterparties"
+                Spec.Kind = "Counterparties"
+                Spec.Sheet = "Counterparties"
+                Spec.Key = "counterparty_id"
+                Spec.ReservedKeys = ""
+                Spec.MaxRecords = 10000
+                Spec.Version = 1
+                Spec.EarlierColumns = ""
+                Spec.ColumnCount = 8
+                ReDim Columns(1 To 8)
+                SetColumn Columns(1), "counterparty_id", "id", True, "", False, 0, False, 0, False, 0
+                SetColumn Columns(2), "counterparty_name", "text", True, "", False, 0, False, 0, False, 0
+                SetColumn Columns(3), "report_category", "code", False, "BANK|NBFI|CORPORATE|CCP|CLEARING_BROKER", False, 0, False, 0, False, 0
+                SetColumn Columns(4), "intragroup", "flag", False, "Y|N", False, 0, False, 0, False, 0
+                SetColumn Columns(5), "internal_ead_limit", "number", False, "", True, 0, False, 0, False, 0
+                SetColumn Columns(6), "lei", "lei", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(7), "country", "country", False, "", False, 0, False, 0, False, 0
+                SetColumn Columns(8), "comment", "text", False, "", False, 0, False, 0, False, 0
+                Spec.RuleCount = 0
+                Erase Rules
                 CsvSpecOf = True
             Case "BankNettingSets"
                 Spec.Kind = "BankNettingSets"

@@ -283,7 +283,7 @@ Public Sub RibbonAction( _
 '   formatted run report
 '
 ' UPDATED
-'   2026-11-27
+'   2026-11-28
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -316,6 +316,10 @@ Public Sub RibbonAction( _
                 M_Main.ImportNettingSetsCsv
             Case "ImportTradesCsv"
                 M_Main.ImportTradesCsv
+            Case "ImportCounterpartiesCsv"
+                M_Main.ImportCounterpartiesCsv
+            Case "ClearCounterparties"
+                M_Main.ClearCounterparties
             Case "ImportBankNettingSetsCsv"
                 M_Main.ImportBankNettingSetsCsv
             Case "ImportBankTradesCsv"
@@ -332,6 +336,8 @@ Public Sub RibbonAction( _
                 M_Main.ExportNettingSetsCsvTemplate
             Case "ExportTradesCsvTemplate"
                 M_Main.ExportTradesCsvTemplate
+            Case "ExportCounterpartiesCsvTemplate"
+                M_Main.ExportCounterpartiesCsvTemplate
             Case "ExportBankNettingSetsCsvTemplate"
                 M_Main.ExportBankNettingSetsCsvTemplate
             Case "ExportBankTradesCsvTemplate"
@@ -613,7 +619,7 @@ Public Function RibbonMacro( _
 '   ksExportReport runs ExportReport, the formatted run report (#259)
 '
 ' UPDATED
-'   2026-11-27
+'   2026-11-28
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -633,6 +639,10 @@ Public Function RibbonMacro( _
                 RibbonMacro = "ImportNettingSetsCsv"
             Case "ksImportTrades"
                 RibbonMacro = "ImportTradesCsv"
+            Case "ksImportCounterparties"
+                RibbonMacro = "ImportCounterpartiesCsv"
+            Case "ksClearCounterparties"
+                RibbonMacro = "ClearCounterparties"
             Case "ksImportBankNettingSets"
                 RibbonMacro = "ImportBankNettingSetsCsv"
             Case "ksImportBankTrades"
@@ -649,6 +659,8 @@ Public Function RibbonMacro( _
                 RibbonMacro = "ExportNettingSetsCsvTemplate"
             Case "ksTemplateTrades"
                 RibbonMacro = "ExportTradesCsvTemplate"
+            Case "ksTemplateCounterparties"
+                RibbonMacro = "ExportCounterpartiesCsvTemplate"
             Case "ksTemplateBankNettingSets"
                 RibbonMacro = "ExportBankNettingSetsCsvTemplate"
             Case "ksTemplateBankTrades"
@@ -681,7 +693,7 @@ Public Function RibbonSheet( _
 '   tools/test_ribbon_contract.py checks this map against the contract.
 '
 ' UPDATED
-'   2026-11-05
+'   2026-11-28
 '==============================================================================
 '
         Select Case ControlId
@@ -695,6 +707,8 @@ Public Function RibbonSheet( _
                 RibbonSheet = "shParams"
             Case "ksGoNettingSets"
                 RibbonSheet = "shNettingSets"
+            Case "ksGoCounterparties"
+                RibbonSheet = "shCounterparties"
             Case "ksGoTrades"
                 RibbonSheet = "shTrades"
             Case "ksGoImportNettingSets"

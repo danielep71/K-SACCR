@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate the CSV import specification, a standalone HTML page, from the CSV contract (#473).
 
-The page describes the NettingSets, Trades, BankNettingSets and BankTrades files for a user who has only the
+The page describes the NettingSets, Trades, Counterparties, BankNettingSets and BankTrades files for a user who has only the
 workbook: the file format, the header, the value types, the blank and empty-file
 rules, the limits, every column, the rules between fields, between records and
 against Params, the finding codes, and the synthetic example records of the
@@ -153,6 +153,10 @@ def allowed_text(column: dict[str, Any], types: dict[str, Any]) -> str:
         return listed(types["flag"]["allowed"])
     if column["type"] == "currency":
         return "three capital letters, such as " + code("EUR")
+    if column["type"] == "lei":
+        return "20 capital letters or digits, the last 2 check digits, such as " + code("5493001KJTIIGC8Y1R12")
+    if column["type"] == "country":
+        return "two capital letters, such as " + code("IT")
     return ""
 
 
@@ -225,6 +229,11 @@ def overview(contract: dict[str, Any]) -> str:
         "checks the staged rows of both against each other and against Params; <strong>Commit import</strong> then "
         "replaces the input sheet. The <strong>Templates</strong> menu of the K-SACCR tab writes the blank "
         "template of each file, the header alone.</p>",
+        "<p>The Counterparties file carries one record per counterparty, for the sheet "
+        "<code>Counterparties</code>; a netting set names its counterparty in the last column of NettingSets. "
+        "It has no staging sheet: <strong>Counterparties file...</strong> in the Import CSV menu, or "
+        "<strong>Import CSV</strong> on the sheet, replace the rows of the sheet with the records of a file that "
+        "follows the contract, and change nothing otherwise.</p>",
         "<p>The two bank files carry a bank's own figures, one record per netting set or per leg, for the sheets "
         "<code>BankNettingSets</code> and <code>BankTrades</code>, which <code>Reconciliation</code> and "
         "<code>TradeReconciliation</code> compare with the workbook's results. They have no staging sheet: "
@@ -300,6 +309,10 @@ def value_types(contract: dict[str, Any]) -> str:
          + "."),
         ("flag", listed(types["flag"]["allowed"]), "Exact; " + listed(["y", "Yes", "TRUE", "1"]) + " are rejected."),
         ("currency", "Three capital letters", code("EUR") + ", not " + code("eur") + "."),
+        ("lei", "Twenty capital letters or digits", "A Legal Entity Identifier (ISO 17442): 18 capital letters or "
+         "digits, then 2 check digits that pass ISO 7064 MOD 97-10. A lower-case or shortened code is rejected."),
+        ("country", "Two capital letters", "An ISO 3166-1 alpha-2 code: " + code("IT") + ", not " + code("it")
+         + " or " + code("ITA") + "; whether the code is assigned is not checked."),
         ("integer", code("-?digits"), "No sign " + code("+") + ", no leading zero, no decimal point."),
         ("number", code("-?digits[.digits][e±digits]"), "As under Numbers above; a non-zero magnitude from "
          "2.2250738585072014e-308 to 9.99999999999999e307."),
@@ -387,6 +400,33 @@ def trades_section(contract: dict[str, Any]) -> str:
     ])
 
 
+def counterparties_section(contract: dict[str, Any]) -> str:
+    """The Counterparties file: the counterparty input, loaded onto its sheet (#831)."""
+    spec = contract["files"]["Counterparties"]
+    return "\n".join([
+        f"<p>One record per counterparty. {code(spec['key'])} is the key: unique in the file and compared "
+        f"case-insensitively; a netting set names its counterparty by this key in {code('counterparty_id')}, the "
+        "last column of NettingSets. No SA-CCR rule reads the file: it gives the counterparty's category, group "
+        "membership, internal limit, LEI and country to the reports.</p>",
+        f"<p>A blank {code('report_category')} is a counterparty not classified: the category is never inferred from "
+        f"the name or from the FINREP sector of NettingSets. A blank {code('internal_ead_limit')} is no limit, and "
+        f"{code('0')} is a limit of zero. The file holds at most {spec['max_records']:,} records; a longer file is "
+        "rejected whole, never truncated.</p>",
+        "<h3>How a file is loaded</h3>",
+        "<ul>"
+        "<li>The file is accepted or rejected as a whole: a finding, a file with too many records or a "
+        "header-only file changes nothing, and the findings are listed in a message.</li>"
+        "<li>A sheet that already holds counterparties asks before they are replaced.</li>"
+        f"<li>Every field but the limit is written as text, so {code('00731')} keeps its leading zeros; the limit "
+        "is written as a number, and a blank limit is an empty cell.</li>"
+        "</ul>",
+        "<h3>Columns</h3>",
+        field_table("Counterparties", contract),
+        "<h3>Example</h3>",
+        f'<pre class="csv" id="example-counterparties">{esc(example_text("Counterparties", contract))}</pre>',
+    ])
+
+
 def bank_section(kind: str, contract: dict[str, Any]) -> str:
     """A bank file: the bank's own figures for one reconciliation sheet, loaded onto the sheet (#718)."""
     spec = contract["files"][kind]
@@ -443,6 +483,7 @@ def render(contract: dict[str, Any]) -> str:
         ("blanks", "Blank fields, empty files and limits", blanks_and_limits(contract)),
         ("nettingsets", "NettingSets file", netting_sets_section(contract)),
         ("trades", "Trades file", trades_section(contract)),
+        ("counterparties", "Counterparties file", counterparties_section(contract)),
         ("banknettingsets", "BankNettingSets file", bank_section("BankNettingSets", contract)),
         ("banktrades", "BankTrades file", bank_section("BankTrades", contract)),
         ("examples", "Using the examples", examples_note()),
