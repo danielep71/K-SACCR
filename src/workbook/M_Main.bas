@@ -49,6 +49,10 @@ Attribute VB_Name = "M_Main"
 '   ImportCsv_Silent: the same for a given file. ClearBankNettingSets and
 '   ClearBankTrades: clear the bank figures of a bank sheet after a
 '   confirmation (#815); ClearBank_Silent: the same without one.
+'   ImportCounterpartiesCsv, ClearCounterparties and
+'   ExportCounterpartiesCsvTemplate: the same three commands for the
+'   Counterparties sheet, loaded as a bank sheet is (#831);
+'   ImportBankCsv_Silent and ClearBank_Silent take its kind too.
 '   StagingEdited: the
 '   change handler of the staging sheets. StagingFormulaCell: the first
 '   formula in a staging block, for staging validation and commit.
@@ -229,6 +233,9 @@ Attribute VB_Name = "M_Main"
     'Reconciliations of bank figures (#45).
         Private Const RECON_NS      As Long = 1    'BankNettingSets against Results
         Private Const RECON_TR      As Long = 2    'BankTrades against TradeCalc
+    'The Counterparties sheet (#831), loaded and cleared as a bank sheet is;
+    'never a reconciliation, so the loops from RECON_NS to RECON_TR skip it.
+        Private Const LOAD_CP       As Long = 3    'Counterparties, the counterparty input
 
     'The formatted run report (#259): the kinds of the columns of each table
     'and the measures of a reconciliation that are not amounts, as
@@ -1888,10 +1895,18 @@ Private Function BankSheetOf( _
 '
 '==============================================================================
 ' PURPOSE
-'   The bank sheet of a reconciliation.
+'   The bank sheet of a reconciliation, or Counterparties for LOAD_CP
+'   (#831).
 '==============================================================================
 '
-        BankSheetOf = IIf(ReconKind = RECON_NS, SH_BANK_NS, SH_BANK_TR)
+        Select Case ReconKind
+            Case RECON_NS
+                BankSheetOf = SH_BANK_NS
+            Case LOAD_CP
+                BankSheetOf = SH_CPTY
+            Case Else
+                BankSheetOf = SH_BANK_TR
+        End Select
 
 End Function
 
@@ -1916,10 +1931,18 @@ Private Function HeaderNameOf( _
 '
 '==============================================================================
 ' PURPOSE
-'   The workbook name of the first header cell of a bank table.
+'   The workbook name of the first header cell of a bank table, or of the
+'   Counterparties table for LOAD_CP (#831).
 '==============================================================================
 '
-        HeaderNameOf = IIf(ReconKind = RECON_NS, NM_BN_HEADER, NM_BT_HEADER)
+        Select Case ReconKind
+            Case RECON_NS
+                HeaderNameOf = NM_BN_HEADER
+            Case LOAD_CP
+                HeaderNameOf = NM_CP_HEADER
+            Case Else
+                HeaderNameOf = NM_BT_HEADER
+        End Select
 
 End Function
 
@@ -1950,10 +1973,18 @@ Private Function BankColsOf( _
 '
 '==============================================================================
 ' PURPOSE
-'   The number of columns of a bank table; the last is its comment.
+'   The number of columns of a bank table, or of the Counterparties table
+'   for LOAD_CP (#831); the last is its comment.
 '==============================================================================
 '
-        BankColsOf = IIf(ReconKind = RECON_NS, BN_NCOLS, BT_NCOLS)
+        Select Case ReconKind
+            Case RECON_NS
+                BankColsOf = BN_NCOLS
+            Case LOAD_CP
+                BankColsOf = CP_NCOLS
+            Case Else
+                BankColsOf = BT_NCOLS
+        End Select
 
 End Function
 
@@ -2060,10 +2091,18 @@ Private Function BankHeadersOf( _
 '
 '==============================================================================
 ' PURPOSE
-'   The expected headers of a bank table.
+'   The expected headers of a bank table, or of the Counterparties table
+'   for LOAD_CP (#831).
 '==============================================================================
 '
-        BankHeadersOf = IIf(ReconKind = RECON_NS, BN_HEADERS, BT_HEADERS)
+        Select Case ReconKind
+            Case RECON_NS
+                BankHeadersOf = BN_HEADERS
+            Case LOAD_CP
+                BankHeadersOf = CP_HEADERS
+            Case Else
+                BankHeadersOf = BT_HEADERS
+        End Select
 
 End Function
 
@@ -6482,6 +6521,53 @@ Public Sub ExportTradesCsvTemplate()
 End Sub
 
 
+Public Sub ExportCounterpartiesCsvTemplate()
+
+'
+'------------------------------------------------------------------------------
+'                 WRITE THE BLANK COUNTERPARTIES CSV TEMPLATE
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Writes the blank Counterparties CSV template of the input contract
+'   (#831) to a file chosen by the user: its header line only
+'
+' WHY THIS EXISTS
+'   A user who prepares a Counterparties file starts from the exact header
+'   the import reads
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - As ExportCsvTemplate, for Counterparties
+'
+' ERROR POLICY
+'   As ExportCsvTemplate: reported, never raised
+'
+' DEPENDENCIES
+'   ExportCsvTemplate
+'
+' NOTES
+'   The Counterparties template entry of the Templates menu of the
+'   K-SACCR Ribbon tab, the Export CSV template button of Counterparties,
+'   or the Macros dialog
+'
+' UPDATED
+'   2026-11-28
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' EXPORT
+'------------------------------------------------------------------------------
+    'Ask for the file and write the header line
+        ExportCsvTemplate "Counterparties"
+
+End Sub
+
+
 Public Sub ExportBankNettingSetsCsvTemplate()
 '
 '==============================================================================
@@ -6632,7 +6718,7 @@ Private Function CsvTemplateText( _
 '   docs/csv/templates; "" for an unknown kind.
 '
 ' UPDATED
-'   2026-10-23
+'   2026-11-28
 '==============================================================================
 '
         Select Case Kind
@@ -6640,6 +6726,8 @@ Private Function CsvTemplateText( _
                 CsvTemplateText = CSV_NS_HEADER & vbLf
             Case "Trades"
                 CsvTemplateText = CSV_TR_HEADER & vbLf
+            Case "Counterparties"
+                CsvTemplateText = CSV_CP_HEADER & vbLf
             Case "BankNettingSets"
                 CsvTemplateText = CSV_BN_HEADER & vbLf
             Case "BankTrades"
@@ -6661,7 +6749,7 @@ Private Function CsvTemplateFile( _
 '   kind.
 '
 ' UPDATED
-'   2026-10-23
+'   2026-11-28
 '==============================================================================
 '
         Select Case Kind
@@ -6669,6 +6757,8 @@ Private Function CsvTemplateFile( _
                 CsvTemplateFile = CSV_NS_FILE
             Case "Trades"
                 CsvTemplateFile = CSV_TR_FILE
+            Case "Counterparties"
+                CsvTemplateFile = CSV_CP_FILE
             Case "BankNettingSets"
                 CsvTemplateFile = CSV_BN_FILE
             Case "BankTrades"
@@ -7216,6 +7306,56 @@ Public Sub ImportTradesCsv()
 End Sub
 
 
+Public Sub ImportCounterpartiesCsv()
+
+'
+'------------------------------------------------------------------------------
+'                LOAD A COUNTERPARTIES CSV FILE ONTO ITS SHEET
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Loads a Counterparties CSV file chosen by the user onto Counterparties
+'   (#831): its records replace the rows of the sheet when the whole file
+'   follows the CSV contract, and nothing changes otherwise
+'
+' WHY THIS EXISTS
+'   The counterparty input of a real portfolio is too long to type; the
+'   file has no staging sheet, as a bank file has none
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - As ImportBankCsv, for Counterparties
+'   - Refreshes the K-SACCR tab afterwards
+'
+' ERROR POLICY
+'   As ImportBankCsv: reported, never raised
+'
+' DEPENDENCIES
+'   ImportBankCsv, RibbonStateChanged
+'
+' NOTES
+'   The Counterparties file entry of the Import CSV menu of the K-SACCR
+'   Ribbon tab, the Import CSV button of Counterparties, or the Macros
+'   dialog
+'
+' UPDATED
+'   2026-11-28
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' IMPORT
+'------------------------------------------------------------------------------
+    'Ask for the file, load it and refresh the tab
+        ImportBankCsv "Counterparties"
+        RibbonStateChanged
+
+End Sub
+
+
 Public Sub ImportBankNettingSetsCsv()
 '
 '==============================================================================
@@ -7280,8 +7420,8 @@ Public Function ImportBankCsv_Silent( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   The bank-figure load for automation and tests (#718): read FilePath as a
-'   file of Kind ("BankNettingSets" or "BankTrades") and write its records
-'   onto the bank sheet without asking. A sheet that already holds bank
+'   file of Kind ("BankNettingSets", "BankTrades" or "Counterparties",
+'   #831) and write its records onto its sheet without asking. A sheet that already holds bank
 '   figures is replaced only when ReplaceExisting is True.
 '
 ' RETURNS
@@ -7301,7 +7441,7 @@ Public Function ImportBankCsv_Silent( _
 '   is written is raised after the sheet has been put back as it was.
 '
 ' UPDATED
-'   2026-11-20
+'   2026-11-28
 '==============================================================================
 '
 
@@ -7331,7 +7471,7 @@ Public Function ImportBankCsv_Silent( _
         If Not ReplaceExisting Then
             If BankRowsEntered(ReconKind) Then
                 ImportBankCsv_Silent = "RESULT=REFUSED; reason=" & BankSheetOf(ReconKind) & _
-                                       " holds bank figures; file=" & FilePath
+                                       " holds " & LoadedWhat(ReconKind) & "; file=" & FilePath
                 Exit Function
             End If
         End If
@@ -7339,6 +7479,52 @@ Public Function ImportBankCsv_Silent( _
         ImportBankCsv_Silent = "RESULT=LOADED; records=" & Result.RecordCount & "; file=" & FilePath
 
 End Function
+
+
+Public Sub ClearCounterparties()
+
+'
+'------------------------------------------------------------------------------
+'                       CLEAR THE ROWS OF COUNTERPARTIES
+'------------------------------------------------------------------------------
+' PURPOSE
+'   Clears every row of Counterparties, after a confirmation (#831)
+'
+' WHY THIS EXISTS
+'   The counterparties of another portfolio would be read with the
+'   current netting sets, and a protected sheet gave no clear way to
+'   remove them
+'
+' INPUTS
+'   None
+'
+' RETURNS
+'   Nothing
+'
+' BEHAVIOR
+'   - As ClearBankCommand, for Counterparties
+'
+' ERROR POLICY
+'   As ClearBankCommand: reported, never raised
+'
+' DEPENDENCIES
+'   ClearBankCommand
+'
+' NOTES
+'   The Clear counterparties button of Counterparties, the Import CSV
+'   menu of the K-SACCR Ribbon tab, or the Macros dialog
+'
+' UPDATED
+'   2026-11-28
+'------------------------------------------------------------------------------
+
+'------------------------------------------------------------------------------
+' CLEAR
+'------------------------------------------------------------------------------
+    'Ask, clear and say so
+        ClearBankCommand "Counterparties"
+
+End Sub
 
 
 Public Sub ClearBankNettingSets()
@@ -7452,7 +7638,7 @@ Public Function ClearBank_Silent( _
 '
 ' INPUTS
 '   Kind
-'     BankNettingSets or BankTrades
+'     BankNettingSets, BankTrades or Counterparties (#831)
 '
 ' RETURNS
 '   "RESULT=CLEARED; sheet=<name>; rows=<n>"
@@ -7471,7 +7657,7 @@ Public Function ClearBank_Silent( _
 '   None
 '
 ' UPDATED
-'   2026-11-27
+'   2026-11-28
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -7507,7 +7693,7 @@ Private Sub ClearBankCommand( _
 '
 ' INPUTS
 '   Kind
-'     BankNettingSets or BankTrades
+'     BankNettingSets, BankTrades or Counterparties (#831)
 '
 ' RETURNS
 '   Nothing
@@ -7521,20 +7707,22 @@ Private Sub ClearBankCommand( _
 '     question, clears nothing (automation calls ClearBank_Silent)
 '   - The amount scale and the tolerances are not changed; the next Run
 '     SA-CCR reconciles nothing on this sheet
+'   - On Counterparties the messages speak of counterparties, which no
+'     reconciliation reads (#831)
 '
 ' ERROR POLICY
 '   Reports an error in a message, or in the Immediate window in silent
 '   mode; never raises
 '
 ' DEPENDENCIES
-'   BankReconKind, BankSheetOf, BankEntryRows, ClearBankFigures,
-'   RibbonStateChanged, CountText, Notify
+'   BankReconKind, BankSheetOf, LoadedWhat, BankEntryRows,
+'   ClearBankFigures, RibbonStateChanged, CountText, Notify
 '
 ' NOTES
 '   None
 '
 ' UPDATED
-'   2026-11-27
+'   2026-11-28
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -7563,20 +7751,27 @@ Private Sub ClearBankCommand( _
         End If
     'A sheet without an entry, figure or comment, is left as it is
         If BankEntryRows(ReconKind) = 0 Then
-            Notify SheetName & " holds no bank figures or comments: nothing to clear.", vbInformation
+            Notify SheetName & " holds no " & LoadedWhat(ReconKind) & " or comments: nothing to clear.", vbInformation
             Exit Sub
         End If
     'Silent mode cannot ask
         If gSilent Then
-            Notify "Nothing was cleared." & vbLf & vbLf & "Clear bank figures asks first, which silent mode does " & _
-                   "not show. Automation calls ClearBank_Silent.", vbExclamation
+            Notify "Nothing was cleared." & vbLf & vbLf & "Clearing " & SheetName & " asks first, which silent mode " & _
+                   "does not show. Automation calls ClearBank_Silent.", vbExclamation
             Exit Sub
         End If
     'No is the default
-        If MsgBox("Clear every bank figure and comment of " & SheetName & "?" & vbLf & vbLf & _
-                  "The amount scale and the tolerances stay. The next Run SA-CCR reconciles nothing on " & _
-                  SheetName & " until figures are entered or imported again.", _
-                  vbYesNo + vbExclamation + vbDefaultButton2, MSG_TITLE) <> vbYes Then
+        If ReconKind = LOAD_CP Then
+            If MsgBox("Clear every row of " & SheetName & "?" & vbLf & vbLf & _
+                      "The netting sets keep their Counterparty ID, which then names no counterparty until the " & _
+                      "rows are entered or imported again.", _
+                      vbYesNo + vbExclamation + vbDefaultButton2, MSG_TITLE) <> vbYes Then
+                Exit Sub
+            End If
+        ElseIf MsgBox("Clear every bank figure and comment of " & SheetName & "?" & vbLf & vbLf & _
+                      "The amount scale and the tolerances stay. The next Run SA-CCR reconciles nothing on " & _
+                      SheetName & " until figures are entered or imported again.", _
+                      vbYesNo + vbExclamation + vbDefaultButton2, MSG_TITLE) <> vbYes Then
             Exit Sub
         End If
 
@@ -7586,8 +7781,12 @@ Private Sub ClearBankCommand( _
     'Clear, then say how many rows were cleared
         ClearedRows = ClearBankFigures(ReconKind)
         RibbonStateChanged
-        Notify SheetName & ": " & CountText(ClearedRows, "row") & " of bank figures cleared." & vbLf & vbLf & _
-               "Press Run SA-CCR to refresh the reconciliation.", vbInformation
+        If ReconKind = LOAD_CP Then
+            Notify SheetName & ": " & CountText(ClearedRows, "row") & " cleared.", vbInformation
+        Else
+            Notify SheetName & ": " & CountText(ClearedRows, "row") & " of bank figures cleared." & vbLf & vbLf & _
+                   "Press Run SA-CCR to refresh the reconciliation.", vbInformation
+        End If
 
 '------------------------------------------------------------------------------
 ' EXIT PROCEDURE
@@ -7599,7 +7798,7 @@ Private Sub ClearBankCommand( _
 '------------------------------------------------------------------------------
 ErrorHandler:
     'Say what failed
-        Notify "Clear bank figures: " & Err.Description, vbCritical
+        Notify "Clear " & Kind & ": " & Err.Description, vbCritical
 
 End Sub
 
@@ -8185,10 +8384,10 @@ Private Sub ImportBankCsv( _
 '                     IMPORT A BANK CSV FILE INTO ITS SHEET
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   The interactive load of a bank file (#718): asks for the file, reads
-'   it, says what is wrong with it when it does not follow the contract,
-'   asks before replacing figures that are on the sheet, and writes the
-'   records
+'   The interactive load of a bank file (#718), or of a Counterparties
+'   file (#831): asks for the file, reads it, says what is wrong with it
+'   when it does not follow the contract, asks before replacing the rows
+'   that are on the sheet, and writes the records
 '
 ' WHY THIS EXISTS
 '   The bank figures are compared with the run's (docs/IMPORT.md); the
@@ -8198,7 +8397,7 @@ Private Sub ImportBankCsv( _
 '
 ' INPUTS
 '   Kind
-'     BankNettingSets or BankTrades
+'     BankNettingSets, BankTrades or Counterparties
 '
 ' RETURNS
 '   Nothing
@@ -8217,7 +8416,7 @@ Private Sub ImportBankCsv( _
 '   Reported to the user, never raised
 '
 ' DEPENDENCIES
-'   BankReconKind, BankSheetOf, ReadCsvFile (CORE_CsvReader),
+'   BankReconKind, BankSheetOf, LoadedWhat, ReadCsvFile (CORE_CsvReader),
 '   CsvCheckMessage, CutText, BankRowsEntered, LoadBank, ProgressStart,
 '   ProgressShow, ProgressEnd, ProgressSink, Notify
 '
@@ -8226,7 +8425,7 @@ Private Sub ImportBankCsv( _
 '   back first (ProgressEnd)
 '
 ' UPDATED
-'   2026-11-27
+'   2026-11-28
 '------------------------------------------------------------------------------
 
 '------------------------------------------------------------------------------
@@ -8292,7 +8491,7 @@ Private Sub ImportBankCsv( _
         If BankRowsEntered(ReconKind) Then
             If Not gSilent Then
                 ProgressEnd
-                If MsgBox(SheetName & " holds bank figures." & vbLf & vbLf & "Replace them with the " & _
+                If MsgBox(SheetName & " holds " & LoadedWhat(ReconKind) & "." & vbLf & vbLf & "Replace them with the " & _
                           Result.RecordCount & " records of " & CutText(CStr(ChosenFile), CSV_MESSAGE_PATH, True) & "?", _
                           vbYesNo + vbExclamation + vbDefaultButton2, MSG_TITLE) <> vbYes Then
                     Exit Sub
@@ -8309,10 +8508,15 @@ Private Sub ImportBankCsv( _
         LoadBank ReconKind, Result, Values
         ProgressShow 10, 10, "done"
         ThisWorkbook.Worksheets(SheetName).Activate
-        Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, _
-                               "Loaded into " & SheetName & ": " & Result.RecordCount & " records." & vbLf & _
-                               "The amount scale and the tolerances of the sheet are unchanged; press Run SA-CCR to reconcile."), _
-               vbInformation
+        If ReconKind = LOAD_CP Then
+            Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, _
+                                   "Loaded into " & SheetName & ": " & Result.RecordCount & " records."), vbInformation
+        Else
+            Notify CsvCheckMessage(CStr(ChosenFile), Result, Findings, _
+                                   "Loaded into " & SheetName & ": " & Result.RecordCount & " records." & vbLf & _
+                                   "The amount scale and the tolerances of the sheet are unchanged; press Run SA-CCR to reconcile."), _
+                   vbInformation
+        End If
 
 '------------------------------------------------------------------------------
 ' EXIT PROCEDURE
@@ -8339,13 +8543,15 @@ Private Function BankReconKind( _
 '                               BankReconKind
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   The reconciliation (RECON_NS or RECON_TR) of the bank file Kind.
+'   The reconciliation (RECON_NS or RECON_TR) of the bank file Kind, or
+'   LOAD_CP for a Counterparties file, loaded as a bank file is (#831).
 '
 ' ERROR POLICY
-'   Raises ERR_CSV_READ for a kind that is not a bank file.
+'   Raises ERR_CSV_READ for a kind that is not a bank or Counterparties
+'   file.
 '
 ' UPDATED
-'   2026-11-20
+'   2026-11-28
 '==============================================================================
 '
         Select Case Kind
@@ -8353,9 +8559,48 @@ Private Function BankReconKind( _
                 BankReconKind = RECON_NS
             Case "BankTrades"
                 BankReconKind = RECON_TR
+            Case "Counterparties"
+                BankReconKind = LOAD_CP
             Case Else
                 Err.Raise ERR_CSV_READ, "M_Main.BankReconKind", "unknown bank CSV kind '" & Kind & "'"
         End Select
+
+End Function
+
+
+Private Function LoadKindOf( _
+    ByVal ReconKind As Long) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   The CSV kind of a sheet loaded as a bank sheet is: BankNettingSets,
+'   BankTrades or Counterparties (#831).
+'==============================================================================
+'
+        Select Case ReconKind
+            Case RECON_NS
+                LoadKindOf = "BankNettingSets"
+            Case LOAD_CP
+                LoadKindOf = "Counterparties"
+            Case Else
+                LoadKindOf = "BankTrades"
+        End Select
+
+End Function
+
+
+Private Function LoadedWhat( _
+    ByVal ReconKind As Long) _
+    As String
+'
+'==============================================================================
+' PURPOSE
+'   What the rows of a loaded sheet are, for the messages: "counterparties"
+'   on Counterparties (#831), "bank figures" on a bank sheet.
+'==============================================================================
+'
+        LoadedWhat = IIf(ReconKind = LOAD_CP, "counterparties", "bank figures")
 
 End Function
 
@@ -8370,10 +8615,11 @@ Private Sub LoadBank( _
 '------------------------------------------------------------------------------
 ' PURPOSE
 '   Write the records of an accepted bank file onto the bank sheet (#718),
-'   from the first row below the header: the identifiers, the regime and
-'   the comment as text, the figures as numbers, a blank figure as an empty
-'   cell. The figures and comments of the sheet are cleared first. The
-'   amount scale and the tolerances, above the table, are not touched.
+'   or of a Counterparties file onto Counterparties (#831), from the first
+'   row below the header: the identifiers, the codes and the comment as
+'   text, the figures as numbers, a blank figure as an empty cell. The rows
+'   of the sheet are cleared first. The amount scale and the tolerances of
+'   a bank sheet, above the table, are not touched.
 '
 ' ERROR POLICY
 '   Raises ERR_RUN_ACTIVE while an operation runs, ERR_STAGING_WRITE for a
@@ -8383,7 +8629,7 @@ Private Sub LoadBank( _
 '   its description.
 '
 ' UPDATED
-'   2026-11-20
+'   2026-11-28
 '==============================================================================
 '
 
@@ -8420,7 +8666,7 @@ Private Sub LoadBank( _
         If mRunning Then
             Err.Raise ERR_RUN_ACTIVE, "M_Main.LoadBank", "An SA-CCR operation is already running."
         End If
-        Kind = IIf(ReconKind = RECON_NS, "BankNettingSets", "BankTrades")
+        Kind = LoadKindOf(ReconKind)
         HeaderRow = BankHeaderRow(ReconKind)
         If HeaderRow = 0 Then
             Err.Raise ERR_STAGING_WRITE, "M_Main.LoadBank", _

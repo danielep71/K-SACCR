@@ -27,6 +27,25 @@
         ["CSV-TYPE", 5, 4, "maturity"]
       ]
     },
+    "invalid/counterparties-fields.csv": {
+      "kind": "Counterparties",
+      "records": 0,
+      "findings": [
+        ["CSV-TYPE", 2, 1, "country"],
+        ["CSV-RANGE", 2, 1, "internal_ead_limit"],
+        ["CSV-ALLOWED", 2, 1, "intragroup"],
+        ["CSV-TYPE", 2, 1, "lei"],
+        ["CSV-ALLOWED", 2, 1, "report_category"],
+        ["CSV-REQUIRED", 3, 2, "counterparty_name"],
+        ["CSV-TYPE", 3, 2, "country"],
+        ["CSV-TYPE", 3, 2, "lei"],
+        ["CSV-FORMULA", 3, 2, "national_code"],
+        ["CSV-FORMULA", 4, 3, "comment"],
+        ["CSV-DUPLICATE-KEY", 4, 3, "counterparty_id"],
+        ["CSV-TYPE", 4, 3, "lei"],
+        ["CSV-REQUIRED", 5, 4, "counterparty_id"]
+      ]
+    },
     "invalid/netting-sets-fields.csv": {
       "kind": "NettingSets",
       "records": 0,
@@ -55,7 +74,8 @@
         ["CSV-HEADER-DUPLICATE", 1, 0, "qccp"],
         ["CSV-HEADER-UNKNOWN", 1, 0, "cpty_rating"],
         ["CSV-HEADER-MISSING", 1, 0, "ccp_retains_variation_margin"],
-        ["CSV-HEADER-MISSING", 1, 0, "counterparty_sector"]
+        ["CSV-HEADER-MISSING", 1, 0, "counterparty_sector"],
+        ["CSV-HEADER-MISSING", 1, 0, "counterparty_id"]
       ]
     },
     "invalid/netting-sets-keys-and-rules.csv": {
@@ -126,12 +146,22 @@
       "records": 3,
       "findings": []
     },
+    "valid/counterparties.csv": {
+      "kind": "Counterparties",
+      "records": 5,
+      "findings": []
+    },
     "valid/netting-sets-reordered.csv": {
       "kind": "NettingSets",
       "records": 2,
       "findings": []
     },
     "valid/netting-sets-v1.csv": {
+      "kind": "NettingSets",
+      "records": 8,
+      "findings": []
+    },
+    "valid/netting-sets-v2.csv": {
       "kind": "NettingSets",
       "records": 8,
       "findings": []

@@ -18,10 +18,10 @@ HEADER_HEIGHT = 63.75             # the column header of an output table
 HEADER_TOP = 110.1                # where the first table or column header starts
 GROUPS = {
     "no frozen header": (("Home", "Params", "NettingSets", "Trades", "Dashboard", "ReconSummary", "FormulaTest",
-                          "README"), 110.1),
+                          "README"), 120.75),  # row 4 holds the bar's top block: four inputs since #831
     "tables": (("Results", "HedgingSets", "Buckets", "TradeCalc", "Checks", "TestCatalogue", "Basel_vs_CRR"), 173.85),
     "staging sheets": (("Import_NettingSets", "Import_Trades"), 235.35),
-    "bank sheets": (("BankNettingSets", "BankTrades"), 205.5),
+    "bank sheets": (("Counterparties", "BankNettingSets", "BankTrades"), 205.5),  # loaded from a CSV file (#831)
     "reconciliation sheets": (("Reconciliation", "TradeReconciliation"), 269.85),
 }
 OUTPUT_HEADERS = {"Results": 6, "HedgingSets": 5, "Buckets": 5, "TradeCalc": 5, "Checks": 5, "TestCatalogue": 6,

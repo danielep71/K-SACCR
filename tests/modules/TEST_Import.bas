@@ -135,9 +135,9 @@ Attribute VB_Name = "TEST_Import"
     'Synthetic records: two netting sets, a third with the regime override
     'BCBS, and a trade leg of NS-T1 whose ID, notional and comment each
     'case chooses. The first and third have a counterparty sector (#674).
-        Private Const NS_ROW_1          As String = "NS-T1;CPTY A;Y;N;1;N;N;;0;0;0;0;;;;;;CI"
-        Private Const NS_ROW_2          As String = "NS-T2;CPTY B;N;N;1;N;N;;0;0;0;0;;;;;;"
-        Private Const NS_ROW_BCBS       As String = "NS-T3;CPTY C;N;N;1;N;N;;0;0;0;0;;BCBS;;;;NFC"
+        Private Const NS_ROW_1          As String = "NS-T1;CPTY A;Y;N;1;N;N;;0;0;0;0;;;;;;CI;CP-T1"
+        Private Const NS_ROW_2          As String = "NS-T2;CPTY B;N;N;1;N;N;;0;0;0;0;;;;;;;"
+        Private Const NS_ROW_BCBS       As String = "NS-T3;CPTY C;N;N;1;N;N;;0;0;0;0;;BCBS;;;;NFC;"
     'Table columns of the staging block: the CSV line, then the contract's.
         Private Const COL_LINE          As Long = 1     'CSV line
         Private Const COL_ID            As Long = 2     'trade_id or netting_set_id
@@ -1467,7 +1467,7 @@ Private Sub CaseValidateLiveContext()
 '------------------------------------------------------------------------------
         On Error GoTo Unexpected
         TEST_Kit.BeginCase "validate.live-context"
-        WriteCsv CSV_NS_HEADER & vbLf & "CRR-OTHER;CPTY D;N;N;1;N;N;;0;0;0;0;;BCBS;;;;" & vbLf
+        WriteCsv CSV_NS_HEADER & vbLf & "CRR-OTHER;CPTY D;N;N;1;N;N;;0;0;0;0;;BCBS;;;;;" & vbLf
         M_Main.ImportCsv_Silent "NettingSets", mTestFile, True
         WriteCsv CSV_TR_HEADER & vbLf
         M_Main.ImportCsv_Silent "Trades", mTestFile, True
@@ -1928,8 +1928,9 @@ Private Sub CaseCommitSector()
 ' PURPOSE
 '   The counterparty sector (#674). The page's example files are validated
 '   and committed: NettingSets has the example's sectors, CI and NFC, and
-'   none for the CCP. The NettingSets example is then written as a
-'   version 1 file, without the sector column: it is loaded with no
+'   none for the CCP. The NettingSets example, a version 3 file, is then
+'   written as a version 1 file, without its last two columns, the
+'   counterparty ID (#831) and the sector: it is loaded with no
 '   finding and its staged sectors are blank; with a Trades file of its
 '   header only, the validation is VALID and the commit leaves every
 '   sector blank. The suite then puts the input sheets back.
@@ -1969,7 +1970,7 @@ Private Sub CaseCommitSector()
 '------------------------------------------------------------------------------
 ' VERSION 1: READ WITH THE SECTOR BLANK
 '------------------------------------------------------------------------------
-        WriteCsv WithoutLastColumn(CORE_ImportSpec.ImportSpecExample("NettingSets"))
+        WriteCsv WithoutLastColumn(WithoutLastColumn(CORE_ImportSpec.ImportSpecExample("NettingSets")))
         ResultLine = M_Main.ImportCsv_Silent("NettingSets", mTestFile, True)
         CheckText "version 1 load", ResultLine, "RESULT=LOADED; records=3; findings=0; file=" & mTestFile
         Sectors = CStr(CellValue(KIND_NS, 1, COL_NS_SECTOR)) & "|" & CStr(CellValue(KIND_NS, 2, COL_NS_SECTOR)) & _

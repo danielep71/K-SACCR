@@ -32,7 +32,7 @@ from import_spec import example_text, render
 
 SCHEMA = "src/core/CORE_CsvSchema.bas"
 # The constant of the expected sheet headers of each file, which the engine compares with the header row (#35).
-HEADER_CONSTANTS = {"NettingSets": "NS_HEADERS", "Trades": "TR_HEADERS",
+HEADER_CONSTANTS = {"NettingSets": "NS_HEADERS", "Trades": "TR_HEADERS", "Counterparties": "CP_HEADERS",
                     "BankNettingSets": "BN_HEADERS", "BankTrades": "BT_HEADERS"}
 UNREAD_COLUMNS = {"comment"}   # Columns the engine does not read: an empty entry in the expected headers
 HEADER_PIECE = 80              # Characters of a header constant per continuation line
@@ -50,8 +50,12 @@ CONTEXT = "tests/csv/context.json"
 REJECTED_FIXTURE = "invalid/trades-fields-and-rules.csv"
 # What the reader implements for each type; a contract that asks for anything else needs reader code first.
 TYPES = {"id": {"max_length", "forbidden"}, "text": {"max_length"}, "code": set(), "flag": {"allowed"},
-         "currency": {"pattern"}, "integer": set(), "number": set(), "date": {"min", "max"}}
+         "currency": {"pattern"}, "lei": {"pattern", "check"}, "country": {"pattern"},
+         "integer": set(), "number": set(), "date": {"min", "max"}}
 CURRENCY_PATTERN = "^[A-Z]{3}$"
+# The forms CORE_CsvReader checks for an LEI (IsLeiForm, LeiChecksumOk) and a country (IsCountryCode), #831.
+LEI_TYPE = {"pattern": "^[A-Z0-9]{18}[0-9]{2}$", "check": "ISO 7064 MOD 97-10"}
+COUNTRY_PATTERN = "^[A-Z]{2}$"
 # Bytes per VBA string literal of hex, so that a line stays near 100 columns.
 HEX_PER_LINE = 80
 
@@ -100,6 +104,8 @@ def check_supported(contract: dict[str, Any]) -> None:
             raise ValueError(f"type {kind}: settings {sorted(contract['types'][kind])} are not supported")
     if contract["types"]["currency"]["pattern"] != CURRENCY_PATTERN:
         raise ValueError("currency pattern differs from what CORE_CsvReader implements")
+    if contract["types"]["lei"] != LEI_TYPE or contract["types"]["country"]["pattern"] != COUNTRY_PATTERN:
+        raise ValueError("LEI or country form differs from what CORE_CsvReader implements")
     for spec in contract["files"].values():
         for rule in spec.get("row_rules", []):
             if not ({"when", "required", "otherwise_blank"} == set(rule) - {"id"} or
@@ -121,11 +127,12 @@ SCHEMA_HEADER = '''Attribute VB_Name = "CORE_CsvSchema"
 '   columns, key, reserved keys, record limit and rules between fields.
 '
 ' PUBLIC SURFACE
-'   None outside this VBA project. CsvSpecOf fills a CsvSpec for "Trades"
-'   or "NettingSets", with its columns (1 To ColumnCount, in contract
+'   None outside this VBA project. CsvSpecOf fills a CsvSpec for each file
+'   of the contract, with its columns (1 To ColumnCount, in contract
 '   order) and rules (1 To RuleCount; erased when there is none); the CSV_
 '   constants hold the format and type limits, and NS_HEADERS, TR_HEADERS,
-'   BN_HEADERS and BT_HEADERS the sheet headers the engine expects (#756).
+'   CP_HEADERS, BN_HEADERS and BT_HEADERS the sheet headers the engine
+'   expects (#756, #831).
 '   Allowed values, reserved keys and column lists are separated by "|",
 '   which no listed value contains.
 '
@@ -152,7 +159,7 @@ SCHEMA_TYPES = '''
     'One column of a file.
         Public Type CsvColumn
             ColumnName          As String     'CSV column name
-            Kind                As String     'id, text, code, flag, currency, integer, number or date
+            Kind                As String     'id, text, code, flag, currency, lei, country, integer, number or date
             Required            As Boolean    'A blank value is an error
             Allowed             As String     'Allowed values of a code or flag; "" otherwise
             HasMin              As Boolean    'MinValue applies
@@ -181,7 +188,7 @@ SCHEMA_TYPES = '''
 
     'One file of the contract; its columns and rules are separate arrays.
         Public Type CsvSpec
-            Kind                As String     'Trades or NettingSets
+            Kind                As String     'Trades, NettingSets, Counterparties or a bank file
             Sheet               As String     'Sheet the file carries
             Key                 As String     'Column whose values must be unique
             ReservedKeys        As String     'Keys a record may not use

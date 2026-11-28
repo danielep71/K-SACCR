@@ -43,8 +43,8 @@ Attribute VB_Name = "TEST_CsvReader"
 '------------------------------------------------------------------------------
 ' MODULE CONSTANTS
 '------------------------------------------------------------------------------
-        Private Const EXPECTED_CASES    As Long = 144    'Cases in a complete run
-        Private Const EXPECTED_CHECKS   As Long = 385    'Checks in a complete run
+        Private Const EXPECTED_CASES    As Long = 159    'Cases in a complete run
+        Private Const EXPECTED_CHECKS   As Long = 435    'Checks in a complete run
         Private Const ROUND_TRIP_LAST_LINE As Long = 11    'Line of the last record of valid/trades.csv
         Private Const ROUND_TRIP_RESULT As String = "RESULT=ACCEPTED; records=9"    'ReadCsv_Silent on it
         Private Const REJECTED_RESULT   As String = "RESULT=REJECTED; findings=16; first=CSV-RANGE|2|1|attachment_rate"    'ReadCsv_Silent on invalid/trades-fields-and-rules.csv
@@ -76,6 +76,9 @@ Public Sub RunCsvReaderTests()
         Fixture14
         Fixture15
         Fixture16
+        Fixture17
+        Fixture18
+        Fixture19
         Case01
         Case02
         Case03
@@ -135,6 +138,12 @@ Public Sub RunCsvReaderTests()
         Case57
         Case58
         Case59
+        Case60
+        Case61
+        Case62
+        Case63
+        Case64
+        Case65
         Portfolio01
         Portfolio02
         Portfolio03
@@ -787,6 +796,35 @@ End Sub
 
 
 Private Sub Fixture03()
+    'Fixture invalid/counterparties-fields.csv.
+    Dim HexText     As String    'The file
+    Dim Expected    As String    'Its findings
+    Dim Values      As String    'Its values
+        HexText = "636F756E74657270617274795F69643B636F756E74657270617274795F6E616D653B7265706F72745F63617465676F72793B696E74726167726F75703B696E7465726E616C5F6561645F6C696D69743B"
+        HexText = HexText & "6C65693B6E6174696F6E616C5F636F64653B636F756E7472793B636F6D6D656E740A43502D3030313B42616E6B20413B42414E4B533B793B2D313B353439333030314B4A54494947433859315231333B"
+        HexText = HexText & "3B67623B0A43502D3030323B3B4343503B4E3B313030303B353439333030316B6A74696967633879317231323B3D48595045524C494E4B2831293B4954413B0A63702D3030313B4475706C6963617465"
+        HexText = HexText & "3B434C454152494E475F42524F4B45523B4E3B303B353439333030314B4A544949474338593152313B3B49543B3D53554D2831290A3B4E6F2049443B4E4246493B3B3B3B3B3B0A"
+        Expected = ""
+        Expected = "CSV-TYPE|2|1|country"
+        Expected = Expected & vbLf & "CSV-RANGE|2|1|internal_ead_limit"
+        Expected = Expected & vbLf & "CSV-ALLOWED|2|1|intragroup"
+        Expected = Expected & vbLf & "CSV-TYPE|2|1|lei"
+        Expected = Expected & vbLf & "CSV-ALLOWED|2|1|report_category"
+        Expected = Expected & vbLf & "CSV-REQUIRED|3|2|counterparty_name"
+        Expected = Expected & vbLf & "CSV-TYPE|3|2|country"
+        Expected = Expected & vbLf & "CSV-TYPE|3|2|lei"
+        Expected = Expected & vbLf & "CSV-FORMULA|3|2|national_code"
+        Expected = Expected & vbLf & "CSV-FORMULA|4|3|comment"
+        Expected = Expected & vbLf & "CSV-DUPLICATE-KEY|4|3|counterparty_id"
+        Expected = Expected & vbLf & "CSV-TYPE|4|3|lei"
+        Expected = Expected & vbLf & "CSV-REQUIRED|5|4|counterparty_id"
+        Values = ""
+        RunFixture "invalid/counterparties-fields.csv", "Counterparties", HexText, Expected, 0, Values, True, 4
+
+End Sub
+
+
+Private Sub Fixture04()
     'Fixture invalid/netting-sets-fields.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -819,7 +857,7 @@ Private Sub Fixture03()
 End Sub
 
 
-Private Sub Fixture04()
+Private Sub Fixture05()
     'Fixture invalid/netting-sets-header.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -834,13 +872,14 @@ Private Sub Fixture04()
         Expected = Expected & vbLf & "CSV-HEADER-UNKNOWN|1|0|cpty_rating"
         Expected = Expected & vbLf & "CSV-HEADER-MISSING|1|0|ccp_retains_variation_margin"
         Expected = Expected & vbLf & "CSV-HEADER-MISSING|1|0|counterparty_sector"
+        Expected = Expected & vbLf & "CSV-HEADER-MISSING|1|0|counterparty_id"
         Values = ""
         RunFixture "invalid/netting-sets-header.csv", "NettingSets", HexText, Expected, 0, Values, False, 0
 
 End Sub
 
 
-Private Sub Fixture05()
+Private Sub Fixture06()
     'Fixture invalid/netting-sets-keys-and-rules.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -865,7 +904,7 @@ Private Sub Fixture05()
 End Sub
 
 
-Private Sub Fixture06()
+Private Sub Fixture07()
     'Fixture invalid/netting-sets-quote-in-field.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -883,7 +922,7 @@ Private Sub Fixture06()
 End Sub
 
 
-Private Sub Fixture07()
+Private Sub Fixture08()
     'Fixture invalid/netting-sets-records.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -904,7 +943,7 @@ Private Sub Fixture07()
 End Sub
 
 
-Private Sub Fixture08()
+Private Sub Fixture09()
     'Fixture invalid/netting-sets-unclosed-quote.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -922,7 +961,7 @@ Private Sub Fixture08()
 End Sub
 
 
-Private Sub Fixture09()
+Private Sub Fixture10()
     'Fixture invalid/trades-fields-and-rules.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -961,7 +1000,7 @@ Private Sub Fixture09()
 End Sub
 
 
-Private Sub Fixture10()
+Private Sub Fixture11()
     'Fixture valid/bank-netting-sets.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -1035,7 +1074,7 @@ Private Sub Fixture10()
 End Sub
 
 
-Private Sub Fixture11()
+Private Sub Fixture12()
     'Fixture valid/bank-trades.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -1109,7 +1148,97 @@ Private Sub Fixture11()
 End Sub
 
 
-Private Sub Fixture12()
+Private Sub Fixture13()
+    'Fixture valid/counterparties.csv.
+    Dim HexText     As String    'The file
+    Dim Expected    As String    'Its findings
+    Dim Values      As String    'Its values
+        HexText = "636F756E74657270617274795F69643B636F756E74657270617274795F6E616D653B7265706F72745F63617465676F72793B696E74726167726F75703B696E7465726E616C5F6561645F6C696D69743B"
+        HexText = HexText & "6C65693B6E6174696F6E616C5F636F64653B636F756E7472793B636F6D6D656E740A43502D3030313B2253796E7468657469632042616E6B2C204C6F6E646F6E223B42414E4B3B4E3B32353030303030"
+        HexText = HexText & "303B353439333030314B4A54494947433859315231323B3B47423B0A30303733313B224DC3BC6C6C657220262053C3B86E2022224E6F726422223B204147223B434F52504F524154453B3B303B3B4445"
+        HexText = HexText & "3132333435363738393B44453B224C696D69742077697468647261776E220A43502D3030333B4578616D706C652046756E643B4E4246493B3B3B3B3B3B0A43502D3030343B47726F75702042616E6B20"
+        HexText = HexText & "5370413B42414E4B3B593B312E3565383B3532393930305438424D343941555253444F35353B3B49543B496E74726167726F75700A63702D3030353B556E636C6173736966696564204C74643B3B4E3B"
+        HexText = HexText & "3B3B3B3B0A"
+        Expected = ""
+        Values = ""
+        Values = Values & "CP-001"
+        Values = Values & ChrW(31)
+        Values = Values & "Synthetic Bank, London"
+        Values = Values & ChrW(31)
+        Values = Values & "BANK"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & "25000000"
+        Values = Values & ChrW(31)
+        Values = Values & "5493001KJTIIGC8Y1R12"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "GB"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(30)
+        Values = Values & "00731"
+        Values = Values & ChrW(31)
+        Values = Values & "M" & ChrW(252) & "ller & S" & ChrW(248) & "n ""Nord""; AG"
+        Values = Values & ChrW(31)
+        Values = Values & "CORPORATE"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "DE123456789"
+        Values = Values & ChrW(31)
+        Values = Values & "DE"
+        Values = Values & ChrW(31)
+        Values = Values & "Limit withdrawn"
+        Values = Values & ChrW(30)
+        Values = Values & "CP-003"
+        Values = Values & ChrW(31)
+        Values = Values & "Example Fund"
+        Values = Values & ChrW(31)
+        Values = Values & "NBFI"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(30)
+        Values = Values & "CP-004"
+        Values = Values & ChrW(31)
+        Values = Values & "Group Bank SpA"
+        Values = Values & ChrW(31)
+        Values = Values & "BANK"
+        Values = Values & ChrW(31)
+        Values = Values & "Y"
+        Values = Values & ChrW(31)
+        Values = Values & "1.5e8"
+        Values = Values & ChrW(31)
+        Values = Values & "529900T8BM49AURSDO55"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "IT"
+        Values = Values & ChrW(31)
+        Values = Values & "Intragroup"
+        Values = Values & ChrW(30)
+        Values = Values & "cp-005"
+        Values = Values & ChrW(31)
+        Values = Values & "Unclassified Ltd"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        RunFixture "valid/counterparties.csv", "Counterparties", HexText, Expected, 5, Values, True, 5
+
+End Sub
+
+
+Private Sub Fixture14()
     'Fixture valid/netting-sets-reordered.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -1152,6 +1281,7 @@ Private Sub Fixture12()
         Values = Values & ChrW(31)
         Values = Values & "N"
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         Values = Values & ChrW(30)
         Values = Values & "NS-BIL"
         Values = Values & ChrW(31)
@@ -1175,12 +1305,13 @@ Private Sub Fixture12()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         RunFixture "valid/netting-sets-reordered.csv", "NettingSets", HexText, Expected, 2, Values, True, 2
 
 End Sub
 
 
-Private Sub Fixture13()
+Private Sub Fixture15()
     'Fixture valid/netting-sets-v1.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -1225,6 +1356,7 @@ Private Sub Fixture13()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         Values = Values & ChrW(30)
         Values = Values & "NS-002"
         Values = Values & ChrW(31)
@@ -1245,6 +1377,7 @@ Private Sub Fixture13()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & "CRR"
+        Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
@@ -1281,6 +1414,7 @@ Private Sub Fixture13()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         Values = Values & ChrW(30)
         Values = Values & "NS-004"
         Values = Values & ChrW(31)
@@ -1304,6 +1438,7 @@ Private Sub Fixture13()
         Values = Values & "10000"
         Values = Values & ChrW(31)
         Values = Values & "500"
+        Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
@@ -1341,6 +1476,7 @@ Private Sub Fixture13()
         Values = Values & ChrW(31)
         Values = Values & "N"
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         Values = Values & ChrW(30)
         Values = Values & "NS-006"
         Values = Values & ChrW(31)
@@ -1372,6 +1508,7 @@ Private Sub Fixture13()
         Values = Values & ChrW(31)
         Values = Values & "Y"
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         Values = Values & ChrW(30)
         Values = Values & "NS-007"
         Values = Values & ChrW(31)
@@ -1392,6 +1529,7 @@ Private Sub Fixture13()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & "MIXED"
+        Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
@@ -1417,13 +1555,14 @@ Private Sub Fixture13()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         RunFixture "valid/netting-sets-v1.csv", "NettingSets", HexText, Expected, 8, Values, True, 8
 
 End Sub
 
 
-Private Sub Fixture14()
-    'Fixture valid/netting-sets.csv.
+Private Sub Fixture16()
+    'Fixture valid/netting-sets-v2.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
     Dim Values      As String    'Its values
@@ -1468,6 +1607,7 @@ Private Sub Fixture14()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & "CI"
+        Values = Values & ChrW(31)
         Values = Values & ChrW(30)
         Values = Values & "NS-002"
         Values = Values & ChrW(31)
@@ -1493,6 +1633,7 @@ Private Sub Fixture14()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & "NFC"
+        Values = Values & ChrW(31)
         Values = Values & ChrW(30)
         Values = Values & "NS-003"
         Values = Values & ChrW(31)
@@ -1526,6 +1667,7 @@ Private Sub Fixture14()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & "OFC"
+        Values = Values & ChrW(31)
         Values = Values & ChrW(30)
         Values = Values & "NS-004"
         Values = Values & ChrW(31)
@@ -1556,6 +1698,7 @@ Private Sub Fixture14()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & "CI"
+        Values = Values & ChrW(31)
         Values = Values & ChrW(30)
         Values = Values & "NS-005"
         Values = Values & ChrW(31)
@@ -1586,6 +1729,7 @@ Private Sub Fixture14()
         Values = Values & "Y"
         Values = Values & ChrW(31)
         Values = Values & "N"
+        Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(30)
         Values = Values & "NS-006"
@@ -1618,6 +1762,7 @@ Private Sub Fixture14()
         Values = Values & ChrW(31)
         Values = Values & "Y"
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         Values = Values & ChrW(30)
         Values = Values & "NS-007"
         Values = Values & ChrW(31)
@@ -1642,6 +1787,7 @@ Private Sub Fixture14()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & "CB"
+        Values = Values & ChrW(31)
         Values = Values & ChrW(30)
         Values = Values & "007"
         Values = Values & ChrW(31)
@@ -1665,12 +1811,274 @@ Private Sub Fixture14()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & "HH"
+        Values = Values & ChrW(31)
+        RunFixture "valid/netting-sets-v2.csv", "NettingSets", HexText, Expected, 8, Values, True, 8
+
+End Sub
+
+
+Private Sub Fixture17()
+    'Fixture valid/netting-sets.csv.
+    Dim HexText     As String    'The file
+    Dim Expected    As String    'Its findings
+    Dim Values      As String    'Its values
+        HexText = "6E657474696E675F7365745F69643B636F756E74657270617274793B6D617267696E65643B636C656172696E675F726F6C653B72656D617267696E5F706572696F645F627573696E6573735F64617973"
+        HexText = HexText & "3B6C617267655F6F725F696C6C69717569643B6D617267696E5F64697370757465733B6D706F725F6F766572726964655F627573696E6573735F646179733B766172696174696F6E5F6D617267696E5F"
+        HexText = HexText & "6E65745F616D6F756E743B696E646570656E64656E745F636F6C6C61746572616C5F6E65745F616D6F756E743B7468726573686F6C645F616D6F756E743B6D696E696D756D5F7472616E736665725F61"
+        HexText = HexText & "6D6F756E743B616C7068615F666163746F723B726567696D655F6F766572726964653B6D617267696E5F61677265656D656E74733B716363703B6363705F72657461696E735F766172696174696F6E5F"
+        HexText = HexText & "6D617267696E3B636F756E74657270617274795F736563746F723B636F756E74657270617274795F69640A4E532D3030313B2253796E7468657469632042616E6B2C204C6F6E646F6E223B593B4E3B31"
+        HexText = HexText & "3B4E3B4E3B3B2D3135303030303B3235303030303B303B3130303030303B3B3B3B3B3B43493B43502D3030310A4E532D3030323B435054592D423B4E3B3B3B3B3B3B303B303B3B3B3B4352523B3B3B3B"
+        HexText = HexText & "4E46433B0A4E532D3030333B435054592D433B593B434D3B303B4E3B4E3B32303B312E323565363B303B303B303B312E343B424342533B3B3B3B4F46433B30303733310A4E532D3030343B435054592D"
+        HexText = HexText & "443B593B434C49454E543B353B593B593B3B303B2D35303030302E353B31303030303B3530303B3B3B3B3B3B43493B43502D3030310A4E532D3030353B4343502D313B593B4343503B313B4E3B4E3B3B"
+        HexText = HexText & "303B303B303B303B3B3B3B593B4E3B3B43502D3030340A4E532D3030363B4343502D323B593B4343503B313B4E3B4E3B3B303B303B303B303B3B3B3B4E3B593B3B0A4E532D3030373B435054592D473B"
+        HexText = HexText & "4E3B4D554C54493B3B3B3B3B3B3B3B3B3B3B4D495845443B3B3B43423B0A3030373B224C656164696E67207A65726F73206B6570742C20222271756F7465642222206E616D65223B4E3B4E3B3B3B3B3B"
+        HexText = HexText & "3B3B3B3B3B3B3B3B3B48483B0A"
+        Expected = ""
+        Values = ""
+        Values = Values & "NS-001"
+        Values = Values & ChrW(31)
+        Values = Values & "Synthetic Bank, London"
+        Values = Values & ChrW(31)
+        Values = Values & "Y"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & "1"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "-150000"
+        Values = Values & ChrW(31)
+        Values = Values & "250000"
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & "100000"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "CI"
+        Values = Values & ChrW(31)
+        Values = Values & "CP-001"
+        Values = Values & ChrW(30)
+        Values = Values & "NS-002"
+        Values = Values & ChrW(31)
+        Values = Values & "CPTY-B"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "CRR"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "NFC"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(30)
+        Values = Values & "NS-003"
+        Values = Values & ChrW(31)
+        Values = Values & "CPTY-C"
+        Values = Values & ChrW(31)
+        Values = Values & "Y"
+        Values = Values & ChrW(31)
+        Values = Values & "CM"
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & "20"
+        Values = Values & ChrW(31)
+        Values = Values & "1.25e6"
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & "1.4"
+        Values = Values & ChrW(31)
+        Values = Values & "BCBS"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "OFC"
+        Values = Values & ChrW(31)
+        Values = Values & "00731"
+        Values = Values & ChrW(30)
+        Values = Values & "NS-004"
+        Values = Values & ChrW(31)
+        Values = Values & "CPTY-D"
+        Values = Values & ChrW(31)
+        Values = Values & "Y"
+        Values = Values & ChrW(31)
+        Values = Values & "CLIENT"
+        Values = Values & ChrW(31)
+        Values = Values & "5"
+        Values = Values & ChrW(31)
+        Values = Values & "Y"
+        Values = Values & ChrW(31)
+        Values = Values & "Y"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & "-50000.5"
+        Values = Values & ChrW(31)
+        Values = Values & "10000"
+        Values = Values & ChrW(31)
+        Values = Values & "500"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "CI"
+        Values = Values & ChrW(31)
+        Values = Values & "CP-001"
+        Values = Values & ChrW(30)
+        Values = Values & "NS-005"
+        Values = Values & ChrW(31)
+        Values = Values & "CCP-1"
+        Values = Values & ChrW(31)
+        Values = Values & "Y"
+        Values = Values & ChrW(31)
+        Values = Values & "CCP"
+        Values = Values & ChrW(31)
+        Values = Values & "1"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "Y"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "CP-004"
+        Values = Values & ChrW(30)
+        Values = Values & "NS-006"
+        Values = Values & ChrW(31)
+        Values = Values & "CCP-2"
+        Values = Values & ChrW(31)
+        Values = Values & "Y"
+        Values = Values & ChrW(31)
+        Values = Values & "CCP"
+        Values = Values & ChrW(31)
+        Values = Values & "1"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & "Y"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(30)
+        Values = Values & "NS-007"
+        Values = Values & ChrW(31)
+        Values = Values & "CPTY-G"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & "MULTI"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "MIXED"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "CB"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(30)
+        Values = Values & "007"
+        Values = Values & ChrW(31)
+        Values = Values & "Leading zeros kept, ""quoted"" name"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "HH"
+        Values = Values & ChrW(31)
         RunFixture "valid/netting-sets.csv", "NettingSets", HexText, Expected, 8, Values, True, 8
 
 End Sub
 
 
-Private Sub Fixture15()
+Private Sub Fixture18()
     'Fixture valid/trades-header-only.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -1687,7 +2095,7 @@ Private Sub Fixture15()
 End Sub
 
 
-Private Sub Fixture16()
+Private Sub Fixture19()
     'Fixture valid/trades.csv.
     Dim HexText     As String    'The file
     Dim Expected    As String    'Its findings
@@ -2309,6 +2717,7 @@ Private Sub Case11()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         RunInline "non-ascii-and-astral", "NettingSets", HexText, 0, 0, Expected, 1, Values, True, 1
 
 End Sub
@@ -2349,6 +2758,7 @@ Private Sub Case12()
         Values = Values & "0"
         Values = Values & ChrW(31)
         Values = Values & "0"
+        Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
@@ -2504,6 +2914,7 @@ Private Sub Case18()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         RunInline "text-keeps-spaces", "NettingSets", HexText, 0, 0, Expected, 1, Values, True, 1
 
 End Sub
@@ -2569,6 +2980,7 @@ Private Sub Case20()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         Values = Values & ChrW(30)
         Values = Values & "NS-2"
         Values = Values & ChrW(31)
@@ -2592,6 +3004,7 @@ Private Sub Case20()
         Values = Values & "0"
         Values = Values & ChrW(31)
         Values = Values & "0"
+        Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
@@ -2696,6 +3109,7 @@ Private Sub Case24()
         Values = Values & "0"
         Values = Values & ChrW(31)
         Values = Values & "0"
+        Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
@@ -3408,6 +3822,7 @@ Private Sub Case37()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         RunInline "version-1-header-reads-the-sector-blank", "NettingSets", HexText, 0, 0, Expected, 1, Values, True, 1
 
 End Sub
@@ -3453,6 +3868,7 @@ Private Sub Case38()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         RunInline "version-1-header-reordered", "NettingSets", HexText, 0, 0, Expected, 1, Values, True, 1
 
 End Sub
@@ -3471,6 +3887,7 @@ Private Sub Case39()
         Expected = ""
         Expected = "CSV-HEADER-MISSING|1|0|ccp_retains_variation_margin"
         Expected = Expected & vbLf & "CSV-HEADER-MISSING|1|0|counterparty_sector"
+        Expected = Expected & vbLf & "CSV-HEADER-MISSING|1|0|counterparty_id"
         Values = ""
         RunInline "version-1-header-incomplete", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
 
@@ -3496,6 +3913,147 @@ End Sub
 
 
 Private Sub Case41()
+    'Case version-2-header-reads-the-counterparty-id-blank.
+    Dim HexText     As String    'The content
+    Dim Expected    As String    'Its findings
+    Dim Values      As String    'Its values
+        HexText = "6E657474696E675F7365745F69643B636F756E74657270617274793B6D617267696E65643B636C656172696E675F726F6C653B72656D617267696E5F706572696F645F627573696E6573735F64617973"
+        HexText = HexText & "3B6C617267655F6F725F696C6C69717569643B6D617267696E5F64697370757465733B6D706F725F6F766572726964655F627573696E6573735F646179733B766172696174696F6E5F6D617267696E5F"
+        HexText = HexText & "6E65745F616D6F756E743B696E646570656E64656E745F636F6C6C61746572616C5F6E65745F616D6F756E743B7468726573686F6C645F616D6F756E743B6D696E696D756D5F7472616E736665725F61"
+        HexText = HexText & "6D6F756E743B616C7068615F666163746F723B726567696D655F6F766572726964653B6D617267696E5F61677265656D656E74733B716363703B6363705F72657461696E735F766172696174696F6E5F"
+        HexText = HexText & "6D617267696E3B636F756E74657270617274795F736563746F720A4E532D313B435054593B593B4E3B313B4E3B4E3B3B303B303B303B303B3B3B3B3B3B43490A"
+        Expected = ""
+        Values = ""
+        Values = Values & "NS-1"
+        Values = Values & ChrW(31)
+        Values = Values & "CPTY"
+        Values = Values & ChrW(31)
+        Values = Values & "Y"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & "1"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & "N"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & "0"
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
+        Values = Values & "CI"
+        Values = Values & ChrW(31)
+        RunInline "version-2-header-reads-the-counterparty-id-blank", "NettingSets", HexText, 0, 0, Expected, 1, Values, True, 1
+
+End Sub
+
+
+Private Sub Case42()
+    'Case version-2-header-and-a-version-3-record.
+    Dim HexText     As String    'The content
+    Dim Expected    As String    'Its findings
+    Dim Values      As String    'Its values
+        HexText = "6E657474696E675F7365745F69643B636F756E74657270617274793B6D617267696E65643B636C656172696E675F726F6C653B72656D617267696E5F706572696F645F627573696E6573735F64617973"
+        HexText = HexText & "3B6C617267655F6F725F696C6C69717569643B6D617267696E5F64697370757465733B6D706F725F6F766572726964655F627573696E6573735F646179733B766172696174696F6E5F6D617267696E5F"
+        HexText = HexText & "6E65745F616D6F756E743B696E646570656E64656E745F636F6C6C61746572616C5F6E65745F616D6F756E743B7468726573686F6C645F616D6F756E743B6D696E696D756D5F7472616E736665725F61"
+        HexText = HexText & "6D6F756E743B616C7068615F666163746F723B726567696D655F6F766572726964653B6D617267696E5F61677265656D656E74733B716363703B6363705F72657461696E735F766172696174696F6E5F"
+        HexText = HexText & "6D617267696E3B636F756E74657270617274795F736563746F720A4E532D313B435054593B593B4E3B313B4E3B4E3B3B303B303B303B303B3B3B3B3B3B43493B43502D310A"
+        Expected = ""
+        Expected = "CSV-FIELD-COUNT|2|1|"
+        Values = ""
+        RunInline "version-2-header-and-a-version-3-record", "NettingSets", HexText, 0, 0, Expected, 0, Values, False, 0
+
+End Sub
+
+
+Private Sub Case43()
+    'Case counterparty-codes.
+    Dim HexText     As String    'The content
+    Dim Expected    As String    'Its findings
+    Dim Values      As String    'Its values
+        HexText = "636F756E74657270617274795F69643B636F756E74657270617274795F6E616D653B7265706F72745F63617465676F72793B696E74726167726F75703B696E7465726E616C5F6561645F6C696D69743B"
+        HexText = HexText & "6C65693B6E6174696F6E616C5F636F64653B636F756E7472793B636F6D6D656E740A413B42616E6B20413B42414E4B3B593B303B3B3B3B0A423B46756E6420423B4E4246493B4E3B3B3B3B3B0A433B43"
+        HexText = HexText & "6F727020433B434F52504F524154453B3B3165363B3B3B3B0A443B43435020443B4343503B3B3B3B3B3B0A453B42726F6B657220453B434C454152494E475F42524F4B45523B3B3B3B3B3B0A463B4F74"
+        HexText = HexText & "68657220463B42616E6B3B3B3B3B3B3B0A"
+        Expected = ""
+        Expected = "CSV-ALLOWED|7|6|report_category"
+        Values = ""
+        RunInline "counterparty-codes", "Counterparties", HexText, 0, 0, Expected, 0, Values, True, 6
+
+End Sub
+
+
+Private Sub Case44()
+    'Case lei-forms.
+    Dim HexText     As String    'The content
+    Dim Expected    As String    'Its findings
+    Dim Values      As String    'Its values
+        HexText = "636F756E74657270617274795F69643B636F756E74657270617274795F6E616D653B7265706F72745F63617465676F72793B696E74726167726F75703B696E7465726E616C5F6561645F6C696D69743B"
+        HexText = HexText & "6C65693B6E6174696F6E616C5F636F64653B636F756E7472793B636F6D6D656E740A413B413B3B3B3B353439333030314B4A54494947433859315231323B3B3B0A423B423B3B3B3B353439333030314B"
+        HexText = HexText & "4A54494947433859315232313B3B3B0A433B433B3B3B3B353439333030314B4A54494947433859315231413B3B3B0A443B443B3B3B3B353439333030316B6A74696967633879317231323B3B3B0A453B"
+        HexText = HexText & "453B3B3B3B353439333030314B4A5449494743385931523132203B3B3B0A463B463B3B3B3B2D3439333030314B4A54494947433859315231323B3B3B0A473B473B3B3B3B3532393930305438424D3439"
+        HexText = HexText & "41555253444F35353B3B3B0A483B483B3B3B3B353439333030314B4A544949474338593152313B3B3B0A"
+        Expected = ""
+        Expected = "CSV-TYPE|3|2|lei"
+        Expected = Expected & vbLf & "CSV-TYPE|4|3|lei"
+        Expected = Expected & vbLf & "CSV-TYPE|5|4|lei"
+        Expected = Expected & vbLf & "CSV-TYPE|6|5|lei"
+        Expected = Expected & vbLf & "CSV-FORMULA|7|6|lei"
+        Expected = Expected & vbLf & "CSV-TYPE|9|8|lei"
+        Values = ""
+        RunInline "lei-forms", "Counterparties", HexText, 0, 0, Expected, 0, Values, True, 8
+
+End Sub
+
+
+Private Sub Case45()
+    'Case country-forms.
+    Dim HexText     As String    'The content
+    Dim Expected    As String    'Its findings
+    Dim Values      As String    'Its values
+        HexText = "636F756E74657270617274795F69643B636F756E74657270617274795F6E616D653B7265706F72745F63617465676F72793B696E74726167726F75703B696E7465726E616C5F6561645F6C696D69743B"
+        HexText = HexText & "6C65693B6E6174696F6E616C5F636F64653B636F756E7472793B636F6D6D656E740A413B413B3B3B3B3B3B49543B0A423B423B3B3B3B3B3B69743B0A433B433B3B3B3B3B3B4954413B0A443B443B3B3B"
+        HexText = HexText & "3B3B3B49313B0A453B453B3B3B3B3B3B5A5A3B0A463B463B3B3B3B3B3B2049543B0A"
+        Expected = ""
+        Expected = "CSV-TYPE|3|2|country"
+        Expected = Expected & vbLf & "CSV-TYPE|4|3|country"
+        Expected = Expected & vbLf & "CSV-TYPE|5|4|country"
+        Expected = Expected & vbLf & "CSV-TYPE|7|6|country"
+        Values = ""
+        RunInline "country-forms", "Counterparties", HexText, 0, 0, Expected, 0, Values, True, 6
+
+End Sub
+
+
+Private Sub Case46()
+    'Case counterparty-limit-and-required.
+    Dim HexText     As String    'The content
+    Dim Expected    As String    'Its findings
+    Dim Values      As String    'Its values
+        HexText = "636F756E74657270617274795F69643B636F756E74657270617274795F6E616D653B7265706F72745F63617465676F72793B696E74726167726F75703B696E7465726E616C5F6561645F6C696D69743B"
+        HexText = HexText & "6C65693B6E6174696F6E616C5F636F64653B636F756E7472793B636F6D6D656E740A413B3B3B3B2D302E353B3B3B3B0A3B423B3B3B303B3B3B3B0A433B433B3B3B312E353B3B3B3B0A"
+        Expected = ""
+        Expected = "CSV-REQUIRED|2|1|counterparty_name"
+        Expected = Expected & vbLf & "CSV-RANGE|2|1|internal_ead_limit"
+        Expected = Expected & vbLf & "CSV-REQUIRED|3|2|counterparty_id"
+        Values = ""
+        RunInline "counterparty-limit-and-required", "Counterparties", HexText, 0, 0, Expected, 0, Values, True, 3
+
+End Sub
+
+
+Private Sub Case47()
     'Case keys-ignore-case.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3517,7 +4075,7 @@ Private Sub Case41()
 End Sub
 
 
-Private Sub Case42()
+Private Sub Case48()
     'Case required-blank.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3538,7 +4096,7 @@ Private Sub Case42()
 End Sub
 
 
-Private Sub Case43()
+Private Sub Case49()
     'Case syntax-lone-cr.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3556,7 +4114,7 @@ Private Sub Case43()
 End Sub
 
 
-Private Sub Case44()
+Private Sub Case50()
     'Case syntax-text-after-quote.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3574,7 +4132,7 @@ Private Sub Case44()
 End Sub
 
 
-Private Sub Case45()
+Private Sub Case51()
     'Case syntax-quote-in-header.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3592,7 +4150,7 @@ Private Sub Case45()
 End Sub
 
 
-Private Sub Case46()
+Private Sub Case52()
     'Case syntax-after-good-records.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3610,7 +4168,7 @@ Private Sub Case46()
 End Sub
 
 
-Private Sub Case47()
+Private Sub Case53()
     'Case field-count.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3629,7 +4187,7 @@ Private Sub Case47()
 End Sub
 
 
-Private Sub Case48()
+Private Sub Case54()
     'Case blank-records.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3648,7 +4206,7 @@ Private Sub Case48()
 End Sub
 
 
-Private Sub Case49()
+Private Sub Case55()
     'Case header-only-no-line-end.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3665,7 +4223,7 @@ Private Sub Case49()
 End Sub
 
 
-Private Sub Case50()
+Private Sub Case56()
     'Case header-comma-delimiter.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3684,7 +4242,7 @@ Private Sub Case50()
 End Sub
 
 
-Private Sub Case51()
+Private Sub Case57()
     'Case header-tab-delimiter.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3702,7 +4260,7 @@ Private Sub Case51()
 End Sub
 
 
-Private Sub Case52()
+Private Sub Case58()
     'Case last-record-no-line-end.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3742,12 +4300,13 @@ Private Sub Case52()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         RunInline "last-record-no-line-end", "NettingSets", HexText, 0, 0, Expected, 1, Values, True, 1
 
 End Sub
 
 
-Private Sub Case53()
+Private Sub Case59()
     'Case too-many-records.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3766,7 +4325,7 @@ Private Sub Case53()
 End Sub
 
 
-Private Sub Case54()
+Private Sub Case60()
     'Case too-many-records-and-syntax.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3786,7 +4345,7 @@ Private Sub Case54()
 End Sub
 
 
-Private Sub Case55()
+Private Sub Case61()
     'Case too-large.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3804,7 +4363,7 @@ Private Sub Case55()
 End Sub
 
 
-Private Sub Case56()
+Private Sub Case62()
     'Case not-too-large.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3844,12 +4403,13 @@ Private Sub Case56()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         RunInline "not-too-large", "NettingSets", HexText, 0, 361, Expected, 1, Values, True, 1
 
 End Sub
 
 
-Private Sub Case57()
+Private Sub Case63()
     'Case quoted-field-dense-with-quotes.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3904,6 +4464,7 @@ Private Sub Case57()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         Values = Values & ChrW(30)
         Values = Values & "NS-2"
         Values = Values & ChrW(31)
@@ -3935,12 +4496,13 @@ Private Sub Case57()
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
         Values = Values & ChrW(31)
+        Values = Values & ChrW(31)
         RunInline "quoted-field-dense-with-quotes", "NettingSets", HexText, 0, 0, Expected, 2, Values, True, 2
 
 End Sub
 
 
-Private Sub Case58()
+Private Sub Case64()
     'Case quoted-field-dense-too-long.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -3971,7 +4533,7 @@ Private Sub Case58()
 End Sub
 
 
-Private Sub Case59()
+Private Sub Case65()
     'Case too-many-empty-lines.
     Dim HexText     As String    'The content
     Dim Expected    As String    'Its findings
@@ -4232,6 +4794,7 @@ Private Sub Staged01()
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
+        RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(30)
         RowText = RowText & "NS-002"
         RowText = RowText & ChrW(31)
@@ -4252,6 +4815,7 @@ Private Sub Staged01()
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
         RowText = RowText & "CRR"
+        RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
@@ -4515,6 +5079,7 @@ Private Sub Staged04()
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
+        RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(30)
         RowText = RowText & "ns-001"
         RowText = RowText & ChrW(31)
@@ -4539,6 +5104,7 @@ Private Sub Staged04()
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
+        RowText = RowText & ChrW(31)
         Expected = ""
         Expected = "CSV-DUPLICATE-KEY|0|2|netting_set_id"
         RunStaged "key-repeated-by-hand", "NettingSets", RowText, "2|0", 0, Expected
@@ -4551,6 +5117,7 @@ Private Sub Staged05()
     Dim RowText     As String    'The rows
     Dim Expected    As String    'Their findings
         RowText = ""
+        RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
@@ -4591,6 +5158,7 @@ Private Sub Staged05()
         RowText = RowText & "0"
         RowText = RowText & ChrW(31)
         RowText = RowText & "100000"
+        RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
@@ -4639,6 +5207,7 @@ Private Sub Staged06()
         RowText = RowText & "Y"
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
+        RowText = RowText & ChrW(31)
         Expected = ""
         Expected = "CSV-ROW-RULE|7|1|qccp"
         RunStaged "rule-between-fields", "NettingSets", RowText, "7", 0, Expected
@@ -4679,6 +5248,7 @@ Private Sub Staged07()
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
+        RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(30)
         RowText = RowText & "NS-002"
         RowText = RowText & ChrW(31)
@@ -4699,6 +5269,7 @@ Private Sub Staged07()
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
         RowText = RowText & "CRR"
+        RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
@@ -4726,6 +5297,7 @@ Private Sub Staged07()
         RowText = RowText & "0"
         RowText = RowText & ChrW(31)
         RowText = RowText & "100000"
+        RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)
         RowText = RowText & ChrW(31)

@@ -235,7 +235,7 @@ The layout and file conventions are defined in
 2. Open `src/workbook/SACCR_Template.xlsx` from the checkout and save it with
    **File → Save As** as **Excel Macro-Enabled Workbook (`.xlsm`)** outside the
    checkout, or in an ignored location such as `test-results/`. The template
-   holds the 21 sheets, named ranges, formulas, the rounded shapes that act as the buttons of the sheets and
+   holds the 22 sheets, named ranges, formulas, the rounded shapes that act as the buttons of the sheets and
    the Ribbon part, and no VBA. Built
    workbooks are never committed.
 
@@ -758,7 +758,7 @@ screenshot, entered on the bank sheets, which the template ships empty
 (#815):
 
 ```text
-RESULT=OK; operation=run; errors=6; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=48696280.320911; total_ead_bcbs=40784020.3398879; inputs=4FE7BF7E; run_class=REGULATORY; reconciliation=DONE; trade_reconciliation=NONE; year_convention=365; calendar=TABLE; holiday_table=empty; fx_source=Manual; codes=TR-SHIFTED-PRICE,TR-OTHER-REGIME,TR-FACTOR-REGIME,TR-MATURED,NS-TRADE-INCOMPLETE; cleanup=PASS
+RESULT=OK; operation=run; errors=6; warnings=0; trades_used=62; trades_read=65; economic_trades_used=62; economic_trades_read=65; incomplete=2; total_ead_crr=48696280.320911; total_ead_bcbs=40784020.3398879; inputs=63034F1E; run_class=REGULATORY; reconciliation=DONE; trade_reconciliation=NONE; year_convention=365; calendar=TABLE; holiday_table=empty; fx_source=Manual; codes=TR-SHIFTED-PRICE,TR-OTHER-REGIME,TR-FACTOR-REGIME,TR-MATURED,NS-TRADE-INCOMPLETE; cleanup=PASS
 ```
 
 `RESULT=STOPPED` means the inputs could not be loaded; see Checks. `errors`

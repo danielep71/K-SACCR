@@ -25,7 +25,9 @@ CONTRACT = ROOT / "docs" / "csv" / "contract.json"
 INPUT_SHEETS = {"Params": "Params_Code", "NettingSets": "NettingSets_Header", "Trades": "Trades_Header"}
 HEADER_ROW = {"Params": 5, "NettingSets": 4, "Trades": 4}  # NettingSets and Trades: in the frozen rows (#811)
 FROZEN_ROWS = 4  # rows 1 to 4 (owner, 2026-11-25)
-TOP_ROW_HEIGHT = 30.0  # rows 3 and 4 of the three input sheets, and row 5 of Params
+# Rows 3 and 4 of NettingSets and Trades, and 3 to 5 of Params: row 4 is raised for the navigation bar's top
+# block, which holds four input buttons since #831; row 3 and the header of Params keep 30.
+TOP_ROW_HEIGHTS = {3: 30.0, 4: 40.65, 5: 30.0}
 
 
 class HeaderNoteTests(unittest.TestCase):
@@ -83,7 +85,7 @@ class HeaderNoteTests(unittest.TestCase):
             self.assertEqual((pane.attrib.get("ySplit"), pane.attrib.get("state")), (str(FROZEN_ROWS), "frozen"), name)
             heights = {row.attrib["r"]: float(row.attrib.get("ht", "15")) for row in sheet.iter(MAIN + "row")}
             self.assertEqual([heights.get(str(row)) for row in range(3, HEADER_ROW[name] + 1)],
-                             [TOP_ROW_HEIGHT] * (HEADER_ROW[name] - 2), name)
+                             [TOP_ROW_HEIGHTS[row] for row in range(3, HEADER_ROW[name] + 1)], name)
             if HEADER_ROW[name] > FROZEN_ROWS:
                 # Params: row 4 is the empty row between the description and the header
                 empty = next(row for row in sheet.iter(MAIN + "row") if row.attrib["r"] == "4")

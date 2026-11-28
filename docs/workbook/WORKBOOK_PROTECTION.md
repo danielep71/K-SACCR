@@ -63,9 +63,10 @@ The matrix names cells by their workbook names wherever the template has one, so
 | `Home` | Instructions | — | — |
 | `README` | Instructions | — | Opening and closing row groups |
 | `Params` | Configuration and reference regulatory parameters | `AsOfDate`, `ReportingCcy`, `Regime`, `YearConvention`, `Calendar`, `FX_Source` (the source of the rates Download prices writes), the 200 rows below the header of `FX_Table` (the FX table and the rows below it for added currencies), the 100 rows below the header of `Holiday_Table` (the table of closing days of the calendar) | — |
-| `NettingSets` | Input | Columns `C:T` below `NettingSets_Header` | Sorting, inserting rows |
+| `NettingSets` | Input | Columns `C:U` below `NettingSets_Header` | Sorting, inserting rows |
+| `Counterparties` | Input | Columns `C:K` below `Counterparties_Header` | Sorting, inserting rows |
 | `Trades` | Input | Columns `C:AD` below `Trades_Header` | Sorting, filtering, inserting rows |
-| `Import_NettingSets` | Staging | Columns `D:U` below `ImportNettingSets_Header` | Inserting rows |
+| `Import_NettingSets` | Staging | Columns `D:V` below `ImportNettingSets_Header` | Inserting rows |
 | `Import_Trades` | Staging | Columns `D:AE` below `ImportTrades_Header` | Inserting rows |
 | `Dashboard` | Output | — | — (written by every run, #675) |
 | `Results`, `HedgingSets`, `Buckets`, `TradeCalc`, `Checks` | Output | — | Filtering (#754) |

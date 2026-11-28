@@ -3,7 +3,8 @@ Attribute VB_Name = "CORE_CsvReader"
 ' MODULE: CORE_CsvReader
 '------------------------------------------------------------------------------
 ' PURPOSE
-'   Read a Trades or NettingSets CSV file under the CSV input contract
+'   Read a CSV file of the CSV input contract (Trades, NettingSets,
+'   Counterparties or a bank file) under the contract
 '   (docs/csv/CSV_CONTRACT.md, #206) without Excel converting anything
 '   (#207): decode its bytes as UTF-8, split it into records, check the
 '   header, every field and the rules between fields, and report every
@@ -57,7 +58,7 @@ Attribute VB_Name = "CORE_CsvReader"
 '   IsDate and Excel's own CSV import are never used.
 '
 ' UPDATED
-'   2026-11-09
+'   2026-11-28
 '
 ' AUTHOR
 '   Daniele Penza
@@ -2709,13 +2710,13 @@ Private Function FieldProblem( _
 '   at the start (all types but numbers), the length (identifiers and
 '   text, in characters), "|" and "#" (identifiers), control characters
 '   (line breaks are allowed in text), then the type's own form, allowed
-'   values and range.
+'   values and range; an LEI's check digits after its form (#831).
 '
 ' RETURNS
 '   True with Code and Message for the first problem; False when none.
 '
 ' UPDATED
-'   2026-10-23
+'   2026-11-28
 '==============================================================================
 '
 
@@ -2772,6 +2773,19 @@ Private Function FieldProblem( _
                 If Not IsCurrencyCode(Value) Then
                     Code = CSV_TYPE
                     Message = "not a 3-letter code"
+                End If
+            Case "country"
+                If Not IsCountryCode(Value) Then
+                    Code = CSV_TYPE
+                    Message = "not a 2-letter upper-case code"
+                End If
+            Case "lei"
+                If Not IsLeiForm(Value) Then
+                    Code = CSV_TYPE
+                    Message = "not 18 upper-case letters or digits and 2 check digits"
+                ElseIf Not LeiChecksumOk(Value) Then
+                    Code = CSV_TYPE
+                    Message = "the LEI check digits do not pass ISO 7064 MOD 97-10"
                 End If
             Case "integer", "number"
                 NumberProblem Value, Column, Code, Message
@@ -3330,6 +3344,118 @@ Private Function IsCurrencyCode( _
             End If
         Next i
         IsCurrencyCode = True
+
+End Function
+
+
+Private Function IsCountryCode( _
+    ByRef Value As String) _
+    As Boolean
+'
+'==============================================================================
+' PURPOSE
+'   Whether Value is two ASCII capital letters: an ISO 3166-1 alpha-2
+'   code by its form (#831); the list of assigned codes is not checked.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim CodeUnit    As Long    'A UTF-16 code unit
+    Dim i           As Long    'Character counter
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        If Len(Value) <> 2 Then
+            Exit Function
+        End If
+        For i = 1 To 2
+            CodeUnit = AscW(Mid$(Value, i, 1)) And &HFFFF&
+            If CodeUnit < 65 Or CodeUnit > 90 Then
+                Exit Function
+            End If
+        Next i
+        IsCountryCode = True
+
+End Function
+
+
+Private Function IsLeiForm( _
+    ByRef Value As String) _
+    As Boolean
+'
+'==============================================================================
+' PURPOSE
+'   Whether Value has the form of an LEI (ISO 17442, #831): 18 ASCII
+'   capital letters or digits, then 2 digits.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim CodeUnit    As Long    'A UTF-16 code unit
+    Dim i           As Long    'Character counter
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        If Len(Value) <> 20 Then
+            Exit Function
+        End If
+        For i = 1 To 20
+            CodeUnit = AscW(Mid$(Value, i, 1)) And &HFFFF&
+            If CodeUnit >= 48 And CodeUnit <= 57 Then
+                'A digit is allowed everywhere
+            ElseIf CodeUnit < 65 Or CodeUnit > 90 Or i > 18 Then
+                Exit Function
+            End If
+        Next i
+        IsLeiForm = True
+
+End Function
+
+
+Private Function LeiChecksumOk( _
+    ByRef Value As String) _
+    As Boolean
+'
+'==============================================================================
+' PURPOSE
+'   Whether an LEI of the right form passes ISO 7064 MOD 97-10 (#831):
+'   each letter becomes its number from 10 (A) to 35 (Z), and the whole
+'   number, check digits included, leaves 1 when divided by 97. The
+'   remainder is carried digit by digit, so no number grows beyond a Long,
+'   as tools/csv_contract.py computes it.
+'==============================================================================
+'
+
+'------------------------------------------------------------------------------
+' DECLARE
+'------------------------------------------------------------------------------
+    Dim CodeUnit    As Long      'A UTF-16 code unit
+    Dim Digits      As String    'The digits of one character
+    Dim Remainder   As Long      'Remainder so far
+    Dim i           As Long      'Character counter
+    Dim j           As Long      'Digit counter
+
+'------------------------------------------------------------------------------
+' CHECK
+'------------------------------------------------------------------------------
+        For i = 1 To Len(Value)
+            CodeUnit = AscW(Mid$(Value, i, 1)) And &HFFFF&
+            If CodeUnit >= 65 Then
+                Digits = CStr(CodeUnit - 55)
+            Else
+                Digits = CStr(CodeUnit - 48)
+            End If
+            For j = 1 To Len(Digits)
+                Remainder = (Remainder * 10 + (AscW(Mid$(Digits, j, 1)) - 48)) Mod 97
+            Next j
+        Next i
+        LeiChecksumOk = (Remainder = 1)
 
 End Function
 
