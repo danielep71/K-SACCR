@@ -1928,8 +1928,9 @@ Private Sub CaseCommitSector()
 ' PURPOSE
 '   The counterparty sector (#674). The page's example files are validated
 '   and committed: NettingSets has the example's sectors, CI and NFC, and
-'   none for the CCP. The NettingSets example is then written as a
-'   version 1 file, without the sector column: it is loaded with no
+'   none for the CCP. The NettingSets example, a version 3 file, is then
+'   written as a version 1 file, without its last two columns, the
+'   counterparty ID (#831) and the sector: it is loaded with no
 '   finding and its staged sectors are blank; with a Trades file of its
 '   header only, the validation is VALID and the commit leaves every
 '   sector blank. The suite then puts the input sheets back.
@@ -1969,7 +1970,7 @@ Private Sub CaseCommitSector()
 '------------------------------------------------------------------------------
 ' VERSION 1: READ WITH THE SECTOR BLANK
 '------------------------------------------------------------------------------
-        WriteCsv WithoutLastColumn(CORE_ImportSpec.ImportSpecExample("NettingSets"))
+        WriteCsv WithoutLastColumn(WithoutLastColumn(CORE_ImportSpec.ImportSpecExample("NettingSets")))
         ResultLine = M_Main.ImportCsv_Silent("NettingSets", mTestFile, True)
         CheckText "version 1 load", ResultLine, "RESULT=LOADED; records=3; findings=0; file=" & mTestFile
         Sectors = CStr(CellValue(KIND_NS, 1, COL_NS_SECTOR)) & "|" & CStr(CellValue(KIND_NS, 2, COL_NS_SECTOR)) & _
